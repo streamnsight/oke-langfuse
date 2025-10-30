@@ -1,0 +1,1197 @@
+## Copyright © 2022, Oracle and/or its affiliates. 
+## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
+
+title: LangFuse on OKE
+description: |
+  Deploy an Oracle Kubernetes Engine cluster with LangFuse. 
+stackDescription: |
+  LangFuse deployment on a multi-node-pool OKE cluster.
+informationalText: |
+  To get started, run the Cluster Access Command locally or in Cloud Shell, to access the OKE cluster. 
+schemaVersion: 1.1.0
+
+locale: "en"
+variableGroups:
+  - title: Cluster Networking
+    variables:
+      - use_existing_vcn
+      - vcn_compartment_id
+      - vcn_cidr
+      - vcn_id
+      - add_vcn_tag
+      - vcn_tags
+  
+  - title: Cluster API Endpoint
+    variables:
+      - is_endpoint_public
+      - kubernetes_endpoint_subnet
+      - create_bastion
+
+  - title: Cluster Definition
+    variables:
+      - cluster_name
+      - cluster_compartment_id
+      - kubernetes_version
+      - pods_cidr
+      - services_cidr
+      - cluster_options_add_ons_is_kubernetes_dashboard_enabled
+      - is_enhanced_cluster
+      - add_cluster_tag
+      - cluster_tags
+
+  - title: Number of Node Pools
+    variables:
+      - node_pool_count
+
+  - title: Worker Nodes SSH Access
+    variables:
+      - ssh_public_key
+
+  - title: Node Pool 1
+    visible:
+      and:
+        - le: 
+          - node_pool_count
+          - 3
+        - ge:
+          - node_pool_count
+          - 1
+    variables:
+      - np1_subnet
+      - np1_ha
+      - np1_availability_domain
+      - np1_node_shape
+      - np1_ocpus
+      - np1_memory_gb
+      - np1_image_id
+      - np1_boot_volume_size_in_gbs
+      - np1_node_count
+      - np1_enable_autoscaler
+      - np1_autoscaler_min_nodes
+      - np1_autoscaler_max_nodes
+      - np1_add_tag
+      - np1_tags
+
+  - title: Node Pool 2
+    visible:
+      and:
+        - le: 
+          - node_pool_count
+          - 3
+        - ge:
+          - node_pool_count
+          - 2
+    variables: 
+      - np2_subnet
+      - np2_ha
+      - np2_availability_domain
+      - np2_create_new_subnet
+      - np2_node_shape
+      - np2_ocpus
+      - np2_memory_gb
+      - np2_node_count
+      - np2_enable_autoscaler
+      - np2_autoscaler_min_nodes
+      - np2_autoscaler_max_nodes
+      - np2_image_id
+      - np2_boot_volume_size_in_gbs
+      - np2_add_tag
+      - np2_tags
+
+  - title: Node Pool 3
+    visible:
+      eq: 
+        - node_pool_count
+        - 3
+    variables: 
+      - np3_subnet      
+      - np3_ha
+      - np3_availability_domain
+      - np3_create_new_subnet
+      - np3_node_shape
+      - np3_ocpus
+      - np3_memory_gb
+      - np3_node_count
+      - np3_enable_autoscaler
+      - np3_autoscaler_min_nodes
+      - np3_autoscaler_max_nodes
+      - np3_image_id
+      - np3_boot_volume_size_in_gbs
+      - np3_add_tag
+      - np3_tags
+
+  - title: Services Load Balancing
+    variables:
+      - allow_deploy_private_lb
+      - private_lb_subnet
+      - allow_deploy_public_lb
+      - public_lb_subnet
+    visible: ${use_existing_vcn}
+
+  - title: Services Load Balancing
+    variables:
+      - allow_deploy_private_lb
+      - allow_deploy_public_lb
+    visible:
+      not:
+        - ${use_existing_vcn}
+
+  # - title: "Security: Secrets Encryption"
+  #   variables:
+  #     - enable_secret_encryption
+  #     - secrets_key_vault_compartment_id
+  #     - secrets_key_vault_id
+  #     - secrets_key_id
+
+  # - title: "Security: Image Signature Validation"
+  #   variables:
+  #     - enable_image_validation
+  #     - image_validation_key_vault_compartment_id
+  #     - image_validation_key_vault_id
+  #     - image_validation_key_id
+
+  # - title: "Security: Pod Admission Controllers"
+  #   variables:
+  #     - enable_pod_admission_controller
+
+  - title: "Cluster Autoscaler Settings"
+    variables:
+      - cluster_autoscaler_max_node_provision_time
+      - cluster_autoscaler_scale_down_delay_after_add
+      - cluster_autoscaler_scale_down_unneeded_time
+      - cluster_autoscaler_unremovable_node_recheck_timeout
+      # - cluster_autoscaler_use_workload_identity
+    visible:
+      or: 
+      - np1_enable_autoscaler
+      - np2_enable_autoscaler
+      - np3_enable_autoscaler
+
+  # - title: "DevOps Deployment Pipelines"
+  #   variables:
+  #     - devops_compartment_id
+  #     - oss_images_repo_prefix
+  #     - oss_charts_repo_prefix
+  #   visible:
+  #     and:
+  #       - not: is_enhanced_cluster
+  #       - not: is_endpoint_public
+
+  # - title: "Deployments"
+  #   variables:
+  #     # - enable_flink
+  #     - enable_cert_manager
+  #     - enable_metrics_server
+  #     - enable_monitoring_stack
+
+variables:
+
+  # Global, hidden variables
+  region:
+    type: string
+    title: Region
+    visible: false
+
+  tenancy_ocid: 
+    type: string
+    title: Tenancy ID
+    visible: false
+
+  # Cluster Networking
+  use_existing_vcn:
+    type: boolean
+    default: false
+    title: Use an existing VCN
+    description: Check this option if you wish to deploy the cluster in an existing VCN.
+    required: true
+
+  vcn_compartment_id:
+    type: oci:identity:compartment:id
+    title: Compartment to use for the VCN
+    description: Compartment of the VCN for the Kubernetes cluster.
+    visible: true
+    required: true
+    default: compartment_ocid
+
+  vcn_id:
+    type: oci:core:vcn:id
+    title: VCN for the Kubernetes cluster
+    dependsOn:
+      compartmentId: vcn_compartment_id
+    required: true
+    visible: ${use_existing_vcn}
+    
+  vcn_cidr:
+    type: string
+    default: "10.0.0.0/16"
+    title: CIDR block for the VCN
+    required: true
+    visible: 
+      not: 
+        - ${use_existing_vcn}
+
+  add_vcn_tag:
+    type: boolean
+    title: Add Tags to VCN
+    default: false
+    visible: 
+      not:
+        - use_existing_vcn
+
+  vcn_tags:
+    type: oci:identity:tag:value
+    required: false
+    title: Tagging
+    description: Tag value for resource created
+    dependsOn:
+      compartmentId: cluster_compartment_id
+    visible: 
+      and:
+        - add_vcn_tag
+        - not:
+          - use_existing_vcn
+
+  # Cluster API endpoint 
+  is_endpoint_public:
+    type: boolean
+    default: false
+    title: Expose the Kubernetes Endpoint to the Internet.
+    description: Select this option to make the Kubernetes Endpoint public. If left unchecked, a bastion host will be needed to access the cluster.
+    required: true
+    visible:
+      not:
+        - ${use_existing_vcn}
+
+  create_bastion:
+    type: boolean
+    default: 
+      not: 
+        - ${is_endpoint_public}
+    title: Create Bastion
+    description: Create a Bastion to connect to the cluster private endpoint
+    visible: 
+      not:
+        - is_endpoint_public
+
+  kubernetes_endpoint_subnet:
+    type: oci:core:subnet:id
+    title: Subnet for the Kubernetes Endpoint
+    description: Select a subnet for the Kubernetes endpoint. Choosing a public subnet will expose the endpoint to the internet.
+    dependsOn:
+      compartmentId: vcn_compartment_id
+      vcnId: vcn_id
+    required: true
+    visible: ${use_existing_vcn}
+
+  # Cluster Definition
+  cluster_name:
+    type: string
+    title: Cluster Name
+    visible: true
+    default: "LangFuse Cluster"
+
+  cluster_compartment_id:
+    type: oci:identity:compartment:id
+    title: Compartment for the Cluster Deployment
+    description: Compartment where the Kubernetes cluster will be deployed.
+    visible: true
+    default: compartment_ocid
+    required: true
+
+  kubernetes_version:
+    type: oci:kubernetes:versions:id
+    title: "Kubernetes Version"
+    required: true
+    default: "v1.34.1"
+    description: The Kubernetes version for the cluster.
+    dependsOn:
+      compartmentId: cluster_compartment_id
+      clusterOptionId: "all"
+
+  pods_cidr:
+    type: string
+    title: Pods CIDR block
+    description: CIDR range for Kubernetes Pods
+    default: "10.1.0.0/16"
+    required: true
+
+  services_cidr:
+    type: string
+    title: Services CIDR block
+    description: CIDR range for Kubernetes Services
+    default: "10.2.0.0/16"
+    required: true
+
+  is_enhanced_cluster:
+    # this template is simplified and only works with enhanced clusters as it uses add-ons deployment for simplicity
+    type: boolean
+    default: true
+    title: Use Enhanced Cluster
+    description: Enhanced Cluster give access to advanced features, including managed add-ons, more secure workload identity, and more...
+      This feature incurs a fee.
+    visible: false
+
+  cluster_options_add_ons_is_kubernetes_dashboard_enabled:
+    type: boolean
+    title: Enable Kubernetes Dashboard
+    description: Enable the Kubernetes Dashboard 
+    default: false
+    visible: true
+
+  node_pool_count:
+    type: integer
+    minimum: 1
+    maximum: 3
+    default: 1
+    title: Number of Node Pools
+    description: | 
+      Select a number of node pools to create for the cluster. 
+      Note this is different from the number of nodes, which are defined for each pool. 
+      Multiple node pools let you use nodes of different shapes and architectures (x86-64, ARM, GPU, DenseIO shapes etc.)
+    required: true
+
+  ssh_public_key:
+    type: oci:core:ssh:publickey
+    title: SSH Public Key
+    description: Public key to use to SSH to work nodes. If not defined, a new key will be created.
+
+  add_cluster_tag:
+    type: boolean
+    title: Add Tags to Cluster
+    default: false
+
+  cluster_tags:
+    type: oci:identity:tag:value
+    required: false
+    title: Cluster Tags
+    description: Tag value for resource created
+    default: vcn_tag
+    dependsOn:
+      compartmentId: cluster_compartment_id
+    visible: add_cluster_tag
+
+  # Services Load Balancer
+  allow_deploy_public_lb:
+    type: boolean
+    default: true
+    title: Use Public Load Balancers for Services
+    description: |
+      Provision a public subnet for public load balancers, for services that need to be exposed to the internet.
+      Private services can still be deployed in the cluster by not specifying the type as Load Balancer.
+    required: true
+
+  public_lb_subnet:
+    type: oci:core:subnet:id
+    title: Subnet for Public Load Balancers
+    description: |
+      Select a public subnet for load balancers that will expose services to the internet. 
+      Note: if you set up more than one load balancer, the subnet must be AD specific.
+    dependsOn:
+      compartmentId: vcn_compartment_id
+      vcnId: vcn_id
+    required: true
+    visible: 
+      and:
+        - ${use_existing_vcn}
+        - allow_deploy_public_lb
+
+  # Node Pool 1
+  np1_subnet:
+    type: oci:core:subnet:id
+    dependsOn:
+      compartmentId: vcn_compartment_id
+      vcnId: vcn_id
+    title: Subnet for this Node Pool
+    description: Choose a subnet for this node pool. Choosing a public subnet will expose nodes in this pool to the internet.
+    visible: use_existing_vcn
+    required: true
+
+  np1_ha:
+    type: boolean
+    title: Place Nodes Across Availability Domains
+    description: |
+      When set, attempt to place nodes across availability domains where the shape is available.
+      If not set, choose an availability domain where nodes should be provisioned. 
+    default: true
+
+  np1_availability_domain:
+    type: oci:identity:availabilitydomain:name
+    dependsOn:
+      compartmentId: tenancy_ocid
+    title: Availability Domain
+    description: Choose an availability domain to place the nodes of this pool.
+    visible: 
+      not:
+        - np1_ha
+    required: true
+
+  np1_node_shape:
+    type: oci:core:instanceshape:name
+    title: Instance Shape
+    description: Choose a shape for this node pool
+    default: "VM.Standard.E4.Flex"
+    dependsOn: 
+      compartmentId: cluster_compartment_id
+    required: true
+
+  np1_ocpus:
+    type: number
+    title: Flex shape OCPU count
+    description: Choose a OCPU count for this pool's Flex shape.
+    dependsOn: 
+      compartmentId: cluster_compartment_id
+    required: true
+    default: 4
+    visible:
+      and:
+        - ge:
+          - node_pool_count
+          - 1
+        - in:
+          - "Flex"
+          - np1_node_shape
+        # - or:
+        #   - eq: 
+        #     - np1_node_shape
+        #     - "VM.DenseIO.E4.Flex"
+        #   - eq: 
+        #     - np1_node_shape
+        #     - "VM.Optimized3.Flex"
+        #   - eq: 
+        #     - np1_node_shape    
+        #     - "VM.Standard.A1.Flex"
+        #   - eq: 
+        #     - np1_node_shape    
+        #     - "VM.Standard.E3.Flex"
+        #   - eq: 
+        #     - np1_node_shape    
+        #     - "VM.Standard.E4.Flex"
+        #   - eq: 
+        #     - np1_node_shape    
+        #     - "VM.Standard.E5.Flex"
+        #   - eq: 
+        #     - np1_node_shape    
+        #     - "VM.Standard3.Flex"
+
+  np1_memory_gb:
+    type: number
+    title: Flex shape Memory (in Gb)
+    description: Choose a amount of memory for this pool's Flex shape.
+    dependsOn: 
+      compartmentId: cluster_compartment_id
+    required: true
+    default: 64
+    visible:
+      and:
+        - ge:
+          - node_pool_count
+          - 1
+        - in:
+          - np1_node_shape
+          - - "VM.DenseIO.E4.Flex"
+            - "VM.Optimized3.Flex"
+            - "VM.Standard.A1.Flex"
+            - "VM.Standard.E3.Flex"
+            - "VM.Standard.E4.Flex"
+        # - or:
+        #   - eq: 
+        #     - np1_node_shape
+        #     - "VM.DenseIO.E4.Flex"
+        #   - eq: 
+        #     - np1_node_shape
+        #     - "VM.Optimized3.Flex"
+        #   - eq: 
+        #     - np1_node_shape    
+        #     - "VM.Standard.A1.Flex"
+        #   - eq: 
+        #     - np1_node_shape    
+        #     - "VM.Standard.E3.Flex"
+        #   - eq: 
+        #     - np1_node_shape    
+        #     - "VM.Standard.E4.Flex"
+        #   - eq: 
+        #     - np1_node_shape    
+        #     - "VM.Standard.E5.Flex"
+        #   - eq: 
+        #     - np1_node_shape    
+        #     - "VM.Standard3.Flex"
+
+  np1_enable_autoscaler:
+    type: boolean
+    title: Enable Node Pool Autoscaler
+    description: Enable scaling of the number of nodes automatically.
+    default: true
+
+  np1_node_count:
+    type: number
+    minimum: 0
+    maximum: 256
+    default: 3
+    title: Nb Nodes
+    description: Number of nodes in the pool
+    required: true
+
+  np1_autoscaler_min_nodes:
+    type: number
+    minimum: 0
+    maximum: 256
+    default: 1
+    title: Minimum Number of Nodes
+    description: Minimum number of nodes in the pool. Set to 0 to allow scaling the pool down completely.
+    required: true
+    visible:
+      eq: 
+        - np1_enable_autoscaler
+        - true
+
+  np1_autoscaler_max_nodes:
+    type: number
+    minimum: 1
+    maximum: 256
+    default: 6
+    title: Maximum Number of Nodes
+    description: Maximum number of nodes the pool can scale to.
+    required: true
+    visible:
+      eq: 
+        - np1_enable_autoscaler
+        - true
+
+  np1_image_id:
+    type: oci:core:image:id
+    title: Image Id
+    description: |
+      Image to use for this Node Pool. 
+      Some applications may require specific versions of Linux. OL7.9 is preferred.
+    dependsOn:
+      compartmentId: cluster_compartment_id
+      shape: np1_node_shape
+      operatingSystem: "Oracle Linux"
+    required: true
+
+  np1_boot_volume_size_in_gbs:
+    type: integer
+    title: Boot Volume Size (Gb)
+    description: Boot volume size
+    default: 50
+    minimum: 50
+    maximum: 500
+    required: true
+
+  np1_add_tag:
+    type: boolean
+    title: Add Tags to Node Pool 1
+    default: false
+
+  np1_tags:
+    type: oci:identity:tag:value
+    required: false
+    title: Node Pool Tags
+    description: Tag value for resource created
+    default: cluster_tag
+    dependsOn:
+      compartmentId: cluster_compartment_id
+    visible: np1_add_tag
+
+  # Node Pool 2
+  np2_ha:
+    type: boolean
+    title: Place Nodes Across Availability Domains
+    description: |
+      When set, attempt to place nodes across availability domains where the shape is available.
+      If not set, choose an availability domain where nodes should be provisioned. 
+    default: true
+
+  np2_create_new_subnet:
+    type: boolean
+    title: Create New Subnet
+    description: Create a distinct subnet for this node pool. Leave unchecked to place all nodes into the same subnet.
+    default: 
+      and:
+        - ge:
+          - node_pool_count
+          - 2
+        - not:
+          - use_existing_vcn
+
+    visible: 
+      not:
+        - use_existing_vcn
+
+  np2_subnet:
+    type: oci:core:subnet:id
+    dependsOn:
+      compartmentId: vcn_compartment_id
+      vcnId: vcn_id
+    title: Subnet for this Node Pool
+    description: Choose a subnet for this node pool. Choosing a public subnet will expose nodes in this pool to the internet.
+    visible: use_existing_vcn
+
+  np2_availability_domain:
+    type: oci:identity:availabilitydomain:name
+    dependsOn:
+      compartmentId: tenancy_ocid
+    title: Availability Domain
+    description: Choose an availability domain to place the nodes of this pool.
+    visible: 
+      not:
+        - np2_ha
+    required: true
+
+  np2_node_shape:
+    type: oci:core:instanceshape:name
+    title: Instance Shape
+    description: Choose a shape for this node pool
+    default: "VM.Standard.E4.Flex"
+    dependsOn: 
+      compartmentId: cluster_compartment_id
+    required: true
+
+  np2_ocpus:
+    type: number
+    title: Flex shape OCPU count
+    description: Choose a OCPU count for this pool's Flex shape.
+    dependsOn: 
+      compartmentId: cluster_compartment_id
+    required: true
+    visible:
+      and:
+        - ge:
+          - node_pool_count
+          - 2
+        - or:
+          - eq: 
+            - np2_node_shape
+            - "VM.DenseIO.E4.Flex"
+          - eq: 
+            - np2_node_shape
+            - "VM.Optimized3.Flex"
+          - eq: 
+            - np2_node_shape    
+            - "VM.Standard.A1.Flex"
+          - eq: 
+            - np2_node_shape    
+            - "VM.Standard.E3.Flex"
+          - eq: 
+            - np2_node_shape    
+            - "VM.Standard.E4.Flex"
+          - eq: 
+            - np2_node_shape    
+            - "VM.Standard.E5.Flex"
+          - eq: 
+            - np2_node_shape    
+            - "VM.Standard3.Flex"
+
+  np2_memory_gb:
+    type: number
+    title: Flex shape Memory (in Gb)
+    description: Choose a amount of memory for this pool's Flex shape.
+    dependsOn: 
+      compartmentId: cluster_compartment_id
+    required: true
+    visible:
+      and:
+        - ge:
+          - node_pool_count
+          - 2
+        - or:
+          - eq: 
+            - np2_node_shape
+            - "VM.DenseIO.E4.Flex"
+          - eq: 
+            - np2_node_shape
+            - "VM.Optimized3.Flex"
+          - eq: 
+            - np2_node_shape    
+            - "VM.Standard.A1.Flex"
+          - eq: 
+            - np2_node_shape    
+            - "VM.Standard.E3.Flex"
+          - eq: 
+            - np2_node_shape    
+            - "VM.Standard.E4.Flex"
+          - eq: 
+            - np2_node_shape    
+            - "VM.Standard.E5.Flex"
+          - eq: 
+            - np2_node_shape    
+            - "VM.Standard3.Flex"
+
+  np2_enable_autoscaler:
+    type: boolean
+    title: Enable Node Pool Autoscaler
+    description: Enable scaling of the number of nodes automatically.
+    default: true
+
+  np2_node_count:
+    type: number
+    minimum: 0
+    maximum: 256
+    default: 0
+    title: Nb Nodes
+    description: Number of nodes in the pool. Leave the number to 0 to provision a node pool without provisioning nodes.
+    required: true
+
+  np2_autoscaler_min_nodes:
+    type: number
+    minimum: 0
+    maximum: 256
+    default: 0
+    title: Minimum Number of Nodes
+    description: Minimum number of nodes in the pool. Set to 0 to allow scaling down the pool completely.
+    required: true
+    visible:
+      eq: 
+        - np2_enable_autoscaler
+        - true
+
+  np2_autoscaler_max_nodes:
+    type: number
+    minimum: 1
+    maximum: 256
+    default: 6
+    title: Maximum Number of Nodes
+    description: Maximum number of nodes the pool can scale to.
+    required: true
+    visible:
+      eq: 
+        - np2_enable_autoscaler
+        - true
+
+  np2_image_id:
+    type: oci:core:image:id
+    title: Image Id    
+    description: |
+      Image to use for this Node Pool. 
+      Some applications may require specific versions of Linux. OL7.9 is preferred.
+    dependsOn:
+      compartmentId: cluster_compartment_id
+      shape: np2_node_shape
+      operatingSystem: "Oracle Linux"
+    required: true
+
+  np2_boot_volume_size_in_gbs:
+    type: integer
+    title: Boot Volume Size (Gb)
+    description: Boot volume size
+    default: 50
+    minimum: 50
+    maximum: 500
+    required: true
+
+  np2_add_tag:
+    type: boolean
+    title: Add Tags to Node Pool 2
+    default: false
+
+  np2_tags:
+    type: oci:identity:tag:value
+    required: false
+    title: Node Pool Tags
+    description: Tag value for resource created
+    default: cluster_tag
+    dependsOn:
+      compartmentId: cluster_compartment_id
+    visible: np2_add_tag
+
+  # Node Pool 3
+  np3_ha:
+    type: boolean
+    title: Place Nodes Across Availability Domains
+    description: |
+      When set, attempt to place nodes across availability domains where the shape is available.
+      If not set, choose an availability domain where nodes should be provisioned. 
+    default: true
+
+  np3_create_new_subnet:
+    type: boolean
+    title: Create New Subnet
+    description: Create a distinct subnet for this node pool. Leave unchecked to place all nodes into the same subnet.
+    default: true
+    visible: 
+      not:
+        - ${use_existing_vcn}
+
+  np3_subnet:
+    type: oci:core:subnet:id
+    dependsOn:
+      compartmentId: vcn_compartment_id
+      vcnId: vcn_id
+    title: Subnet for this Node Pool
+    description: Choose a subnet for this node pool. Choosing a public subnet will expose nodes in this pool to the internet.
+    visible: ${use_existing_vcn}
+
+  np3_availability_domain:
+    type: oci:identity:availabilitydomain:name
+    dependsOn:
+      compartmentId: tenancy_ocid
+    title: Availability Domain
+    description: Choose an availability domain to place the nodes of this pool.
+    visible: 
+      not: 
+        - np3_ha
+
+  np3_node_shape:
+    type: oci:core:instanceshape:name
+    title: Instance Shape
+    description: Choose a shape for this node pool
+    default: "VM.Standard.E4.Flex"
+    dependsOn: 
+      compartmentId: cluster_compartment_id
+    required: true
+
+  np3_ocpus:
+    type: number
+    title: Flex shape OCPU count
+    description: Choose a OCPU count for this pool's Flex shape.
+    dependsOn: 
+      compartmentId: cluster_compartment_id
+    required: true
+    visible:
+      and:
+        - ge:
+          - node_pool_count
+          - 3
+        - or:
+          - eq: 
+            - np3_node_shape
+            - "VM.DenseIO.E4.Flex"
+          - eq: 
+            - np3_node_shape
+            - "VM.Optimized3.Flex"
+          - eq: 
+            - np3_node_shape    
+            - "VM.Standard.A1.Flex"
+          - eq: 
+            - np3_node_shape    
+            - "VM.Standard.E3.Flex"
+          - eq: 
+            - np3_node_shape    
+            - "VM.Standard.E4.Flex"
+          - eq: 
+            - np3_node_shape    
+            - "VM.Standard.E5.Flex"
+          - eq: 
+            - np3_node_shape    
+            - "VM.Standard3.Flex"
+
+  np3_memory_gb:
+    type: number
+    title: Flex shape Memory (in Gb)
+    description: Choose a amount of memory for this pool's Flex shape.
+    dependsOn: 
+      compartmentId: cluster_compartment_id
+    required: true
+    visible:
+      and:
+        - ge:
+          - node_pool_count
+          - 3
+        - or:
+          - eq: 
+            - np3_node_shape
+            - "VM.DenseIO.E4.Flex"
+          - eq: 
+            - np3_node_shape
+            - "VM.Optimized3.Flex"
+          - eq: 
+            - np3_node_shape    
+            - "VM.Standard.A1.Flex"
+          - eq: 
+            - np3_node_shape    
+            - "VM.Standard.E3.Flex"
+          - eq: 
+            - np3_node_shape    
+            - "VM.Standard.E4.Flex"
+          - eq: 
+            - np3_node_shape    
+            - "VM.Standard.E5.Flex"
+          - eq: 
+            - np3_node_shape    
+            - "VM.Standard3.Flex"
+
+  np3_enable_autoscaler:
+    type: boolean
+    title: Enable Node Pool Autoscaler
+    description: Enable scaling of the number of nodes automatically.
+    default: true
+
+  np3_node_count:
+    type: number
+    minimum: 0
+    maximum: 256
+    default: 0
+    title: Nb Nodes
+    description: Number of nodes in the pool. Leave the number to 0 to provision a node pool without provisioning nodes.
+    required: true
+        
+  np3_autoscaler_min_nodes:
+    type: number
+    minimum: 0
+    maximum: 256
+    default: 0
+    title: Minimum Number of Nodes
+    description: Minimum number of nodes in the pool. Set to 0 to scale the pool down completely.
+    required: true
+    visible:
+      eq: 
+        - np3_enable_autoscaler
+        - true
+
+  np3_autoscaler_max_nodes:
+    type: number
+    minimum: 1
+    maximum: 256
+    default: 6
+    title: Maximum Number of Nodes
+    description: Maximum number of nodes the pool can scale to.
+    required: true
+    visible:
+      eq: 
+        - np3_enable_autoscaler
+        - true
+
+  np3_image_id:
+    type: oci:core:image:id
+    title: Image Id
+    description: |
+      Image to use for this Node Pool. 
+      Some applications may require specific versions of Linux. OL7.9 is preferred.
+    dependsOn:
+      compartmentId: cluster_compartment_id
+      shape: np3_node_shape
+      operatingSystem: "Oracle Linux"
+    required: true
+
+  np3_boot_volume_size_in_gbs:
+    type: integer
+    title: Boot Volume Size (Gb)
+    description: Boot volume size
+    default: 50
+    minimum: 50
+    maximum: 500
+    required: true
+
+  np3_add_tag:
+    type: boolean
+    title: Add Tags to Node Pool 3
+    default: false
+
+  np3_tags:
+    type: oci:identity:tag:value
+    required: false
+    title: Node Pool Tags
+    description: Tag value for resource created
+    default: cluster_tag
+    dependsOn:
+      compartmentId: cluster_compartment_id
+    visible: np3_add_tag
+
+  enable_secret_encryption:
+    type: boolean
+    default: false
+    title: Use User Owned Key for Kubernetes Secrets encryption
+    description: |
+      Enable the at-rest encryption of Kubernetes Secrets with yor own key. 
+      Note this requires tenancy administrator permissions to create a Dynamic Group for the cluster. 
+      !!! This property cannot be changed without destroying and re-creating the cluster.
+  
+  secrets_key_vault_compartment_id:
+    type: oci:identity:compartment:id
+    title: Vault Compartment
+    description: Compartment of the vault storing the key for secrets encryption
+    default: cluster_compartment_id
+    visible: enable_secret_encryption
+    required: true
+
+  secrets_key_vault_id:
+    type: oci:kms:vault:id
+    title: Vault
+    description: Vault storing the key for Kubernetes Secrets encryption at rest. 
+    dependsOn:
+      compartmentId: secrets_key_vault_compartment_id
+    visible: enable_secret_encryption
+    required: true
+
+  secrets_key_id:
+    type: oci:kms:key:id
+    title: Kubernetes Secrets Encryption Key
+    description: |
+      Key used for Kubernetes Secrets encryption at rest.
+      This key must be an AES or RSA key.
+    visible: enable_secret_encryption
+    dependsOn:
+      compartmentId: secrets_key_vault_compartment_id
+      vaultId: secrets_key_vault_id
+    required: true
+
+  enable_image_validation:
+    type: boolean
+    default: false
+    title: Enable Container Image Signature Validation
+    description: |
+      Enable image signature validation in the Kubernetes cluster, requiring all images to be signed to be deployed. 
+      Note this requires tenancy administrator permissions to create a Dynamic Group for the cluster.
+      This option can be updated later.
+  
+  image_validation_key_vault_compartment_id:
+    type: oci:identity:compartment:id
+    title: Vault Compartment
+    default: cluster_compartment_id
+    description: Compartment of the vault storing the key for image signature validation.
+    visible: enable_image_validation
+    required: true
+
+  image_validation_key_vault_id:
+    type: oci:kms:vault:id
+    title: Vault
+    description: |
+      Vault storing the key for container image signature validation.
+      This key must be an asymetric key (RSA or ECDSA).
+    dependsOn:
+      compartmentId: image_validation_key_vault_compartment_id
+    visible: enable_image_validation
+    required: true
+
+  image_validation_key_id:
+    type: oci:kms:key:id
+    title: Kubernetes Secrets Encryption Key
+    description: Key for container image signature validation.
+    visible: enable_image_validation
+    dependsOn:
+      compartmentId: image_validation_key_vault_compartment_id
+      vaultId: image_validation_key_vault_id
+    required: true
+
+  enable_pod_admission_controller:
+    type: boolean
+    default: false
+    title: Enable Pod Admission Controllers
+    description: | 
+      Enable Pod admission controllers in the Kubernetes cluster, requiring all pods to comply with established security policies. 
+      Note this will prevent any pod deployment until policies are defined.
+
+
+  # Add ons
+  enable_metrics_server:
+    type: boolean
+    default: true
+    title: Enable Metrics Server
+    description: |
+      Metrics server is used to report metrics, and is used by pod auto-scalers and cluster auto-scaler.
+    visible: false
+      # not:
+      #   or: 
+      #     - and:
+      #       - ge:
+      #         - node_pool_count
+      #         - 1
+      #       - eq:
+      #         - np1_enable_autoscaler
+      #         - true
+      #     - and:
+      #       - ge:
+      #         - node_pool_count
+      #         - 2
+      #       - eq:
+      #         - np2_enable_autoscaler 
+      #         - true
+      #     - and:
+      #       - ge:
+      #         - node_pool_count
+      #         - 3
+      #       - eq:       
+      #         - np3_enable_autoscaler
+      #         - true
+
+  enable_cert_manager:
+    type: boolean
+    default: enable_flink
+    title: Enable Cert-Manager
+    description: |
+      cert-manager is used to generate certificates, whether for securing internal communication or providing domain certificates.
+      It is required by Flink Operator.
+    visible:
+      not:
+        - enable_flink
+
+  enable_flink:
+    type: boolean
+    default: true
+    title: Deploy Apache Flink
+    description: |
+      Apache Flink will be installed using the Flink Operator.
+
+  enable_monitoring_stack:
+    type: boolean
+    default: true
+    title: Deploy Monitoring Stack
+    description: |
+      Deploys Prometheus, Grafana and related datasources, plugins and dashboards.
+
+  cluster_autoscaler_max_node_provision_time:
+    type: number
+    title: Max node provisioning time before it is considered failed.
+
+  cluster_autoscaler_scale_down_delay_after_add:
+    type: number
+    title: Wait time before scaling a node down after it was added.
+
+  cluster_autoscaler_scale_down_unneeded_time:
+    type: number
+    title: Wait time before scaling a node down after it is unneeded.
+
+  cluster_autoscaler_unremovable_node_recheck_timeout:
+    type: number
+    title: Wait time between checks on unremovable nodes.
+
+  cluster_autoscaler_use_workload_identity:
+    type: boolean
+    title: Use Workload Identity authentication.
+    description: |
+      Workload Identiy Auth limits the permission scope to the Cluster Autoscaler workload only. Unchecking this option will
+      make use of node level permissions, which means any workoad on the node may have the permission to manage nodes.
+    default: 
+      ${is_enhanced_cluster}
+    visible:
+      ${is_enhanced_cluster}
+
+outputGroups:
+  - title: Access
+    outputs: 
+      - access_command
+      - flink_demo_job
+      - flink_ui_port_forward
+      - flink_ui_access
+      - grafana_password
+
+outputs:
+  access_command:
+    type: copyableString
+    title: Access Command
+    displayText: Run this command to access your cluster locally.
+    visible: true
+
+  flink_demo_job:
+    type: copyableString
+    title: Flink Demo Job
+    displayText: Run a demo job with the following command
+    visible: true
+
+  flink_ui_port_forward:
+    type: copyableString
+    title: Flink UI Access Port
+    displayText: Run the following command to forward the port to the Flink UI locally and access the UI
+    visible: true
+
+  flink_ui_access:
+    type: link
+    title: Flink UI
+    displayText: "Access the Flink UI"
+    visible: true
+
+  grafana_password:
+    type: copyableString
+    title: Grafana access
+    displayText: "Grafana password for 'admin' user"
+    visible: enable_monitoring_stack

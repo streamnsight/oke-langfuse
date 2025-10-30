@@ -1,0 +1,267 @@
+# Langfuse Helm Chart Configuration
+
+# Core Langfuse Configuration
+langfuse:
+  # Feature flags
+  features:
+    # -- Whether or not to report basic usage statistics to a centralized server.
+    telemetryEnabled: false
+  # Feature flags
+    # -- Disable public sign up
+    signUpDisabled: false
+    # -- Enable experimental features
+    experimentalFeaturesEnabled: false
+
+  # Web deployment configuration
+  web:
+    image:
+      # -- The image repository to use for the langfuse web pods.
+      # this image was patched for IDCS SSO
+      repository: ${REGION}.ocir.io/${TENANCY_NAMESPACE}/langfuse
+      # -- The tag to use for the langfuse web pods. Using `langfuse.image.tag` if not set.
+      tag: "${LANGFUSE_IMAGE_TAG}"
+    livenessProbe:
+      # -- Path to check for liveness.
+      path: "/langfuse/api/public/health"
+    readinessProbe:
+      # -- Path to check for readiness.
+      path: "/langfuse/api/public/ready"
+    pod:
+      additionalEnv: 
+        # allow user / password for now, but do not allow sign-up
+        - name: AUTH_DISABLE_USERNAME_PASSWORD
+          value: 'true' 
+          # value: 'true'  # remove email login
+        # - name: LANGFUSE_INIT_ORG_ID
+        #   value: genaisolutions
+        # - name: LANGFUSE_INIT_ORG_NAME
+        #   value: genaisolutions
+        # - name: LANGFUSE_INIT_PROJECT_ID
+        #   value: nri
+        # - name: LANGFUSE_INIT_PROJECT_NAME
+        #   value: nri
+        - name: LANGFUSE_INIT_USER_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: langfuse-user  # referencing an existing secret
+              key: email
+        - name: LANGFUSE_INIT_USER_NAME
+          valueFrom:
+            secretKeyRef:
+              name: langfuse-user  # referencing an existing secret
+              key: name
+        - name: LANGFUSE_INIT_USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: langfuse-user  # referencing an existing secret
+              key: password
+        - name: NEXTAUTH_URL
+          value: https://${LANGFUSE_HOSTNAME}/langfuse/api/auth
+        - name: AUTH_CUSTOM_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: langfuse-idcs  # referencing an existing secret
+              key: client-id
+        - name: AUTH_CUSTOM_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: langfuse-idcs  # referencing an existing secret
+              key: client-secret
+        - name: AUTH_CUSTOM_ISSUER
+          valueFrom:
+            secretKeyRef:
+              name: langfuse-idcs  # referencing an existing secret
+              key: issuer
+        - name: AUTH_CUSTOM_NAME
+          valueFrom:
+            secretKeyRef:
+              name: langfuse-idcs  # referencing an existing secret
+              key: name
+        - name: LANGFUSE_CUSTOM_SSO_NAME_CLAIM
+          value: sub
+        - name: LANGFUSE_CUSTOM_SSO_EMAIL_CLAIM
+          value: sub
+        - name: AUTH_CUSTOM_ALLOW_ACCOUNT_LINKING
+          value: 'true'
+        - name: AUTH_CUSTOM_ID_TOKEN
+          value: "true"
+        - name: LANGFUSE_LOG_LEVEL
+          value: debug
+        - name: NODE_ENV
+          value: development
+        - name: DATABASE_URL  # Using the certs in the url eg. postgresql://the-db-user:the-password@postgres-host:5432/langfuse?ssl=true&sslmode=require&sslcert=/secrets/db-keystore/server-ca.pem&sslidentity=/secrets/db-keystore/sslidentity.pk12&sslpassword=the-ssl-identity-pw
+          valueFrom:
+            secretKeyRef:
+              name: langfuse-postgres  # referencing an existing secret
+              key: database-url
+      # Postgres DB creds
+      extraVolumes:
+        - name: db-keystore   # referencing an existing secret to mount server/client certs for postgres
+          secret:
+            secretName: langfuse-postgres-cert  # contain the following files (server-ca.pem, sslidentity.pk12)
+      extraVolumeMounts:
+        - name: db-keystore
+          mountPath: /secrets/db-keystore  # mounting the db-keystore store certs in the pod under the given path
+          readOnly: true
+
+  worker:
+    pod:
+      extraVolumes:
+        - name: db-keystore   # referencing an existing secret to mount server/client certs for postgres
+          secret:
+            secretName: langfuse-postgres-cert  # contain the following files (server-ca.pem, sslidentity.pk12)
+      extraVolumeMounts:
+        - name: db-keystore
+          mountPath: /secrets/db-keystore  # mounting the db-keystore store certs in the pod under the given path
+          readOnly: true
+      additionalEnv: 
+      - name: DATABASE_URL  # Using the certs in the url eg. postgresql://the-db-user:the-password@postgres-host:5432/langfuse?ssl=true&sslmode=require&sslcert=/secrets/db-keystore/server-ca.pem&sslidentity=/secrets/db-keystore/sslidentity.pk12&sslpassword=the-ssl-identity-pw
+        valueFrom:
+          secretKeyRef:
+            name: langfuse-postgres  # referencing an existing secret
+            key: database-url
+
+  # -- Used to encrypt sensitive data. Must be 256 bits (64 string characters in hex format). Generate via `openssl rand -hex 32`.
+  encryptionKey:
+    secretKeyRef:
+      name: langfuse
+      key: encryption-key
+
+  # -- Used to hash API keys. Can be configured by value or existing secret reference. To generate a new salt, run `openssl rand -base64 32`.
+  salt:
+    secretKeyRef:
+      name: langfuse
+      key: salt
+  #NextAuth configuration
+  nextauth:
+    # -- When deploying to production, set the `nextauth.url` value to the canonical URL of your site.
+    url: https://${LANGFUSE_HOSTNAME}/langfuse/api/auth
+    secret:
+    # -- Used to encrypt the NextAuth.js JWT, and to hash email verification tokens. Can be configured by value or existing secret reference.
+      secretKeyRef:
+        name: langfuse
+        key: nextauth-secret
+# PostgreSQL Configuration
+postgresql:
+  deploy: false
+
+  # Authentication configuration
+  auth:
+    # -- Username to use to connect to the postgres database deployed with Langfuse. In case `postgresql.deploy` is set to `true`, the user will be created automatically.
+    username: langfuse
+    # -- Password to use to connect to the postgres database deployed with Langfuse. In case `postgresql.deploy` is set to `true`, the password will be set automatically.
+    # password: ""
+    # -- If you want to use an existing secret for the postgres password, set the name of the secret here. (`postgresql.auth.username` and `postgresql.auth.password` will be ignored and picked up from this secret).
+    # existingSecret: langfuse
+    existingSecret: langfuse-postgres
+    # -- The key in the existing secret that contains the password.
+    secretKeys:
+      # userPasswordKey: postgres-password
+      userPasswordKey: postgres-password
+    # -- Database name to use for Langfuse.
+    database: postgres
+    # -- Additional database connection arguments
+
+  # Migration configuration
+  # migration:
+  #   # -- Whether to run automatic migrations on startup
+  #   autoMigrate: true
+
+  # Subchart specific settings
+  # architecture: standalone
+  # primary:
+  #   service:
+  #     ports:
+  #       postgresql: 5432
+
+  # # Authentication configuration
+  # # deploy: false
+  # auth:
+  #   username: langfuse
+  #   existingSecret: langfuse
+  #   # -- The key in the existing secret that contains the password.
+  #   secretKeys:
+  #     userPasswordKey: postgres-password
+  #   database: postgres
+  # host: primary.nyhjzothovbv7tjuudl7q2lysxjh2a.postgresql.us-chicago-1.oci.oraclecloud.com
+  # directUrl: postgres://my-username:my-password@my-external-postgres-server.com
+  # shadowDatabaseUrl: postgres://my-username:my-password@my-external-postgres-server.com
+
+
+
+# ClickHouse Configuration
+clickhouse:
+  # Authentication configuration
+  auth:
+    # -- If you want to use an existing secret for the ClickHouse password, set the name of the secret here. (`clickhouse.auth.username` and `clickhouse.auth.password` will be ignored and picked up from this secret).
+    existingSecret: langfuse
+    # -- The key in the existing secret that contains the password.
+    existingSecretKey: clickhouse-password
+
+# Key-Value Store / Redis Configuration
+redis:
+  deploy: false
+
+  # -- Redis host to connect to. If redis.deploy is true, this will be set automatically based on the release name.
+  host: ${REDIS_HOSTNAME}
+  # -- Redis port to connect to.
+  port: 6379
+  # Authentication configuration
+  # auth:
+  #   # -- If you want to use an existing secret for the redis password, set the name of the secret here. (`redis.auth.password` will be ignored and picked up from this secret).
+  #   existingSecret: langfuse
+  #   # -- The key in the existing secret that contains the password.
+  #   existingSecretPasswordKey: redis-password
+  # Redis TLS configuration
+  tls:
+    # -- Set to `true` to enable TLS/SSL encrypted connection to the Redis server
+    enabled: true
+    # # -- Path to the CA certificate file for TLS verification
+    # caPath: ""
+    # # -- Path to the client certificate file for mutual TLS authentication
+    # certPath: ""
+    # # -- Path to the client private key file for mutual TLS authentication
+    # keyPath: ""
+
+# S3/MinIO Configuration
+s3:
+  deploy: false
+
+  # -- Storage provider to use. Options: s3 (default), azure, gcs
+  # -- When set to 'azure', enables Azure Blob Storage native integration
+  # -- When set to 'gcs', enables Google Cloud Storage native integration
+  # -- When set to 's3', uses S3-compatible interface (default behavior)
+  storageProvider: "s3"
+
+  # image:
+  #   # -- Overwrite default repository of helm chart to point to non-paid bitnami images.
+  #   repository: bitnamilegacy/minio
+  #   # image: docker.io/bitnami/minio:2024.12.18-debian-12-r1
+
+  # -- S3 bucket to use for all uploads. Can be overridden per upload type.
+  bucket: ${LANGFUSE_OBJECT_STORAGE_BUCKET}
+  # -- S3 region to use for all uploads. Can be overridden per upload type.
+  region: ${REGION}
+  # -- S3 endpoint to use for all uploads. Can be overridden per upload type.
+  endpoint: "https://${TENANCY_NAMESPACE}.compat.objectstorage.${REGION}.oraclecloud.com"
+  # -- Whether to force path style on requests. Required for MinIO. Can be overridden per upload type.
+  forcePathStyle: true
+  # -- S3 accessKeyId to use for all uploads. Can be overridden per upload type.
+  accessKeyId:
+    # value: ""
+    secretKeyRef:
+      name: "langfuse-s3"
+      key: "s3-access-key"
+  # -- S3 secretAccessKey to use for all uploads. Can be overridden per upload type.
+  secretAccessKey:
+    # value: ""
+    secretKeyRef:
+      name: "langfuse-s3"
+      key: "s3-secret-key"
+
+  # auth:
+  #   # -- If you want to use an existing secret for the root user password, set the name of the secret here. (`s3.auth.rootUser` and `s3.auth.rootPassword` will be ignored and picked up from this secret).
+  #   existingSecret: langfuse
+  #   rootUserSecretKey: "s3-user"
+  #   # -- Key where the Minio root user password is being stored inside the existing secret `s3.auth.existingSecret`
+  #   rootPasswordSecretKey: s3-password

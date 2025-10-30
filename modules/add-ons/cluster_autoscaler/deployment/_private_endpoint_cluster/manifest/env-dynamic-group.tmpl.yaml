@@ -1,0 +1,4 @@
+- name: OKE_USE_INSTANCE_PRINCIPAL
+  value: "true"
+- name: OCI_SDK_APPEND_USER_AGENT
+  value: "oci-oke-cluster-autoscaler"

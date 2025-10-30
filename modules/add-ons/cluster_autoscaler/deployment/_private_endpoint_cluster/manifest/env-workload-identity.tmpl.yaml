@@ -1,0 +1,12 @@
+- name: OCI_USE_WORKLOAD_IDENTITY
+  value: "true"
+- name: OCI_RESOURCE_PRINCIPAL_VERSION
+  value: "2.2"
+- name: OCI_RESOURCE_PRINCIPAL_REGION
+  value: "${region}"
+- name: OKE_USE_INSTANCE_PRINCIPAL
+  value: "false"
+- name: OCI_SDK_APPEND_USER_AGENT
+  value: "oci-oke-cluster-autoscaler"
+- name: "OCI_COMPARTMENT_ID"
+  value: "${compartment_id}"

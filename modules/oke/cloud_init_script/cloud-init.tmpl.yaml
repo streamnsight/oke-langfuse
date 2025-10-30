@@ -1,0 +1,89 @@
+Content-Type: multipart/mixed; boundary=MIMEBOUNDARY
+MIME-Version: 1.0
+ 
+--MIMEBOUNDARY
+Content-Transfer-Encoding: 7bit
+Content-Type: text/cloud-config
+Mime-Version: 1.0
+ 
+#cloud-config
+ 
+write_files:
+- path: /etc/.firstboot_disable_reboot
+  owner: root:root
+  permissions: '0644'
+  encoding: b64
+  content: |
+    dGhpcyBjb250ZW50IHBsYWNlZCBieSBjbG91ZC1pbml0Cg==
+- path: /root/docker_login.sh
+  owner: root:root
+  permissions: '0755'
+  encoding: b64
+  content: |
+    ${base64_encoded_docker_login_script}
+- path: /var/run/docker-credential-helper-init.sh
+  owner: root:root
+  permissions: '0755'
+  encoding: b64
+  content: |
+    ${base64_encoded_docker_cred_init_helper_script}
+- owner: root:root
+  path: /etc/cron.d/docker-cred-helper
+  content: |
+    */20 * * * * root sleep $(( $RANDOM \% 1000 )); /root/docker_login.sh
+    @reboot /root/docker_login.sh
+ 
+output: {all: '| tee -a /var/log/cloud-init-output.log'}
+ 
+logcfg: |
+  [formatters]
+  format=%(levelname)s %(asctime)s: %(message)s
+--MIMEBOUNDARY
+Content-Transfer-Encoding: 7bit
+Content-Type: text/x-shellscript
+Mime-Version: 1.0
+ 
+#!/bin/bash
+set -e
+set -o pipefail
+ 
+### insert customer pre oke-init.sh hook
+ 
+# Ensures chef doesn't fight with OKE when we enable selinux in regions w/o Chef support.
+# Chef has a bug that will cause it to not run if it thinks it needs to disable selinux.
+touch /etc/selinux.enabled
+echo "Disabling Swap Volumes"
+swapon --summary
+swapoff --all
+sed -i.old '/swap/ s/^\(.*\)$/# \1/g' /etc/fstab
+swapon --summary
+cat /etc/fstab
+echo "Swap Volumes Disabled"
+### start OKE Provisioning
+echo Starting OKE Provisioning
+curl --fail -L0 -H "Authorization: Bearer Oracle" http://169.254.169.254/opc/v2/instance/metadata/oke_init_script | base64 --decode >/var/run/oke-init.sh
+# workaround for IO images.
+# https://jira-sd.mc1.oracleiaas.com/browse/CIO-311?focusedCommentId=9549417&page=com.atlassian.jira.plugin.system.issuetabpanels:comment-tabpanel#comment-9549417
+sed -i "/tar -xzvf - -C \/var\/run\/tkw/a\sed -i \"/name: https:\\\/\\\/objectstorage/a\ \\\ \\\ \\\ \\\ \\\ \\\ disablerepo: '*epel*'\" /var/run/tkw/roles/tkm-minion/tasks/main.yml" /var/run/oke-init.sh
+until bash -x /var/run/oke-init.sh
+do
+    echo "oke-init failed... Trying again in 30s..."
+    sleep 30
+done
+echo Finished OKE Provisioning
+ 
+ 
+until bash -x /var/run/docker-credential-helper-init.sh
+do
+    echo "docker-credential-helper-init failed... Trying again in 30s..."
+    sleep 30
+done
+echo Finished Docker Credential Helper Provisioning
+ 
+systemctl restart kubelet
+ 
+### insert customer post oke-init.sh hook
+systemctl daemon-reload
+systemctl enable run_before_shutdown.service
+ 
+--MIMEBOUNDARY--
