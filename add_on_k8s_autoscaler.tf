@@ -69,7 +69,7 @@ module "cluster_autoscaler_workload_identity_policy" {
 # This method uses the cluster add-on resource for enhanced clusters
 module "cluster_autoscaler_deployment_with_addon_manager" {
   count                                               = local.cluster_autoscaler_enabled ? (local.use_addon_manager ? 1 : 0) : 0
-  source                                              = "./modules/add-ons/cluster_autoscaler/deployment/enhanced_cluster_addon"
+  source                                              = "./modules/oke_add_ons/cluster_autoscaler/deployment/enhanced_cluster_addon"
   cluster_id                                          = oci_containerengine_cluster.oci_oke_cluster.id
   autoscaler_pool_settings                            = local.node_pool_list
   cluster_autoscaler_use_workload_identity            = true #var.cluster_autoscaler_use_workload_identity

@@ -14,7 +14,7 @@ locals {
 
 module "cert_manager_deployment_using_addon_manager" {
   # count                = local.enable_cert_manager ? (local.use_addon_manager ? 1 : 0) : 0
-  source               = "./modules/add-ons/cert-manager/deployment/enhanced_cluster_addon"
+  source               = "./modules/oke_add_ons/cert-manager/deployment/enhanced_cluster_addon"
   cluster_id           = oci_containerengine_cluster.oci_oke_cluster.id
   cert_manager_version = null # for auto-update
   nb_replicas          = var.cert_manager_nb_replicas

@@ -2,39 +2,39 @@
 
 data "oci_psql_configurations" "configurations" {
 
-    #Optional
-    compartment_id = var.cluster_compartment_id
+  #Optional
+  compartment_id = var.cluster_compartment_id
 }
 
 resource "random_string" "postgres_password" {
-  length = 20
+  length      = 20
   special     = true
-  min_lower = 2
-  min_upper = 2
+  min_lower   = 2
+  min_upper   = 2
   min_special = 2
   min_numeric = 4
 }
 
-output "psql_config" {
-  value = data.oci_psql_configurations.configurations
-}
+# output "psql_config" {
+#   value = data.oci_psql_configurations.configurations
+# }
 
 resource "oci_psql_db_system" "langfuse_postgres" {
   #apply_config = <<Optional value not found in discovery>>
   compartment_id = var.cluster_compartment_id
   #config_id      = "ocid1.postgresqldefaultconfiguration.oc1.us-chicago-1.amaaaaaayn42exya5plpxgtlvjw76xdsfrac5ea7gunt6so5yfuberneo4cq"
   credentials {
+    #Required
+    password_details {
       #Required
-      password_details {
-          #Required
-          password_type = "PLAIN_TEXT"
+      password_type = "PLAIN_TEXT"
 
-          #Optional
-          password = random_string.postgres_password.result
-          # secret_id = oci_vault_secret.test_secret.id
-          # secret_version = var.db_system_credentials_password_details_secret_version
-      }
-      username = "langfuse"
+      #Optional
+      password = random_string.postgres_password.result
+      # secret_id = oci_vault_secret.test_secret.id
+      # secret_version = var.db_system_credentials_password_details_secret_version
+    }
+    username = "langfuse"
   }
   db_version = "16"
   #description = <<Optional value not found in discovery>>
@@ -60,7 +60,7 @@ resource "oci_psql_db_system" "langfuse_postgres" {
     nsg_ids = [
     ]
     #primary_db_endpoint_private_ip = "10.0.22.48"
-    subnet_id                      = var.use_existing_vcn ? local.node_pools[0]["subnet"] : oci_core_subnet.oke_nodepool_subnet[0].id
+    subnet_id = var.use_existing_vcn ? local.node_pools[0]["subnet"] : oci_core_subnet.oke_nodepool_subnet[0].id
   }
   #patch_operations = <<Optional value not found in discovery>>
   shape = "PostgreSQL.VM.Standard.E6.Flex"
@@ -80,11 +80,11 @@ resource "oci_psql_db_system" "langfuse_postgres" {
 
 
 data "oci_psql_db_system_connection_detail" "psql_connection_detail" {
-    db_system_id = oci_psql_db_system.langfuse_postgres.id
+  db_system_id = oci_psql_db_system.langfuse_postgres.id
 }
 
 locals {
-  psql_cert = data.oci_psql_db_system_connection_detail.psql_connection_detail.ca_certificate
+  psql_cert     = data.oci_psql_db_system_connection_detail.psql_connection_detail.ca_certificate
   psql_endpoint = data.oci_psql_db_system_connection_detail.psql_connection_detail.primary_db_endpoint
 }
 

@@ -1,0 +1,44 @@
+version: 0.1
+component: build
+timeoutInSeconds: 6000
+runAs: root
+shell: bash
+env:
+  # these are local variables to the build config
+  variables:
+  # the value of a vaultVariable is the secret-id (in OCI ID format) stored in the OCI Vault service
+  # you can then access the value of that secret in your build_spec.yaml commands
+  vaultVariables:
+
+  # exportedVariables are made available to use as parameters in sucessor Build Pipeline stages
+  # For this Build to run, the Build Pipeline needs to have a VERSION parameter set
+  exportedVariables:
+
+steps:
+  - type: Command
+    name: "Build Manifest"
+    timeoutInSeconds: 3600
+    command: |
+      cd ${OCI_PRIMARY_SOURCE_DIR}/deploy-k8s/app/
+
+      curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+      curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl.sha256"
+      echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+      chmod +x kubectl
+
+      ./gen_env_files.sh
+      ./kubectl kustomize manifests/base -o deployment.yaml
+      
+    onFailure:
+      - type: Command
+        command: |
+          echo "Handling Failure"
+          echo "Failure successfully handled"
+        timeoutInSeconds: 40
+        runAs: root
+
+
+outputArtifacts:
+  - name: deployment-manifest
+    type: BINARY
+    location: ${OCI_PRIMARY_SOURCE_DIR}/deploy-k8s/app/deployment.yaml

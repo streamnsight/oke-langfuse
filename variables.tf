@@ -54,7 +54,7 @@ variable "cluster_name" {
 }
 
 variable "is_enhanced_cluster" {
-  type = bool
+  type    = bool
   default = true
 }
 
@@ -402,4 +402,33 @@ variable "object_storage_namespace" {
 
 variable "create_bastion" {
   type = bool
+}
+
+variable "s3_client_id" {
+  type      = string
+  sensitive = true
+}
+
+variable "s3_client_secret" {
+  type      = string
+  sensitive = true
+}
+
+variable "idcs_client_id" {
+  type      = string
+  sensitive = true
+}
+
+variable "idcs_client_secret" {
+  type      = string
+  sensitive = true
+}
+
+variable "idcs_app_id" {
+  type = string
+}
+
+variable "oci_genai_gateway_tag" {
+  type    = string
+  default = "581e3cb7150404d80b35f7875f0d28d1510d6de8"
 }

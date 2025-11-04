@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    oci.oraclecloud.com/load-balancer-type: lb
+    service.beta.kubernetes.io/oci-load-balancer-shape: flexible
+    service.beta.kubernetes.io/oci-load-balancer-shape-flex-max: "400"
+    service.beta.kubernetes.io/oci-load-balancer-shape-flex-min: "10"
+    service.beta.kubernetes.io/oci-load-balancer-ssl-ports: "443"
+    # oci.oraclecloud.com/oci-load-balancer-listener-ssl-config: '{"CipherSuiteName":"oci-default-http2-tls-12-13-ssl-cipher-suite-v1", "Protocols":["TLSv1.3"]}'
+    service.beta.kubernetes.io/oci-load-balancer-tls-secret: ssl-certificate-secret2
+  labels:
+    name: langfuse-web-lb
+    app.kubernetes.io/instance: langfuse
+    app.kubernetes.io/name: langfuse
+    app.kubernetes.io/version: 3.111.0
+  name: langfuse-web-lb
+  namespace: langfuse
+spec:
+  ports:
+  - name: http2
+    port: 80
+    protocol: TCP
+    targetPort: 3000
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: 3000
+  selector:
+    app: web
+    app.kubernetes.io/instance: langfuse
+    app.kubernetes.io/name: langfuse
+  type: LoadBalancer

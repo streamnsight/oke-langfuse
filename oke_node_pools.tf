@@ -16,15 +16,15 @@ module "cloud_init_script" {
 # provided. The OKE specific images have k8s components pre-loaded and is much faster to
 # startup, making scale up/down and node cycling events shorter.
 module "recommended_image" {
-  for_each           = toset([for image in [var.np1_image_id, var.np2_image_id, var.np3_image_id]: image if image != null])
+  for_each           = toset([for image in [var.np1_image_id, var.np2_image_id, var.np3_image_id] : image if image != null])
   source             = "./modules/oke/recommended-compute-image"
   image_id           = each.value
   kubernetes_version = local.kubernetes_version
 }
 
-output "recommended_images" {
-  value = module.recommended_image
-}
+# output "recommended_images" {
+#   value = module.recommended_image
+# }
 
 # Checks that requested shapes are available in the requested AD. Some shapes may be 
 # available in one AD but not all, and would cause the node-pool to fail when requested 

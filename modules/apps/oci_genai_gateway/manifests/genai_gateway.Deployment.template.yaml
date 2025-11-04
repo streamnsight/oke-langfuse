@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oci-genai-gateway
+  labels:
+    app: oci-genai-gateway
+    app.kubernetes.io/name: oci-genai-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oci-genai-gateway
+      app.kubernetes.io/name: oci-genai-gateway
+  template:
+    metadata:
+      labels:
+        app: oci-genai-gateway
+        app.kubernetes.io/name: oci-genai-gateway
+    spec:
+      containers:
+      - name: oci-genai-gateway
+        image: ${OCI_GENAI_GATEWAY_IMAGE}
+        imagePullPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
+        resizePolicy:
+        - resourceName: cpu
+          restartPolicy: NotRequired # Default, but explicit here
+        - resourceName: memory
+          restartPolicy: RestartContainer
+        resources:
+          limits:
+            memory: "1024Mi"
+            cpu: "100m"
+          requests:
+            memory: "200Mi"
+            cpu: "70m"
+        ports:
+        - containerPort: 8088
+          protocol: TCP
+        envFrom:
+        - configMapRef:
+            name: oci-genai-gateway
+        env:
+          - name: DEFAULT_API_KEYS
+            valueFrom:
+              secretKeyRef:
+                name: oci-genai-gateway
+                key: DEFAULT_API_KEYS
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oci-genai-gateway
+spec:
+  selector:
+    app.kubernetes.io/name: oci-genai-gateway
+  ports:
+    - protocol: TCP
+      port: 8088
+      targetPort: 8088
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oci-genai-gateway
+data:
+  AUTH_TYPE: "${AUTH_TYPE}"
+  OCI_REGION: "${REGION}"
+  OCI_COMPARTMENT: "${COMPARTMENT_ID}"

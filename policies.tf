@@ -36,10 +36,10 @@ locals {
 
 # Network Source for the cluster nodes
 module "network_source_group" {
-  source = "./modules/iam/network_source"
-  nsg_name = local.nsg_name
-  tenancy_ocid = var.tenancy_ocid
-  vcn_id = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id
+  source        = "./modules/iam/network_source"
+  nsg_name      = local.nsg_name
+  tenancy_ocid  = var.tenancy_ocid
+  vcn_id        = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id
   subnets_cidrs = local.node_pool_subnets_cidrs
 }
 
@@ -54,8 +54,8 @@ module "network_source_group" {
 # }
 
 module "nsg_based_policies" {
-  source = "./modules/iam/nsg_policies"
-  nsg_name = local.nsg_name
+  source         = "./modules/iam/nsg_policies"
+  nsg_name       = local.nsg_name
   compartment_id = var.cluster_compartment_id
   permissions = [
     "read repos",
@@ -64,9 +64,9 @@ module "nsg_based_policies" {
 }
 
 module "policies" {
-  source = "./modules/iam/policy"
+  source         = "./modules/iam/policy"
   compartment_id = var.cluster_compartment_id
-  description = "Policies for ${local.cluster_name}"
+  description    = "Policies for ${local.cluster_name}"
   policy_statements = concat(
     module.nsg_based_policies.policy_statements,
     module.cluster_autoscaler_workload_identity_policy.policy_statements

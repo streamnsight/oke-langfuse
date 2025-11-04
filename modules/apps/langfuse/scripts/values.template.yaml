@@ -19,7 +19,7 @@ langfuse:
       # this image was patched for IDCS SSO
       repository: ${REGION}.ocir.io/${TENANCY_NAMESPACE}/langfuse
       # -- The tag to use for the langfuse web pods. Using `langfuse.image.tag` if not set.
-      tag: "${LANGFUSE_IMAGE_TAG}"
+      tag: ${LANGFUSE_IMAGE_TAG}
     livenessProbe:
       # -- Path to check for liveness.
       path: "/langfuse/api/public/health"

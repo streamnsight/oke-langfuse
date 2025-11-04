@@ -68,14 +68,14 @@ output "cluster_name" {
   value = local.cluster_name
 }
 
-output "img" {
-  value = module.recommended_image
-}
+# output "img" {
+#   value = module.recommended_image
+# }
 
-output "k8s_version" {
-  value = local.kubernetes_version
-}
+# output "k8s_version" {
+#   value = local.kubernetes_version
+# }
 
-output "k8s_versions_full" {
-  value = module.kubernetes_version.versions
-}
+# output "k8s_versions_full" {
+#   value = module.kubernetes_version.versions
+# }

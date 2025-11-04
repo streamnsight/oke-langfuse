@@ -15,6 +15,6 @@ variable "addon_version" {
 }
 
 variable "nb_replicas" {
-  type = number
+  type    = number
   default = 1
 }
