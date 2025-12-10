@@ -4,3 +4,7 @@
 output "manifest_yaml" {
   value = local.manifest_yaml
 }
+
+output "default_api_key" {
+  value = random_string.oci_genai_gateway_default_api_key.result
+}

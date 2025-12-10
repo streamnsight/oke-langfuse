@@ -34,6 +34,18 @@ resource "null_resource" "deploy_load_balancer_no_tls" {
         # deploy nginx ingress controller
         kubectl apply -f nginx-ingress-controller.yaml
         # https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.14.1/deploy/static/provider/cloud/deploy.yaml
+
+        # wait for ingress controller to be deployed
+        while true; do
+          IP=$(kubectl get service ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          if [ -n "$IP" ]; then
+            echo "Ingress IP: $IP"
+            break
+          fi
+          echo "Waiting for ingress IP..."
+          sleep 5
+        done
+
         # deploy our ingress
         kubectl get namespace langfuse || kubectl create namespace langfuse
         kubectl apply -f langfuse_no_tls.Ingress.yaml --namespace langfuse

@@ -1,3 +1,5 @@
+## Install Langfuse dependencies
+# Postgres
 module "langfuse_postgres" {
   source           = "./modules/database/postgres"
   compartment_id   = var.cluster_compartment_id
@@ -5,6 +7,7 @@ module "langfuse_postgres" {
   postgresql_shape = var.postgresql_shape
 }
 
+# Redis / OCI Cache
 module "langfuse_redis" {
   source         = "./modules/database/redis"
   compartment_id = var.cluster_compartment_id
@@ -14,6 +17,7 @@ module "langfuse_redis" {
   node_memory    = var.redis_node_memory
 }
 
+# Object storage bucket
 locals {
   object_storage_bucket = "langfuse-${local.deploy_id}-traces"
 }
@@ -39,6 +43,12 @@ resource "oci_objectstorage_bucket" "langfuse_bucket" {
   versioning = "Disabled"
 }
 
+##  Create a load balancer via Ingress in Kubernetes
+# Ingress allows automation of TLS certs creation for the LB using let's encrypt
+# as of 12-09-2025 IP certs are only suported in acme-staging, but is supposed to be available in acme-prod
+# shortly
+# Deploys an Ingress LB without TLS first, so we can get the IP
+# TODO: look at using native ingress controller as nginx-ingress is being deprecated in March 2026
 module "langfuse_load_balancer_no_tls" {
   source          = "./modules/apps/langfuse/load_balancer/no_tls"
   compartment_id  = var.cluster_compartment_id
@@ -50,18 +60,8 @@ module "langfuse_load_balancer_no_tls" {
   ]
 }
 
-module "langfuse_idcs_app" {
-  source             = "./modules/iam/idcs_app"
-  identity_domain_id = var.identity_domain_id
-  display_name       = local.cluster_name_sanitized
-  redirect_url       = "https://${module.langfuse_load_balancer_no_tls.ip_address}/langfuse/api/auth/callback/custom"
-
-  # depends_on = [
-  #   module.langfuse_load_balancer_no_tls
-  # ]
-
-}
-
+# Patch the created Load Balancer with IP based TLS cert
+# IP is needed to create the IP cert, so it needs to be patchd after deployment
 module "langfuse_load_balancer_tls" {
   source            = "./modules/apps/langfuse/load_balancer/tls"
   langfuse_hostname = module.langfuse_load_balancer_no_tls.ip_address
@@ -74,6 +74,20 @@ module "langfuse_load_balancer_tls" {
   ]
 }
 
+# Create the IDCS app with the proper redirect URL
+module "langfuse_idcs_app" {
+  source             = "./modules/iam/idcs_app"
+  identity_domain_id = var.identity_domain_id
+  display_name       = local.cluster_name_sanitized
+  redirect_url       = "https://${module.langfuse_load_balancer_no_tls.ip_address}/langfuse/api/auth/callback/custom"
+
+}
+
+
+# Create the Langfuse secrets, patch and build the Langfuse app container image and deploy the helm chart
+# The chart is deployed via DevOps pipeline, although secrets are deployed via remote-exec command to avoid storing credentials
+# in pipeline paramters
+# TODO, see how to use https://github.com/oracle/oci-secrets-store-csi-driver-provider to provision the secrets from vault
 module "langfuse_chart" {
   source                      = "./modules/apps/langfuse/langfuse_chart"
   compartment_id              = var.cluster_compartment_id

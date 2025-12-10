@@ -1,3 +1,5 @@
+# deplys the OCI Gen AI Gateway project that provides an OpenAI compatible API endpoint for OCI Gen AI service
+# needed to use evaluation features of LangFuse.
 module "oci_genai_gateway" {
   source         = "./modules/apps/oci_genai_gateway"
   compartment_id = var.cluster_compartment_id
@@ -15,4 +17,8 @@ module "oci_genai_gateway" {
     oci_containerengine_node_pool.oci_oke_node_pool,
     null_resource.builder_setup
   ]
+}
+
+output oci_genai_gateway_default_api_key {
+  value = module.oci_genai_gateway.default_api_key
 }

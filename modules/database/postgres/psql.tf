@@ -13,6 +13,7 @@ resource "random_string" "postgres_password" {
   min_upper   = 2
   min_special = 2
   min_numeric = 4
+  override_special = "_"
 }
 
 # output "psql_config" {

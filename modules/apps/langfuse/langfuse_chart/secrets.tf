@@ -84,7 +84,7 @@ resource "null_resource" "create_langfuse_secrets" {
       s3_access_key       = var.s3_client_id
       s3_secret_key       = var.s3_client_secret
       postgres_password   = var.psql_password
-      database_url        = "postgresql://langfuse:${var.psql_password}@${var.psql_endpoint.fqdn}:${var.psql_endpoint.port}/postgres?sslmode=verify-full&sslrootcert=/secrets/db-keystore/CaCertificate-langfuse.pub"
+      database_url        = "postgresql://langfuse:${urlencode(var.psql_password)}@${var.psql_endpoint.fqdn}:${var.psql_endpoint.port}/postgres?sslmode=verify-full&sslrootcert=/secrets/db-keystore/CaCertificate-langfuse.pub"
 })}
     EOF
 ]
