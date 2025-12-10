@@ -18,7 +18,7 @@ locals {
   object_storage_bucket = "langfuse-${local.deploy_id}-traces"
 }
 
-resource "oci_objectstorage_bucket" "bucket" {
+resource "oci_objectstorage_bucket" "langfuse_bucket" {
   #Required
   compartment_id = var.cluster_compartment_id
   name           = local.object_storage_bucket
@@ -74,39 +74,38 @@ module "langfuse_load_balancer_tls" {
   ]
 }
 
-# module "langfuse_chart" {
-#   source         = "./modules/apps/langfuse/langfuse_chart"
-#   compartment_id = var.cluster_compartment_id
-#   tenancy_ocid   = var.tenancy_ocid
-#   region         = var.region
-#   oci_profile    = var.oci_profile
-#   cluster_id     = oci_containerengine_cluster.oci_oke_cluster.id
-#   builder_details = module.builder.details
-#   psql_host             = module.langfuse_postgres.details.endpoint
-#   psql_password         = module.langfuse_postgres.details.password
-#   psql_cert             = module.langfuse_postgres.details.cert
-#   s3_client_id          = var.langfuse_s3_access_key
-#   s3_client_secret      = var.langfuse_s3_secret_key
-#   idcs_client_id        = module.langfuse_idcs_app.details.client_id
-#   idcs_client_secret    = module.langfuse_idcs_app.details.client_secret
-#   idcs_app_id           = module.langfuse_idcs_app.details.app_id
-#   redis_hostname        = module.langfuse_redis.details.hostname
-#   redis_password = module.langfuse_redis.details.password
-#   devops_project_id     = module.devops_setup.project_id
-#   devops_environment_id = module.devops_target_cluster_env.environment_id
-#   object_storage_bucket = local.object_storage_bucket
-#   deploy_id             = local.deploy_id
-#   langfuse_helm_chart_version = var.langfuse_helm_chart_version
-#   langfuse_hostname = local.langfuse_hostname
+module "langfuse_chart" {
+  source                      = "./modules/apps/langfuse/langfuse_chart"
+  compartment_id              = var.cluster_compartment_id
+  tenancy_ocid                = var.tenancy_ocid
+  region                      = var.region
+  oci_profile                 = var.oci_profile
+  cluster_id                  = oci_containerengine_cluster.oci_oke_cluster.id
+  builder_details             = module.builder_instance.details
+  psql_endpoint               = module.langfuse_postgres.details.endpoint
+  psql_password               = module.langfuse_postgres.details.password
+  psql_cert                   = module.langfuse_postgres.details.cert
+  s3_client_id                = var.langfuse_s3_access_key
+  s3_client_secret            = var.langfuse_s3_secret_key
+  idcs_app_id                 = module.langfuse_idcs_app.details.app_id
+  idcs_client_id              = module.langfuse_idcs_app.details.client_id
+  idcs_client_secret          = module.langfuse_idcs_app.details.client_secret
+  idcs_domain_url             = module.langfuse_idcs_app.details.domain_url
+  redis_hostname              = module.langfuse_redis.details.hostname
+  redis_password              = module.langfuse_redis.details.password
+  devops_project_id           = module.devops_setup.project_id
+  devops_environment_id       = module.devops_target_cluster_env.environment_id
+  object_storage_bucket       = local.object_storage_bucket
+  deploy_id                   = local.deploy_id
+  langfuse_helm_chart_version = var.langfuse_helm_chart_version
+  langfuse_hostname           = module.langfuse_load_balancer_no_tls.ip_address
 
 
-#   depends_on = [
-#     module.langfuse_idcs_app
-#     # oci_containerengine_node_pool.oci_oke_node_pool,
-#     # # local_file.kubeconfig,
-#     # # oci_bastion_session.installer_session
-#     # null_resource.builder_setup,
-#     # data.oci_load_balancer_load_balancers.load_balancers,
-#     # null_resource.create_langfuse_lb_tls
-#   ]
-# }
+  depends_on = [
+    module.langfuse_idcs_app,
+    module.langfuse_load_balancer_tls,
+    module.langfuse_postgres,
+    module.langfuse_redis,
+    oci_objectstorage_bucket.langfuse_bucket
+  ]
+}

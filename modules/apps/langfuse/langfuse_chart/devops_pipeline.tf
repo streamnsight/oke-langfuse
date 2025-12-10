@@ -232,7 +232,8 @@ resource "oci_devops_deployment" "langfuse_deployment" {
   depends_on = [
     oci_devops_deploy_stage.langfuse,
     module.push_langfuse_chart,
-    module.langfuse_chart_devops_artifact
+    module.langfuse_chart_devops_artifact,
+    null_resource.build_image
   ]
   lifecycle {
     ignore_changes = [defined_tags]

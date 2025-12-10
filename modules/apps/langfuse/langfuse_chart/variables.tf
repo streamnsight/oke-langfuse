@@ -10,8 +10,8 @@ variable "region" {
   type = string
 }
 
-variable "psql_host" {
-  type = string
+variable "psql_endpoint" {
+  type = map(any)
 }
 
 variable "psql_cert" {
@@ -34,6 +34,10 @@ variable "s3_client_secret" {
   sensitive = true
 }
 
+variable "idcs_app_id" {
+  type = string
+}
+
 variable "idcs_client_id" {
   type      = string
   sensitive = true
@@ -44,11 +48,16 @@ variable "idcs_client_secret" {
   sensitive = true
 }
 
-variable "idcs_app_id" {
+variable "idcs_domain_url" {
   type = string
 }
 
 variable "redis_hostname" {
+  type = string
+}
+
+
+variable "redis_password" {
   type = string
 }
 
@@ -104,9 +113,5 @@ variable "builder_details" {
 }
 
 variable "object_storage_bucket" {
-  type = string
-}
-
-variable "redis_password" {
   type = string
 }

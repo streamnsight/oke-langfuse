@@ -77,6 +77,11 @@ rm -rf node_modules
 
 export VERSION=${LANGFUSE_VERSION:-latest}
 
+## push image to repo
+## Get registry repo token and docker login again to the repo as token may have expried by then
+oci --auth instance_principal raw-request --http-method GET --target-uri https://${REGION}.ocir.io/20180419/docker/token | jq -r .data.token | podman login ${REGION}.ocir.io -u BEARER_TOKEN --password-stdin
+
+
 ## Check if repo exists or create it
 podman manifest inspect ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse \
 || oci --auth instance_principal artifacts container repository create \
@@ -87,6 +92,11 @@ podman manifest inspect ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/lang
 
 # build and publish the LangFuse container image
 podman build --ulimit=nofile=65535:65535 --platform=${PLATFORM} --shm-size=10G -t ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse:${VERSION} --build-arg NEXT_PUBLIC_BASE_PATH=/langfuse -f ./web/Dockerfile .
+
+## push image to repo
+## Get registry repo token and docker login again to the repo as token may have expried by then
+oci --auth instance_principal raw-request --http-method GET --target-uri https://${REGION}.ocir.io/20180419/docker/token | jq -r .data.token | podman login ${REGION}.ocir.io -u BEARER_TOKEN --password-stdin
+
 podman push ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse:${VERSION}
 
 # get image by SHA

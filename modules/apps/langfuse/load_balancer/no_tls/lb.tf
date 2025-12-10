@@ -37,6 +37,20 @@ resource "null_resource" "deploy_load_balancer_no_tls" {
         # deploy our ingress
         kubectl get namespace langfuse || kubectl create namespace langfuse
         kubectl apply -f langfuse_no_tls.Ingress.yaml --namespace langfuse
+
+        # wait for ingress to be ready and return an IP
+        INGRESS_NAME=langfuse-ingress
+        NAMESPACE=langfuse
+
+        while true; do
+          IP=$(kubectl get ingress $INGRESS_NAME -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          if [ -n "$IP" ]; then
+            echo "Ingress IP: $IP"
+            break
+          fi
+          echo "Waiting for ingress IP..."
+          sleep 5
+        done
     EOF
     ]
   }

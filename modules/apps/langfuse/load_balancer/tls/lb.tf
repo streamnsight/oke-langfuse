@@ -32,6 +32,7 @@ resource "null_resource" "create_langfuse_lb_tls" {
     EOF
     ]
   }
+
 }
 
 

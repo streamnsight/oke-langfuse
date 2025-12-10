@@ -1,58 +1,53 @@
-# #!/bin/bash
+#!/bin/bash
+set -e -o pipefail
 
-# set -x 
+# langfuse password hashing
+kubectl get secret langfuse -n langfuse \
+&& kubectl delete secret langfuse -n langfuse
 
-# cd ${MODULE_PATH}
-# ls -lah
+kubectl create secret generic langfuse \
+    --namespace langfuse \
+    --from-literal="encryption-key"="${encryption_key}" \
+    --from-literal="salt"="${salt}" \
+    --from-literal="nextauth-secret"="${nextauth_secret}" \
+    --from-literal="clickhouse-password"="${clickhouse_password}" \
+    --from-literal="redis-password"="${redis_password}"
 
-# ## Get cluster kubeconfig
-# # mkdir -k ~/.kube
-# # oci ce cluster create-kubeconfig --cluster-id ${CLUSTER_ID} --file $HOME/.kube/config --region ${REGION} --token-version 2.0.0  --kube-endpoint PRIVATE_ENDPOINT --auth instance_principal
+# langfuse IDCS secrets
+kubectl get secret langfuse-idcs -n langfuse \
+&& kubectl delete secret langfuse-idcs -n langfuse
 
-# cat ../../../kubeconfig
-# export KUBECONFIG=../../../kubeconfig
+kubectl create secret generic langfuse-idcs \
+    --namespace langfuse \
+    --from-literal="client-id"="${client_id}" \
+    --from-literal="client-secret"="${client_secret}" \
+    --from-literal="issuer"="${issuer}" \
+    --from-literal="name"="Oracle IDCS"
 
-# ## Setup proxy connection
-# ssh -o StrictHostKeyChecking=accept-new -i bastionKey.pem -N -D 127.0.0.1:1088 -p 22 ${BASTION_SESSION_ID}@host.bastion.${REGION}.oci.oraclecloud.com &
-# PROXY_PID=$!
+# Langfuse Object Storage access keys
+kubectl get secret langfuse-s3 -n langfuse \
+&& kubectl delete secret langfuse-s3 -n langfuse
 
-# export HTTP_PROXY="socks5://127.0.0.1:1088"
-# export HTTPS_PROXY="socks5://127.0.0.1:1088"
+kubectl create secret generic langfuse-s3 \
+    --namespace langfuse \
+    --from-literal="s3-access-key"="${s3_access_key}" \
+    --from-literal="s3-secret-key"="${s3_secret_key}"
 
-# kubectl get pods -A
+# langfuse Postgres cert
+kubectl get secret langfuse-postgres-cert -n langfuse \
+&& kubectl delete secret langfuse-postgres-cert -n langfuse
 
-# ## IDCS Secrets
-# kubectl create secret generic langfuse-idcs \
-#     -n ${LANGFUSE_K8S_NAMESPACE} \
-#     --from-literal="client-id"="${IDCS_CLIENT_ID}" \
-#     --from-literal="client-secret"="${IDCS_CLIENT_SECRET}" \
-#     --from-literal="issuer"="httpshttps://idcs-${IDCS_APP_ID}.identity.oraclecloud.com" \
-#     --from-literal="name"="Oracle IDCS"
+kubectl create secret generic langfuse-postgres-cert \
+    --namespace langfuse \
+    --from-file=CaCertificate-langfuse.pub
 
-# ## Langfuse auth
-# kubectl create secret generic langfuse --namespace ${LANGFUSE_K8S_NAMESPACE} \
-#   --from-literal="encryption-key"="${PASSWORD_ENCRYPTION_KEY}" \
-#   --from-literal="salt"="${PASSWORD_ENCRYPTION_SALT}" \
-#   --from-literal="nextauth-secret"="${NEXTAUTH_SECRET}" \
-#   --from-literal="clickhouse-password"="${CLICKHOUSE_PASSWORD}"
+rm -f CaCertificate-langfuse.pub
 
-# ## Object Storage access
-# kubectl create secret generic langfuse-s3 --namespace ${LANGFUSE_K8S_NAMESPACE} \
-#   --from-literal="s3-access-key"="${OBJECTSTORAGE_S3_ACCESS_KEY}" \
-#   --from-literal="s3-secret-key"="${OBJECTSTORAGE_S3_SECRET_KEY}"
+# langfuse postgres password and connection string
+kubectl get secret langfuse-postgres -n langfuse \
+&& kubectl delete secret langfuse-postgres -n langfuse
 
-# ## Postgres DB TLS Cert
-# echo ${PSQL_CERTIFICATE} > CaCertificate-langfuse.pub
-
-# kubectl create secret generic langfuse-postgres-cert \
-#     -n ${LANGFUSE_K8S_NAMESPACE} --from-file=CaCertificate-langfuse.pub
-
-# rm -f CaCertificate-langfuse.pub
-
-# ## Postgres DB Connection
-# kubectl create secret generic langfuse-postgres \
-#     -n ${LANGFUSE_K8S_NAMESPACE} \
-#     --from-literal="postgres-password"="${PSQL_PASSWORD}" \
-#     --from-literal="database-url"="postgresql://langfuse:${PSQL_PASSWORD}@${PSQL_HOST}:5432/postgres?sslmode=verify-full&sslrootcert=/secrets/db-keystore/CaCertificate-langfuse.pub"
-    
-# kill $PROXY_PID
+kubectl create secret generic langfuse-postgres \
+    --namespace langfuse \
+    --from-literal="postgres-password"="${postgres_password}" \
+    --from-literal="database-url"="${database_url}"
