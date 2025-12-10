@@ -414,9 +414,9 @@ variable "langfuse_s3_secret_key" {
   sensitive = true
 }
 
-variable "idcs_domain_url" {
-  type = string
-}
+# variable "idcs_domain_url" {
+#   type = string
+# }
 
 # variable "idcs_client_id" {
 #   type      = string
@@ -428,9 +428,9 @@ variable "idcs_domain_url" {
 #   sensitive = true
 # }
 
-variable "idcs_app_id" {
-  type = string
-}
+# variable "idcs_app_id" {
+#   type = string
+# }
 
 variable "oci_genai_gateway_tag" {
   type    = string
@@ -450,4 +450,13 @@ variable "redis_node_count" {
 variable "redis_node_memory" {
   type    = string
   default = "16"
+}
+
+variable "langfuse_helm_chart_version" {
+  type    = string
+  default = "1.5.4"
+}
+
+variable "identity_domain_id" {
+  type = string
 }

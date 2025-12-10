@@ -40,9 +40,9 @@ data "oci_identity_availability_domains" "ADs" {
   compartment_id = var.tenancy_ocid
 }
 
-output "ADs" {
-  value = data.oci_identity_availability_domains.ADs
-}
+# output "ADs" {
+#   value = data.oci_identity_availability_domains.ADs
+# }
 
 # Deploy ID to uniquely identify this cluster and associated resources.
 resource "random_string" "deploy_id" {

@@ -1,34 +1,61 @@
-# resource "local_file" "sock5_privatekey" {
-#   content         = var.bastion_session_private_key_content
-#   filename        = "${path.module}/bastionKey.pem"
-#   file_permission = "0400"
-# }
 
-# resource "null_resource" "install" {
+# build the OCI GenAI Gateway image
+resource "null_resource" "build_image" {
+  triggers = {
+    instance_id = var.builder_details.instance_id
+    script_sha  = sha256(file("${path.module}/scripts/build_oci_genai_gateway_image.sh"))
+  }
+  connection {
+    type        = "ssh"
+    user        = "opc"
+    private_key = var.builder_details.private_key
+    host        = var.builder_details.ip_address
+  }
 
-#   triggers = {
-#     bastion_session_id = var.bastion_session_id
-#   }
+  provisioner "file" {
+    source      = "${path.module}/scripts/build_oci_genai_gateway_image.sh"
+    destination = "/home/opc/build_oci_genai_gateway_image.sh"
+  }
 
-#   # build and deploy OCI GenAI Gateway
-#   provisioner "local-exec" {
-#     command = "${path.module}/scripts/deploy_oci_genai_gateway.sh"
-#     # Optional arguments:
-#     when       = create
-#     on_failure = fail # or "continue"
-#     environment = {
-#       REGION                 = var.region
-#       CLUSTER_ID             = var.cluster_id
-#       AUTH_TYPE              = "INSTANCE_PRINCIPAL"
-#       MODULE_PATH            = "${path.module}"
-#       BASTION_SESSION_ID     = var.bastion_session_id
-#       COMPARTMENT_ID         = var.compartment_id
-#       TENANCY_NAMESPACE      = data.oci_objectstorage_namespace.ns.namespace
-#       OCI_GENAI_GATEWAY_TAG  = var.oci_genai_gateway_tag
-#       LANGFUSE_K8S_NAMESPACE = "langfuse"
-#     }
-#   }
-#   depends_on = [
-#     local_file.sock5_privatekey
-#   ]
-# }
+  provisioner "remote-exec" {
+    inline = [
+      "chmod +x /home/opc/build_oci_genai_gateway_image.sh",
+      "/home/opc/build_oci_genai_gateway_image.sh",
+    ]
+  }
+}
+
+
+resource "random_string" "oci_genai_gateway_default_api_key" {
+  length      = 20
+  special     = false
+  min_lower   = 2
+  min_upper   = 2
+  min_numeric = 4
+}
+
+# create the kubernetes secret
+resource "null_resource" "create_oci_genai_gateway_secrets" {
+  triggers = {
+    instance_id      = var.builder_details.instance_id
+    script           = file("${path.module}/scripts/create_oci_genai_gateway_secrets.sh")
+    default_api_keys = random_string.oci_genai_gateway_default_api_key.result
+  }
+  connection {
+    type        = "ssh"
+    user        = "opc"
+    private_key = var.builder_details.private_key
+    host        = var.builder_details.ip_address
+  }
+
+  provisioner "remote-exec" {
+    # wrap the inline script into a template script file so the file content can be used as a trigger 
+    # and this runs each time the script changes
+    inline = [<<EOF
+            ${templatefile("${path.module}/scripts/create_oci_genai_gateway_secrets.sh", {
+      default_api_keys = random_string.oci_genai_gateway_default_api_key.result
+})}
+        EOF
+]
+}
+}

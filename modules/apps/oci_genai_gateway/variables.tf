@@ -18,14 +18,6 @@ variable "oci_genai_gateway_tag" {
   type = string
 }
 
-# variable "bastion_session_id" {
-#   type = string
-# }
-
-# variable "bastion_session_private_key_content" {
-#   type = string
-# }
-
 variable "cluster_id" {
   type = string
 }
@@ -45,4 +37,8 @@ variable "defined_tags" {
 variable "force_deployment" {
   type    = bool
   default = false
+}
+
+variable "builder_details" {
+  type = map(any)
 }

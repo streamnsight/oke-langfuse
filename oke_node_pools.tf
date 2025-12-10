@@ -23,9 +23,9 @@ module "recommended_image" {
 }
 
 # to debug
-output "recommended_images" {
-  value = module.recommended_image
-}
+# output "recommended_images" {
+#   value = module.recommended_image
+# }
 
 # Checks that requested shapes are available in the requested AD. Some shapes may be 
 # available in one AD but not all, and would cause the node-pool to fail when requested 
@@ -145,6 +145,7 @@ resource "oci_containerengine_node_pool" "oci_oke_node_pool" {
   }
 
   node_metadata = {
+    # TODO Fix cloud init script to setup private repo lookup
     user_data = "IyEvYmluL2Jhc2gKb2tlX2luaXRfc2NyaXB0PSQoY3VybCAtLWZhaWwgLW0gNSAtSCAiQXV0aG9yaXphdGlvbjogQmVhcmVyIE9yYWNsZSIgLUwwIGh0dHA6Ly8xNjkuMjU0LjE2OS4yNTQvb3BjL3YyL2luc3RhbmNlL21ldGFkYXRhL29rZV9pbml0X3NjcmlwdCkKaWYgWyAkPyAtbmUgMCBdOyB0aGVuCiAgb2tlX2luaXRfc2NyaXB0PSQoY3VybCAtLWZhaWwgLW0gNSAtZyAtSCAiQXV0aG9yaXphdGlvbjogQmVhcmVyIE9yYWNsZSIgLUwwIGh0dHA6Ly9bZmQwMDpjMTo6YTlmZTphOWZlXS9vcGMvdjIvaW5zdGFuY2UvbWV0YWRhdGEvb2tlX2luaXRfc2NyaXB0KQpmaQplY2hvICRva2VfaW5pdF9zY3JpcHQgfCBiYXNlNjQgLS1kZWNvZGUgPiAvdmFyL3J1bi9va2UtaW5pdC5zaAp0b3VjaCAvdmFyL3J1bi8ub2tlLWRlZmF1bHQtY2xvdWQtaW5pdAoKYmFzaCAvdmFyL3J1bi9va2UtaW5pdC5zaA=="
     # user_data = module.cloud_init_script.content
   }
@@ -161,7 +162,7 @@ resource "oci_containerengine_node_pool" "oci_oke_node_pool" {
 }
 
 
-output "cloudinit" {
-  value = module.cloud_init_script.content
-}
+# output "cloudinit" {
+#   value = module.cloud_init_script.content
+# }
 

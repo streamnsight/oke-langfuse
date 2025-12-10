@@ -10,9 +10,9 @@ module "oci_genai_gateway" {
   oci_genai_gateway_tag = var.oci_genai_gateway_tag
   devops_project_id     = module.devops_setup.project_id
   devops_environment_id = module.devops_target_cluster_env.environment_id
+  builder_details       = module.builder_instance.details
   depends_on = [
     oci_containerengine_node_pool.oci_oke_node_pool,
-    # oci_bastion_session.installer_session
-    null_resource.builder_run
+    null_resource.builder_setup
   ]
 }
