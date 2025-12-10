@@ -27,7 +27,7 @@ resource "null_resource" "build_image" {
 
 
 resource "random_string" "oci_genai_gateway_default_api_key" {
-  length      = 20
+  length      = 56
   special     = false
   min_lower   = 2
   min_upper   = 2

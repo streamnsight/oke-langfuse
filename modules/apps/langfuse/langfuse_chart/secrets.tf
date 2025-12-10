@@ -1,10 +1,6 @@
 
-resource "random_string" "langfuse_password_encryption_key" {
-  length      = 64
-  special     = false
-  min_lower   = 2
-  min_upper   = 2
-  min_numeric = 4
+resource "random_bytes" "langfuse_password_encryption_key" {
+  length      = 32
 }
 
 resource "random_string" "langfuse_password_encryption_salt" {
@@ -46,7 +42,7 @@ resource "null_resource" "create_langfuse_secrets" {
   triggers = {
     instance_id         = var.builder_details.instance_id
     script              = file("${path.module}/scripts/create_langfuse_secrets.sh")
-    encryption_key      = random_string.langfuse_password_encryption_key.result
+    encryption_key      = random_bytes.langfuse_password_encryption_key.hex
     salt                = random_string.langfuse_password_encryption_salt.result
     nextauth_secret     = random_string.langfuse_next_auth_secret.result
     clickhouse_password = random_string.langfuse_clickhouse_password.result
@@ -73,7 +69,7 @@ resource "null_resource" "create_langfuse_secrets" {
     inline = [
       <<EOF
             ${templatefile("${path.module}/scripts/create_langfuse_secrets.sh", {
-      encryption_key      = random_string.langfuse_password_encryption_key.result
+      encryption_key      = random_bytes.langfuse_password_encryption_key.hex
       salt                = random_string.langfuse_password_encryption_salt.result
       nextauth_secret     = random_string.langfuse_next_auth_secret.result
       clickhouse_password = random_string.langfuse_clickhouse_password.result
