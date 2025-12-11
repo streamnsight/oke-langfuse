@@ -4,6 +4,7 @@ module "oci_genai_gateway" {
   source         = "./modules/apps/oci_genai_gateway"
   compartment_id = var.cluster_compartment_id
   tenancy_ocid   = var.tenancy_ocid
+  tenancy_namespace = data.oci_objectstorage_namespace.ns.namespace
   deploy_id      = local.deploy_id
   region         = var.region
   cluster_id     = oci_containerengine_cluster.oci_oke_cluster.id
@@ -21,4 +22,8 @@ module "oci_genai_gateway" {
 
 output "oci_genai_gateway_default_api_key" {
   value = module.oci_genai_gateway.default_api_key
+}
+
+output "oci_genai_gateway_endpoint_url" {
+  value = "http://oci-genai-gateway:8088/v1"
 }

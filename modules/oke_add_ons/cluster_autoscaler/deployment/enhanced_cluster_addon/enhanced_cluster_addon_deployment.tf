@@ -1,5 +1,5 @@
 locals {
-  configurations = concat([{
+  configurations = {for item in concat([{
     key   = "maxNodeProvisionTime"
     value = "${var.cluster_autoscaler_max_node_provision_time}m"
     }, {
@@ -22,24 +22,16 @@ locals {
     value = "true"
     }, {
     key   = "balancingIgnoreLabel"
-    value = "displayName"
-    }, {
-    key   = "balancingIgnoreLabel"
-    value = "hostname"
-    }, {
-    key   = "balancingIgnoreLabel"
-    value = "internal_addr"
-    }, {
-    key   = "balancingIgnoreLabel"
-    value = "oci.oraclecloud.com/fault-domain"
-    }, {
+    value = "displayName,hostname,internal_addr,oci.oraclecloud.com/fault-domain"
+    },
+    {
     key   = "v"
     value = var.cluster_autoscaler_log_level_verbosity
     }, {
     key   = "nodes"
     value = join(",", [for np in var.autoscaler_pool_settings : "${np.min_nodes}:${np.max_nodes}:${np.id}" if np.autoscale == true])
     }
-  ])
+  ]): item.key => item.value}
 }
 
 resource "oci_containerengine_addon" "cluster_autoscaler_addon" {
@@ -53,8 +45,8 @@ resource "oci_containerengine_addon" "cluster_autoscaler_addon" {
   dynamic "configurations" {
     for_each = local.configurations
     content {
-      key   = configurations.value.key
-      value = configurations.value.value
+      key   = configurations.key
+      value = configurations.value
     }
   }
   version = null # null == auto update

@@ -53,7 +53,7 @@ resource "null_resource" "builder_setup" {
 }
 
 
-output "builder" {
-  value     = module.builder_instance.details
-  sensitive = true
-}
+# output "builder" {
+#   value     = module.builder_instance.details
+#   sensitive = true
+# }

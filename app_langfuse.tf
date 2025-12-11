@@ -127,3 +127,7 @@ module "langfuse_chart" {
     oci_objectstorage_bucket.langfuse_bucket
   ]
 }
+
+output "langfuse_url" {
+  value = "https://${module.langfuse_load_balancer_no_tls.ip_address}/langfuse"
+}

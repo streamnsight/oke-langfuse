@@ -1312,8 +1312,18 @@ outputGroups:
 
 
 outputs:
-  # access_command:
-  #   type: copyableString
-  #   title: Access Command
-  #   displayText: Run this command to access your cluster locally.
-  #   visible: true
+  langfuse_url:
+    type: copyableString
+    title: Open AI Compatibility Gateway Endpoint URL
+    displayText: Use this URL with profile 'openai' to create an LLM connection to OCI models in LangFuse.
+    visible: true
+  oci_genai_gateway_endpoint_url:
+    type: copyableString
+    title: Open AI Compatibility Gateway Endpoint URL
+    displayText: Use this URL with profile 'openai' to create an LLM connection to OCI models in LangFuse.
+    visible: true
+  oci_genai_gateway_default_api_key:
+    type: copyableString
+    title: Open AI Compatibility Gateway Default API Key
+    displayText: Use this API Key with profile 'openai' to create an LLM connection to OCI models in LangFuse.
+    visible: true
