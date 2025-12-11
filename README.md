@@ -2,7 +2,7 @@
 
 # oke-langfuse
 
-Deploy a Kubernetes cluster on Oracle Cloud Infrastructure with multiple node pools and add-ons like Apache Flink.
+Deploy a Kubernetes cluster on Oracle Cloud Infrastructure with oen or multiple node pools and add-ons, and the Langfuse application for LLM call tracing and evaluation.
 
 [![Deploy to Oracle Cloud][magic_button]][magic_oke_langfuse_stack]
 
@@ -19,7 +19,7 @@ The OKE cluster template features the following:
 - Option to install a monitoring stack based on Prometheus and Grafana
 
 ## Getting started with Langfuse on OKE
-The Operator is deployed in the cluster, and offers two modes of operation:
+
 
 ## Use the Terraform template
 
