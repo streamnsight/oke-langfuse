@@ -57,6 +57,7 @@ module "langfuse_load_balancer_no_tls" {
   source          = "./modules/apps/langfuse/load_balancer/no_tls"
   compartment_id  = var.cluster_compartment_id
   builder_details = module.builder_instance.details
+  cluster_id = oci_containerengine_cluster.oci_oke_cluster.id
 
   depends_on = [
     null_resource.builder_setup,
