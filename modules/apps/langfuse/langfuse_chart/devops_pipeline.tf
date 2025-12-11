@@ -57,7 +57,7 @@ resource "oci_generic_artifacts_content_artifact_by_path" "helm_chart_values_art
   provisioner "local-exec" {
     when    = destroy
     command = <<-CMD
-      oci artifacts generic artifact delete --artifact-id ${self.id}
+      oci artifacts generic artifact delete --artifact-id ${self.id} --force
     CMD
   }
 
@@ -112,7 +112,7 @@ resource "oci_devops_deploy_pipeline" "langfuse" {
 
   deploy_pipeline_parameters {
     dynamic "items" {
-      for_each = nonsensitive([for i in [
+      for_each = [for i in [
         {
           name          = "REGION"
           description   = "region"
@@ -148,7 +148,7 @@ resource "oci_devops_deploy_pipeline" "langfuse" {
           description   = "Langfuse trace storage bucket"
           default_value = var.object_storage_bucket
         }
-      ] : i if coalesce(i.default_value, "x") != "x"])
+      ] : i if coalesce(i.default_value, "x") != "x"]
       content {
         default_value = items.value.default_value
         description   = items.value.description
