@@ -8,4 +8,5 @@ zip -rxvf oke-langfuse.zip ./* \
     -x *.zip \
     -x *.locl.hcl \
     -x *.tfstate \
-    -x *.tfstate.backup
+    -x *.tfstate.backup \
+    -x **/CaCertificate-langfuse.pub

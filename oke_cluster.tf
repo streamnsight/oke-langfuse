@@ -68,8 +68,3 @@ data "oci_containerengine_cluster_kube_config" "oke" {
   depends_on = [oci_containerengine_cluster.oci_oke_cluster]
   cluster_id = oci_containerengine_cluster.oci_oke_cluster.id
 }
-
-resource "local_file" "kubeconfig" {
-  filename = "kubeconfig"
-  content  = data.oci_containerengine_cluster_kube_config.oke.content
-}
