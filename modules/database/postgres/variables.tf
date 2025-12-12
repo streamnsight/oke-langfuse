@@ -25,3 +25,7 @@ variable "postgresql_shape" {
 variable "subnet_id" {
   type = string
 }
+
+variable "availability_domains" {
+  type = list
+}

@@ -73,7 +73,8 @@ resource "oci_psql_db_system" "langfuse_postgres" {
   storage_details {
     #availability_domain = <<Optional value not found in discovery>>
     iops                  = "75000"
-    is_regionally_durable = "true"
+    is_regionally_durable = "${length(var.availability_domains) > 1}"
+    availability_domain = length(var.availability_domains) > 1 ? null : var.availability_domains[0]
     system_type           = "OCI_OPTIMIZED_STORAGE"
   }
   system_type = "OCI_OPTIMIZED_STORAGE"

@@ -5,6 +5,7 @@ module "langfuse_postgres" {
   compartment_id   = var.cluster_compartment_id
   subnet_id        = var.use_existing_vcn ? local.node_pools[0]["subnet"] : oci_core_subnet.oke_nodepool_subnet[0].id
   postgresql_shape = var.postgresql_shape
+  availability_domains = local.ADs
 }
 
 # Redis / OCI Cache
