@@ -44,9 +44,24 @@ IMPORTANT!: Once the stack is deployed, you need to assign users to the IDCS app
 
 ## Setting up the IDCS application
 
-An IDCS application is 
+An IDCS / SSO application is required for authentication / authorization.
 
+To create the application if you are not authorized through the stack, provide this information to your ID Domain admin:
 
+- Application Type: Confidential Application
+- Application URL: https://*IP-generated-from-the-stack*/langfuse (find the IP in the OUTPUT area of the Resource Manager Stack)
+- Select `Enforce grants as authorization` to enforce auth for designated users only. 
+- Submit
+- Once the app is created, go to OAuth Configuration -> Edit OAuth Configuration
+- Click Configure this application as a client now
+- Select Authorization Code as the Allowed Grant Type
+- Validate
+
+Once the stack is deployed
+
+- Go back to the application and enter the Redirect URL to be https://LANGFUSE_IP/langfuse/api/auth/callback/custom 
+- Activate the application
+- Go to Users or Groups and add the appropriate users or groups to be authorized to use Langfuse.
 
 ## Use the Terraform template
 
