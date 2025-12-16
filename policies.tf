@@ -60,7 +60,7 @@ module "network_source_group" {
 locals {
   cluster_node_permissions = [
     "read repos",
-    "use generative-ai-family"
+    "manage generative-ai-family"
   ]
 }
 
