@@ -1,5 +1,5 @@
 locals {
-  configurations = {for item in concat([{
+  configurations = { for item in concat([{
     key   = "maxNodeProvisionTime"
     value = "${var.cluster_autoscaler_max_node_provision_time}m"
     }, {
@@ -25,13 +25,13 @@ locals {
     value = "displayName,hostname,internal_addr,oci.oraclecloud.com/fault-domain"
     },
     {
-    key   = "v"
-    value = var.cluster_autoscaler_log_level_verbosity
-    }, {
-    key   = "nodes"
-    value = join(",", [for np in var.autoscaler_pool_settings : "${np.min_nodes}:${np.max_nodes}:${np.id}" if np.autoscale == true])
+      key   = "v"
+      value = var.cluster_autoscaler_log_level_verbosity
+      }, {
+      key   = "nodes"
+      value = join(",", [for np in var.autoscaler_pool_settings : "${np.min_nodes}:${np.max_nodes}:${np.id}" if np.autoscale == true])
     }
-  ]): item.key => item.value}
+  ]) : item.key => item.value }
 }
 
 resource "oci_containerengine_addon" "cluster_autoscaler_addon" {

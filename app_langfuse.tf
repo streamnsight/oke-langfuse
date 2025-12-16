@@ -1,10 +1,10 @@
 ## Install Langfuse dependencies
 # Postgres
 module "langfuse_postgres" {
-  source           = "./modules/database/postgres"
-  compartment_id   = var.cluster_compartment_id
-  subnet_id        = var.use_existing_vcn ? local.node_pools[0]["subnet"] : oci_core_subnet.oke_nodepool_subnet[0].id
-  postgresql_shape = var.postgresql_shape
+  source               = "./modules/database/postgres"
+  compartment_id       = var.cluster_compartment_id
+  subnet_id            = var.use_existing_vcn ? local.node_pools[0]["subnet"] : oci_core_subnet.oke_nodepool_subnet[0].id
+  postgresql_shape     = var.postgresql_shape
   availability_domains = local.ADs
 }
 
@@ -58,7 +58,7 @@ module "langfuse_load_balancer_no_tls" {
   source          = "./modules/apps/langfuse/load_balancer/no_tls"
   compartment_id  = var.cluster_compartment_id
   builder_details = module.builder_instance.details
-  cluster_id = oci_containerengine_cluster.oci_oke_cluster.id
+  cluster_id      = oci_containerengine_cluster.oci_oke_cluster.id
 
   depends_on = [
     null_resource.builder_setup,
@@ -82,7 +82,7 @@ module "langfuse_load_balancer_tls" {
 
 # Create the IDCS app with the proper redirect URL
 module "langfuse_idcs_app" {
-  count = var.create_idcs_app ? 1 : 0
+  count              = var.create_idcs_app ? 1 : 0
   source             = "./modules/iam/idcs_app"
   identity_domain_id = var.identity_domain_id
   display_name       = local.cluster_name_sanitized
@@ -91,10 +91,10 @@ module "langfuse_idcs_app" {
 
 
 locals {
-    idcs_app_id                 = var.create_idcs_app ? module.langfuse_idcs_app[0].details.app_id : var.idcs_app_id
-  idcs_client_id              = var.create_idcs_app ? module.langfuse_idcs_app[0].details.client_id : var.idcs_client_id
-  idcs_client_secret          = var.create_idcs_app ? module.langfuse_idcs_app[0].details.client_secret : var.idcs_client_secret
-  idcs_domain_url             = var.create_idcs_app ? module.langfuse_idcs_app[0].details.domain_url : var.idcs_domain_url
+  idcs_app_id        = var.create_idcs_app ? module.langfuse_idcs_app[0].details.app_id : var.idcs_app_id
+  idcs_client_id     = var.create_idcs_app ? module.langfuse_idcs_app[0].details.client_id : var.idcs_client_id
+  idcs_client_secret = var.create_idcs_app ? module.langfuse_idcs_app[0].details.client_secret : var.idcs_client_secret
+  idcs_domain_url    = var.create_idcs_app ? module.langfuse_idcs_app[0].details.domain_url : var.idcs_domain_url
 
 }
 
@@ -135,6 +135,34 @@ module "langfuse_chart" {
     module.langfuse_postgres,
     module.langfuse_redis,
     oci_objectstorage_bucket.langfuse_bucket
+  ]
+}
+
+
+resource "null_resource" "terminate_builder_instance" {
+  triggers = {
+    instance_id = module.builder_instance.details.instance_id
+  }
+  connection {
+    type        = "ssh"
+    user        = "opc"
+    private_key = module.builder_instance.details.private_key
+    host        = module.builder_instance.details.ip_address
+  }
+
+  provisioner "remote-exec" {
+    inline = [<<EOT
+      # terminate the builder instance
+      sleep 120
+      export INSTANCE_OCID=$(curl -s -H "Authorization: Bearer Oracle" http://169.254.169.254/opc/v2/instance/ | jq -r ".id")
+      oci compute instance terminate --auth instance_principal --instance-id $INSTANCE_OCID
+      EOT
+    ]
+  }
+
+  depends_on = [
+    module.langfuse_chart,
+    module.langfuse_load_balancer_tls,
   ]
 }
 

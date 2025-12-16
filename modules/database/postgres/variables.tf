@@ -27,5 +27,5 @@ variable "subnet_id" {
 }
 
 variable "availability_domains" {
-  type = list
+  type = list(any)
 }

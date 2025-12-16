@@ -11,6 +11,6 @@ variable "permissions" {
 }
 
 variable "use_nsg" {
-  type = bool
+  type    = bool
   default = true
 }

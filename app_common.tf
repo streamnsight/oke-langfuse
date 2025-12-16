@@ -19,7 +19,7 @@ module "builder_instance" {
   ]
 
   providers = {
-    oci = oci
+    oci             = oci
     oci.home_region = oci.home_region
   }
 }

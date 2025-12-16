@@ -36,7 +36,7 @@ locals {
 
 # Network Source for the cluster nodes
 module "network_source_group" {
-  count = var.use_network_source ? 1 : 0
+  count         = var.use_network_source ? 1 : 0
   source        = "./modules/iam/network_source"
   nsg_name      = local.nsg_name
   tenancy_ocid  = var.tenancy_ocid
@@ -68,8 +68,8 @@ module "nsg_based_policies" {
   source         = "./modules/iam/nsg_policies"
   nsg_name       = local.nsg_name
   compartment_id = var.cluster_compartment_id
-  permissions = local.cluster_node_permissions
-  use_nsg = var.use_network_source
+  permissions    = local.cluster_node_permissions
+  use_nsg        = var.use_network_source
   providers = {
     oci = oci.home_region
   }

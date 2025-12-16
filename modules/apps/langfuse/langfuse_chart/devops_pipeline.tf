@@ -51,7 +51,7 @@ resource "oci_generic_artifacts_content_artifact_by_path" "helm_chart_values_art
   artifact_path = "values.yaml"
   repository_id = oci_artifacts_repository.helm_chart_values_repository.id
   version       = "0.1.0"
-  content        = file("${path.module}/scripts/values.template.yaml")
+  content       = file("${path.module}/scripts/values.template.yaml")
 
   # delete the resource from artifact repo on destroy as it blocks destroy of the artifact repo itself
   provisioner "local-exec" {

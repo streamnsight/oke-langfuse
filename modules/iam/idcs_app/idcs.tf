@@ -450,9 +450,9 @@ resource "oci_identity_domains_app" "idcs_app" {
 
   # patch the app to deactivate it on destroy, otherwise destroy fails.
   provisioner "local-exec" {
-    when    = destroy
+    when       = destroy
     on_failure = continue
-    command = <<-CMD
+    command    = <<-CMD
       oci identity-domains app patch \
         --endpoint "${self.idcs_endpoint}" \
         --app-id ${self.id} \

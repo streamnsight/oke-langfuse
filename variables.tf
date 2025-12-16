@@ -414,7 +414,7 @@ variable "oci_genai_gateway_tag" {
 }
 
 variable "oci_genai_region" {
-  type = string
+  type    = string
   default = "us-chicago-1"
 }
 
@@ -439,7 +439,7 @@ variable "langfuse_helm_chart_version" {
 }
 
 variable "identity_domain_id" {
-  type = string
+  type    = string
   default = null
 }
 
@@ -449,33 +449,33 @@ variable "enable_oci_genai_gateway" {
 }
 
 variable "create_idcs_app" {
-  type = bool
+  type    = bool
   default = true
 }
 
 variable "idcs_app_id" {
-  type = string
+  type    = string
   default = null
 }
 
 variable "idcs_domain_url" {
-  type = string
+  type    = string
   default = null
 }
 
 variable "idcs_client_id" {
   type      = string
-  default = null
+  default   = null
   sensitive = true
 }
 
 variable "idcs_client_secret" {
   type      = string
-  default = null
+  default   = null
   sensitive = true
 }
 
 variable "use_network_source" {
-  type = bool
+  type    = bool
   default = true
 }
