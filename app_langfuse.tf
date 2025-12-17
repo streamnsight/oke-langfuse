@@ -138,34 +138,6 @@ module "langfuse_chart" {
   ]
 }
 
-
-resource "null_resource" "terminate_builder_instance" {
-  triggers = {
-    instance_id = module.builder_instance.details.instance_id
-  }
-  connection {
-    type        = "ssh"
-    user        = "opc"
-    private_key = module.builder_instance.details.private_key
-    host        = module.builder_instance.details.ip_address
-  }
-
-  provisioner "remote-exec" {
-    inline = [<<EOT
-      # terminate the builder instance
-      sleep 120
-      export INSTANCE_OCID=$(curl -s -H "Authorization: Bearer Oracle" http://169.254.169.254/opc/v2/instance/ | jq -r ".id")
-      oci compute instance terminate --auth instance_principal --instance-id $INSTANCE_OCID
-      EOT
-    ]
-  }
-
-  depends_on = [
-    module.langfuse_chart,
-    module.langfuse_load_balancer_tls,
-  ]
-}
-
 output "langfuse_url" {
   value = "https://${module.langfuse_load_balancer_no_tls.ip_address}/langfuse"
 }

@@ -57,3 +57,34 @@ resource "null_resource" "builder_setup" {
 #   value     = module.builder_instance.details
 #   sensitive = true
 # }
+
+
+
+resource "null_resource" "terminate_builder_instance" {
+  triggers = {
+    instance_id = module.builder_instance.details.instance_id
+  }
+  connection {
+    type        = "ssh"
+    user        = "opc"
+    private_key = module.builder_instance.details.private_key
+    host        = module.builder_instance.details.ip_address
+  }
+
+  provisioner "remote-exec" {
+    inline = [<<EOT
+      # terminate the builder instance
+      sleep 120
+      export INSTANCE_OCID=$(curl -s -H "Authorization: Bearer Oracle" http://169.254.169.254/opc/v2/instance/ | jq -r ".id")
+      oci compute instance terminate --auth instance_principal --instance-id $INSTANCE_OCID --force
+      EOT
+    ]
+  }
+
+  depends_on = [
+    module.oci_genai_gateway,
+    module.langfuse_chart,
+    module.langfuse_load_balancer_tls,
+  ]
+}
+
