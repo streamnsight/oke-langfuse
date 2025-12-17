@@ -38,7 +38,8 @@ ulimit -a
 ## OCI CLI
 
 sudo yum install -y podman git curl jq sed python3.12 python3.12-pip
-python3.12 -m pip install oci-cli
+python3.12 -m pip install oci-cli==3.71.1
+# there is a bug in 3.71.2 that prevents auth with intance principal. TODO: update version when bug is fixed
 
 # install nvm to install node
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
