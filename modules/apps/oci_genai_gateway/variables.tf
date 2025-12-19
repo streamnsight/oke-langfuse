@@ -14,6 +14,10 @@ variable "region" {
   type = string
 }
 
+variable "genai_region" {
+  type = string
+}
+
 variable "deploy_id" {
   type = string
 }

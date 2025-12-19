@@ -6,7 +6,8 @@ module "oci_genai_gateway" {
   tenancy_ocid      = var.tenancy_ocid
   tenancy_namespace = data.oci_objectstorage_namespace.ns.namespace
   deploy_id         = local.deploy_id
-  region            = var.oci_genai_region
+  region            = var.region
+  genai_region      = var.oci_genai_region
   cluster_id        = oci_containerengine_cluster.oci_oke_cluster.id
   # bastion_session_id                  = oci_bastion_session.installer_session[0].id
   # bastion_session_private_key_content = tls_private_key.bastion_session_public_private_key_pair.private_key_openssh
