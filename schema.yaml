@@ -163,7 +163,16 @@ variableGroups:
     variables:
       - cert_manager_nb_replicas
 
-  - title: Cluster Autoscaler Settings
+  - title: Configure Kubernetes Cluster Autoscaler
+    variables: 
+      - autoscaler_details
+    visible:
+      or: 
+        - np1_enable_autoscaler
+        - np2_enable_autoscaler
+        - np3_enable_autoscaler
+
+  - title: Cluster Autoscaler Advanced Settings
     variables:
       - cluster_autoscaler_max_node_provision_time
       - cluster_autoscaler_scale_down_delay_after_add
@@ -171,10 +180,12 @@ variableGroups:
       - cluster_autoscaler_unremovable_node_recheck_timeout
       # - cluster_autoscaler_use_workload_identity
     visible:
-      or: 
-      - np1_enable_autoscaler
-      - np2_enable_autoscaler
-      - np3_enable_autoscaler
+      and:
+        - autoscaler_details
+        - or: 
+          - np1_enable_autoscaler
+          - np2_enable_autoscaler
+          - np3_enable_autoscaler
 
   - title: "DevOps Deployment Pipelines"
     variables:
@@ -216,6 +227,12 @@ variableGroups:
 
 
 variables:
+  # variabels for schema only, to show/hide sections
+  autoscaler_details:
+    type: boolean
+    title: Cluster Autoscaler Defaults
+    visible: true
+    default: false
 
   # Global, hidden variables
   region:
