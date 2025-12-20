@@ -87,7 +87,7 @@ podman manifest inspect ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/lang
 || oci --auth instance_principal artifacts container repository create \
     --compartment-id ${COMPARTMENT_ID} \
     --display-name ${DEPLOY_ID}/langfuse \
-    --is-public true \
+    --is-public false \
 || echo "already exists"
 
 # build and publish the LangFuse container image

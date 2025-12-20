@@ -45,6 +45,8 @@ domain=$(echo $instanceMetadata | jq -r '.realmDomainComponent')
 regionName=$(echo $instanceMetadata | jq -r '.regionIdentifier')
 regionCode=$(echo $instanceMetadata | jq -r '.regionKey' | tr '[:upper:]' '[:lower:]')
 if [ $realm = "oc1" ]; then
+    # we need to log into the airport code and the long name
+    # for backwards compatibility reasons
     ocir_login "$regionName.ocir.io"
     ocir_login "$regionCode.ocir.io"
 else

@@ -40,7 +40,7 @@ podman manifest inspect ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/oci-
 || oci --auth instance_principal artifacts container repository create \
     --compartment-id ${COMPARTMENT_ID} \
     --display-name ${DEPLOY_ID}/oci-genai-gateway \
-    --is-public true \
+    --is-public false \
 || echo "already exists"
 
 # build for this platform. Note we use the same compute image as the OKE nodes for this instance, so we're building for the OKE platform being deployed.
