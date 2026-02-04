@@ -68,6 +68,10 @@ output "cluster_name" {
   value = local.cluster_name
 }
 
+output "integrated_app_name" {
+  value = local.cluster_name_sanitized
+}
+
 # output "img" {
 #   value = module.recommended_image
 # }

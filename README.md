@@ -99,6 +99,12 @@ terraform plan
 terraform apply
 ```
 
+
+## How to Launch the application (Langfuse)
+
+Refer the detailed documentation [here](docs/howto.md).
+
+
 ## References
 
 [magic_button]: https://oci-resourcemanager-plugin.plugins.oci.oraclecloud.com/latest/deploy-to-oracle-cloud.svg

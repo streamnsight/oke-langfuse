@@ -9,6 +9,13 @@ locals {
   ADs                     = data.oci_identity_availability_domains.ADs.availability_domains.*.name
 }
 
+data "oci_core_vcn" "existing_vcn" {
+  #data resource to fetch existing VCN's attributes if used.
+  count  = var.use_existing_vcn ? 1 : 0
+  vcn_id = var.vcn_id
+}
+
+
 resource "oci_core_vcn" "oke_vcn" {
   count          = var.use_existing_vcn ? 0 : 1
   cidr_blocks    = [var.vcn_cidr]
@@ -22,7 +29,7 @@ resource "oci_core_service_gateway" "oke_sg" {
   count          = var.use_existing_vcn ? 0 : 1
   compartment_id = var.vcn_compartment_id
   display_name   = "Service Gateway for vcn${random_string.deploy_id.result}"
-  vcn_id         = oci_core_vcn.oke_vcn[0].id
+  vcn_id         = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id
   services {
     service_id = lookup(data.oci_core_services.all_oci_services[0].services[0], "id")
   }
@@ -33,7 +40,7 @@ resource "oci_core_nat_gateway" "oke_natgw" {
   count          = var.use_existing_vcn ? 0 : 1
   compartment_id = var.vcn_compartment_id
   display_name   = "NAT Gateway for vcn${random_string.deploy_id.result}"
-  vcn_id         = oci_core_vcn.oke_vcn[0].id
+  vcn_id         = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id
   defined_tags   = var.vcn_tags
 }
 
@@ -424,27 +431,28 @@ resource "oci_core_subnet" "oke_lb_subnet" {
   dns_label           = "lb"
   display_name        = "Services LBs Subnet"
 
-  security_list_ids          = [oci_core_vcn.oke_vcn[0].default_security_list_id, oci_core_security_list.oke_lb_sec_list[0].id]
+  security_list_ids = flatten([[oci_core_vcn.oke_vcn[0].default_security_list_id],
+  [oci_core_security_list.oke_lb_sec_list[0].id]])
   route_table_id             = oci_core_route_table.oke_rt_via_igw[0].id
   prohibit_public_ip_on_vnic = !var.allow_deploy_public_lb
   defined_tags               = var.vcn_tags
 }
 
 resource "oci_core_subnet" "oke_nodepool_subnet" {
-  count          = (var.use_existing_vcn && var.node_pool_count == 0) ? 0 : length([for x in [true, var.np2_create_new_subnet, var.np3_create_new_subnet] : x if x])
+  count          = (var.use_existing_vcn || var.node_pool_count == 0) ? 0 : length([for x in [true, var.np2_create_new_subnet, var.np3_create_new_subnet] : x if x])
   cidr_block     = local.node_pool_subnets_cidrs[count.index]
   compartment_id = var.vcn_compartment_id
-  vcn_id         = oci_core_vcn.oke_vcn[0].id
+  vcn_id         = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id
   dns_label      = "nodes${count.index + 1}"
   display_name   = "Node Pool ${count.index + 1} Subnet"
 
-  security_list_ids = [
-    oci_core_vcn.oke_vcn[0].default_security_list_id,
-    oci_core_security_list.oke_nodepool_lb_comm_sec_list[0].id,
-    oci_core_security_list.oke_nodepool_external_comm_sec_list[0].id,
-    oci_core_security_list.oke_nodepool_api_comm_sec_list[0].id,
-    oci_core_security_list.oke_nodepool_internal_sec_list[0].id
-  ]
+  security_list_ids = flatten([
+    [oci_core_vcn.oke_vcn[0].default_security_list_id],
+    [oci_core_security_list.oke_nodepool_lb_comm_sec_list[0].id],
+    [oci_core_security_list.oke_nodepool_external_comm_sec_list[0].id],
+    [oci_core_security_list.oke_nodepool_api_comm_sec_list[0].id],
+    [oci_core_security_list.oke_nodepool_internal_sec_list[0].id]
+  ])
   route_table_id             = oci_core_route_table.oke_rt_via_natgw_and_sg[0].id
   prohibit_public_ip_on_vnic = true
   defined_tags               = var.vcn_tags

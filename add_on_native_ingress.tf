@@ -14,7 +14,7 @@ module "native_ingress_deployment_using_addon_manager" {
   source                   = "./modules/oke_add_ons/native_ingress/deployment/enhanced_cluster_addon"
   cluster_id               = oci_containerengine_cluster.oci_oke_cluster.id
   nb_replicas              = 1
-  load_balancers_subnet_id = oci_core_subnet.oke_lb_subnet[0].id
+  load_balancers_subnet_id = var.use_existing_vcn ? var.public_lb_subnet : oci_core_subnet.oke_lb_subnet[0].id
   compartment_id           = var.vcn_compartment_id
   depends_on = [
     oci_containerengine_cluster.oci_oke_cluster,
