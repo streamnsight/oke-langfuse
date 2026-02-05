@@ -1,0 +1,113 @@
+name: Release package on PR merge to main
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [ closed ]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: refs/heads/main
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Determine bump from PR labels
+        id: bump
+        shell: bash
+        run: |
+          labels='${{ toJson(github.event.pull_request.labels.*.name) }}'
+          BUMP=patch
+          if echo "$labels" | grep -q 'semver:major'; then
+            BUMP=major
+          elif echo "$labels" | grep -q 'semver:minor'; then
+            BUMP=minor
+          fi
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+
+      - name: Compute next SemVer tag
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --tags --force
+          LAST_TAG=$(git tag -l 'v*' | sort -V | tail -n 1)
+
+          if [ -z "$LAST_TAG" ]; then
+            # Starting baseline if no tags exist yet
+            MAJOR=0; MINOR=1; PATCH=0
+          else
+            VER=${LAST_TAG#v}
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VER"
+            case "${{ steps.bump.outputs.bump }}" in
+              major) MAJOR=$((MAJOR+1)); MINOR=0; PATCH=0 ;;
+              minor) MINOR=$((MINOR+1)); PATCH=0 ;;
+              patch) PATCH=$((PATCH+1)) ;;
+            esac
+          fi
+
+          NEXT="v${MAJOR}.${MINOR}.${PATCH}"
+
+          # Check if the tag already exists on remote (e.g., manually created)
+          if git ls-remote --exit-code --tags origin "refs/tags/${NEXT}" > /dev/null 2>&1; then
+            EXISTS=true
+          else
+            EXISTS=false
+          fi
+
+          echo "last=${LAST_TAG}" >> "$GITHUB_OUTPUT"
+          echo "next=${NEXT}" >> "$GITHUB_OUTPUT"
+          echo "exists=${EXISTS}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate release notes
+        if: steps.version.outputs.exists != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "Release ${{ steps.version.outputs.next }}"
+            echo
+            echo "Source PR: #${{ github.event.pull_request.number }} by @${{ github.actor }}"
+            if [ -n "${{ steps.version.outputs.last }}" ]; then
+              echo
+              echo "Changes since ${{ steps.version.outputs.last }}:"
+              echo
+              git log --pretty=format:'- %s (%h) by %an' ${{ steps.version.outputs.last }}..HEAD
+            else
+              echo
+              echo "Initial release."
+              echo
+              git log --pretty=format:'- %s (%h) by %an' --no-merges
+            fi
+          } > RELEASE_NOTES.md
+
+      - name: Build package
+        if: steps.version.outputs.exists != 'true'
+        run: |
+          bash package_tf.sh
+
+      - name: Create GitHub release and upload asset
+        if: steps.version.outputs.exists != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.next }}
+          name: ${{ steps.version.outputs.next }}
+          body_path: RELEASE_NOTES.md
+          files: |
+            oke-langfuse.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Skip note (tag already exists)
+        if: steps.version.outputs.exists == 'true'
+        run: echo "Tag ${{ steps.version.outputs.next }} already exists. Skipping release."
