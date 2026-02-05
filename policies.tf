@@ -1,34 +1,6 @@
 ## Copyright © 2022-2026, Oracle and/or its affiliates.
 ## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
 
-# # Policy needed for nodes to access the user defined encryption key if it was requested
-# resource "oci_identity_policy" "oke_key_access_policy" {
-#   count = (var.enable_secret_encryption && var.secrets_key_id != null) || (var.enable_image_validation && var.image_validation_key_id != null) ? 1 : 0
-#   #Required
-#   compartment_id = var.tenancy_ocid
-#   description    = "key access policy for OKE ${random_string.deploy_id.result}"
-#   name           = "oke_key_access${random_string.deploy_id.result}"
-#   statements = compact([
-#     var.enable_secret_encryption && var.secrets_key_id != null ? "Allow any-user to use keys in tenancy where ALL {request.principal.type = 'cluster', target.key.id='${var.secrets_key_id}'}" : "",
-#     var.enable_image_validation && var.image_validation_key_id != null ? "Allow any-user to use keys in tenancy where ALL {request.principal.type = 'cluster', target.key.id='${var.image_validation_key_id}'}" : ""
-#   ])
-# }
-
-# ### Dynanmic group for OKE Nodes
-# # This dynaimc group cover the nodes and cluster
-# # along with the policy, it is needed to pull images from OCIR
-# resource "oci_identity_dynamic_group" "oke_nodes_dg" {
-#   #Required
-#   compartment_id = var.tenancy_ocid
-#   description    = "OKE nodes for ${local.cluster_name}"
-#   matching_rule  = "ANY { instance.compartment.id = '${var.cluster_compartment_id}', ALL { resource.cluster_compartment.id = '${var.cluster_compartment_id}', ANY { resource.type = 'instance', resource.type = 'cluster'} } }"
-#   name           = local.worker_nodes_dg_name
-#   defined_tags   = var.defined_tags
-#   provider       = oci.home_region
-#   lifecycle {
-#     ignore_changes = [defined_tags]
-#   }
-# }
 
 locals {
   nsg_name = "${local.cluster_name_sanitized}-nodes"
@@ -45,6 +17,14 @@ module "network_source_group" {
   providers = {
     oci = oci.home_region
   }
+}
+
+locals {
+  cluster_nodes = "ALL { request.principal.type = 'instance' , request.principal.compartment.id = '${var.cluster_compartment_id}' }" 
+  worker_nodes_policy_statements = var.use_network_source ? [] : compact([
+    "allow any-user to read repos in compartment id ${var.cluster_compartment_id} where ${local.cluster_nodes}",
+    "allow any-user to manage generative-ai-family in compartment id ${var.cluster_compartment_id} where ${local.cluster_nodes}",
+  ])
 }
 
 # Policy for OKE nodes to read repos and be able to pull container images from OCIR
@@ -65,6 +45,7 @@ locals {
 }
 
 module "nsg_based_policies" {
+  count         = var.use_network_source ? 1 : 0
   source         = "./modules/iam/nsg_policies"
   nsg_name       = local.nsg_name
   compartment_id = var.cluster_compartment_id
@@ -80,25 +61,13 @@ module "policies" {
   source         = "./modules/iam/policy"
   compartment_id = var.cluster_compartment_id
   description    = "Policies for ${local.cluster_name}"
-  policy_statements = concat(
-    module.nsg_based_policies.policy_statements,
+  policy_statements = flatten(compact(concat(
+    local.worker_nodes_policy_statements,
+    module.nsg_based_policies[*].policy_statements,
     module.cluster_autoscaler_workload_identity_policy.policy_statements,
     module.native_ingress_workload_identity_policy.policy_statements
-  )
+  )))
   providers = {
     oci = oci.home_region
   }
 }
-
-# resource "oci_identity_policy" "cluster-node-policies" {
-#   compartment_id = var.cluster_compartment_id
-#   name           = "OKE-nodes-dg-policy"
-#   description    = "OKE nodes policy"
-#   statements     = local.worker_nodes_policy_statements
-#   provider       = oci.home_region
-#   defined_tags   = var.defined_tags
-#   lifecycle {
-#     ignore_changes = [defined_tags]
-#   }
-# }
-
