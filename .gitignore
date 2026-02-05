@@ -7,3 +7,5 @@ test.tfvars
 terraform.tfvars
 CaCertificate-langfuse.pub
 kubeconfig
+*.backup_
+*.tfstate_
