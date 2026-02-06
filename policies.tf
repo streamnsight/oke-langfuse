@@ -50,20 +50,30 @@ module "nsg_based_policies" {
   nsg_name       = local.nsg_name
   compartment_id = var.cluster_compartment_id
   permissions    = local.cluster_node_permissions
-  use_nsg        = var.use_network_source
   providers = {
     oci = oci.home_region
   }
 }
 
 
-module "policies" {
+module "policies_before_node_pool" {
   source         = "./modules/iam/policy"
   compartment_id = var.cluster_compartment_id
-  description    = "Policies for ${local.cluster_name}"
+  description    = "Policies for ${local.cluster_name} nodes"
   policy_statements = flatten(compact(concat(
     local.worker_nodes_policy_statements,
     module.nsg_based_policies[*].policy_statements,
+  )))
+  providers = {
+    oci = oci.home_region
+  }
+}
+
+module "policies_after_node_pool" {
+  source         = "./modules/iam/policy"
+  compartment_id = var.cluster_compartment_id
+  description    = "Policies for ${local.cluster_name} add-ons"
+  policy_statements = flatten(compact(concat(
     module.cluster_autoscaler_workload_identity_policy.policy_statements,
     module.native_ingress_workload_identity_policy.policy_statements
   )))
