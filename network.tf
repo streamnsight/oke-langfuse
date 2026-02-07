@@ -354,141 +354,6 @@ resource "oci_core_security_list" "oke_nodepool_sec_list" {
 
 }
 
-# resource "oci_core_security_list" "oke_nodepool_api_comm_sec_list" {
-#   count          = 1
-#   compartment_id = var.vcn_compartment_id
-#   display_name   = "Nodepool - API Comm"
-#   vcn_id         = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id
-#   defined_tags   = var.vcn_tags
-
-#   egress_security_rules {
-#     description      = "Allow nodes to communicate with OKE"
-#     protocol         = "6"
-#     destination_type = "SERVICE_CIDR_BLOCK"
-#     destination      = lookup(data.oci_core_services.all_oci_services[0].services[0], "cidr_block")
-#     stateless        = false
-#   }
-
-#   egress_security_rules {
-#     description      = "Kubernetes worker to Kubernetes API endpoint communication"
-#     protocol         = "6"
-#     destination_type = "CIDR_BLOCK"
-#     destination      = local.api_subnet_cidr
-#     stateless        = false
-
-#     tcp_options {
-#       min = 6443
-#       max = 6443
-#     }
-#   }
-
-#   egress_security_rules {
-#     description      = "Kubernetes worker to control plane communication"
-#     protocol         = "6"
-#     destination_type = "CIDR_BLOCK"
-#     destination      = local.api_subnet_cidr
-#     stateless        = false
-
-#     tcp_options {
-#       min = 12250
-#       max = 12250
-#     }
-#   }
-
-#   ingress_security_rules {
-#     description = "Allow Kubernetes control plane to communicate with worker nodes"
-#     protocol    = "6"
-#     source      = local.api_subnet_cidr
-#     stateless   = false
-#   }
-# }
-
-# resource "oci_core_security_list" "oke_nodepool_external_comm_sec_list" {
-#   count          = 1
-#   compartment_id = var.vcn_compartment_id
-#   display_name   = "Nodepool External Comm"
-#   vcn_id         = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id
-#   defined_tags   = var.vcn_tags
-
-#   # ICMP out
-#   egress_security_rules {
-#     description = "Path Discovery."
-#     protocol    = 1
-#     destination = "0.0.0.0/0"
-#     stateless   = false
-
-#     icmp_options {
-#       type = 3
-#       code = 4
-#     }
-#   }
-
-#   # Internet access
-#   egress_security_rules {
-#     description      = "Allow worker nodes to communicate with internet"
-#     protocol         = "6"
-#     destination_type = "CIDR_BLOCK"
-#     destination      = "0.0.0.0/0"
-#     stateless        = false
-#   }
-
-#   # ICMP
-#   ingress_security_rules {
-#     description = "Path Discovery"
-#     protocol    = 1
-#     source      = "0.0.0.0/0"
-#     stateless   = false
-
-#     icmp_options {
-#       type = 3
-#       code = 4
-#     }
-#   }
-
-#   # SSH
-#   ingress_security_rules {
-#     description = "Allow inbound SSH traffic to worker nodes"
-#     protocol    = "6"
-#     source      = "0.0.0.0/0"
-#     stateless   = false
-
-#     tcp_options {
-#       min = 22
-#       max = 22
-#     }
-#   }
-# }
-
-# resource "oci_core_security_list" "oke_nodepool_lb_comm_sec_list" {
-#   count          = 1
-#   compartment_id = var.vcn_compartment_id
-#   display_name   = "Nodepool - Load Balancer Comm"
-#   vcn_id         = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id
-#   defined_tags   = var.vcn_tags
-
-#   egress_security_rules {
-#     # iterator = cidr
-#     # for_each = local.lb_subnets_cidrs
-#     # content {
-#     description      = "TCP to LBs"
-#     protocol         = "6"
-#     destination_type = "CIDR_BLOCK"
-#     destination      = local.lb_subnet_cidr
-#     stateless        = false
-#     # }
-#   }
-
-#   ingress_security_rules {
-#     # iterator = cidr
-#     # for_each = local.lb_subnets_cidrs
-#     # content {
-#     description = "TCP from LBs"
-#     protocol    = "6"
-#     source      = local.lb_subnet_cidr
-#     stateless   = false
-#     # }
-#   }
-# }
 
 resource "oci_core_security_list" "oke_lb_sec_list" {
   count          = 1
@@ -654,18 +519,12 @@ resource "null_resource" "update_nodepool_subnet_sls" {
   triggers = {
     subnet_id = each.value
     new_ids   = jsonencode([
-      # oci_core_security_list.oke_nodepool_lb_comm_sec_list[0].id,
       oci_core_security_list.oke_nodepool_sec_list[0].id,
-      # oci_core_security_list.oke_nodepool_api_comm_sec_list[0].id,
-      # oci_core_security_list.oke_nodepool_internal_sec_list[0].id
     ])
   }
 
   depends_on = [
-    # oci_core_security_list.oke_nodepool_lb_comm_sec_list,
     oci_core_security_list.oke_nodepool_sec_list,
-    # oci_core_security_list.oke_nodepool_api_comm_sec_list,
-    # oci_core_security_list.oke_nodepool_internal_sec_list
   ]
 
   provisioner "local-exec" {
@@ -677,9 +536,6 @@ resource "null_resource" "update_nodepool_subnet_sls" {
       CURRENT=$(oci network subnet get --subnet-id "$SUBNET_ID" | jq '.data."security-list-ids"')
       ADD='${jsonencode([
         oci_core_security_list.oke_nodepool_sec_list[0].id,
-        # oci_core_security_list.oke_nodepool_external_comm_sec_list[0].id,
-        # oci_core_security_list.oke_nodepool_api_comm_sec_list[0].id,
-        # oci_core_security_list.oke_nodepool_internal_sec_list[0].id
       ])}'
       DESIRED=$(jq -n --argjson cur "$CURRENT" --argjson add "$ADD" '$cur + $add | unique')
       oci network subnet update --subnet-id "$SUBNET_ID" --security-list-ids "$DESIRED" --force --wait-for-state AVAILABLE >/dev/null
