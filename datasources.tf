@@ -28,7 +28,7 @@ data "oci_identity_regions" "home_region" {
 }
 
 data "oci_core_services" "all_oci_services" {
-  count = var.use_existing_vcn ? 0 : 1
+  count = 1
   filter {
     name   = "name"
     values = ["All .* Services In Oracle Services Network"]
