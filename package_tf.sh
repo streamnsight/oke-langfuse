@@ -4,7 +4,7 @@
 ## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
 
 
-rm oke-langfuse.zip
+rm -f oke-langfuse.zip
 zip -rxvf oke-langfuse.zip ./* \
     -x **/*/.terraform/**/* \
     -x .terraform/**/* \

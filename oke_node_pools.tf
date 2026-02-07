@@ -160,6 +160,10 @@ resource "oci_containerengine_node_pool" "oci_oke_node_pool" {
       node_config_details[2].size
     ]
   }
+
+  depends_on = [ 
+    module.policies_before_node_pool
+  ]
 }
 
 

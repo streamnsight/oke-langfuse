@@ -3,9 +3,9 @@
 
 locals {
   subnet_cidrs            = cidrsubnets(var.vcn_cidr, 12, 8, 4, 4, 4) # API + 1 LB + 3 node pools
-  api_subnet_cidr         = element(local.subnet_cidrs, 0)
-  lb_subnet_cidr          = element(local.subnet_cidrs, 1)
-  node_pool_subnets_cidrs = slice(local.subnet_cidrs, 2, 5)
+  created_api_subnet_cidr         = element(local.subnet_cidrs, 0)
+  created_lb_subnet_cidr          = element(local.subnet_cidrs, 1)
+  created_node_pool_subnets_cidrs = slice(local.subnet_cidrs, 2, 5)
   ADs                     = data.oci_identity_availability_domains.ADs.availability_domains.*.name
 }
 
@@ -15,6 +15,22 @@ data "oci_core_vcn" "existing_vcn" {
   vcn_id = var.vcn_id
 }
 
+data "oci_core_subnets" "subnets" {
+    count  = var.use_existing_vcn ? 1 : 0
+    compartment_id = data.oci_core_vcn.existing_vcn[0].compartment_id
+    vcn_id = data.oci_core_vcn.existing_vcn[0].id
+}
+
+locals {
+  existing_subnet_cidrs_map = var.use_existing_vcn ? {for s in data.oci_core_subnets.subnets[0].subnets[*]: s.id => s.cidr_block } : {}
+  api_subnet_cidr = var.use_existing_vcn ? local.existing_subnet_cidrs_map[var.kubernetes_endpoint_subnet] : local.created_api_subnet_cidr
+  lb_subnet_cidr = var.use_existing_vcn ? local.existing_subnet_cidrs_map[var.public_lb_subnet] : local.created_lb_subnet_cidr
+  node_pool_subnets_cidrs = var.use_existing_vcn ? [
+    for s in [var.np1_subnet, var.np2_subnet, var.np3_subnet] :
+    local.existing_subnet_cidrs_map[s]
+    if s != null
+  ] : local.created_node_pool_subnets_cidrs
+}
 
 resource "oci_core_vcn" "oke_vcn" {
   count          = var.use_existing_vcn ? 0 : 1
@@ -89,10 +105,10 @@ resource "oci_core_route_table" "oke_rt_via_igw" {
 ### Security Lists
 
 resource "oci_core_security_list" "oke_api_endpoint_external_sec_list" {
-  count          = var.use_existing_vcn ? 0 : 1
+  count          = 1
   compartment_id = var.vcn_compartment_id
   display_name   = "API Endpoint External Comm"
-  vcn_id         = oci_core_vcn.oke_vcn[0].id
+  vcn_id         = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id
   defined_tags   = var.vcn_tags
 
   # TCP SSL to Services
@@ -124,10 +140,10 @@ resource "oci_core_security_list" "oke_api_endpoint_external_sec_list" {
 }
 
 resource "oci_core_security_list" "oke_api_endpoint_nodes_sec_list" {
-  count          = var.use_existing_vcn ? 0 : length([for x in [true, var.np2_create_new_subnet, var.np3_create_new_subnet] : x if x])
+  count          = var.use_existing_vcn ? length(local.node_pool_subnets_cidrs) : length([for x in [true, var.np2_create_new_subnet, var.np3_create_new_subnet] : x if x])
   compartment_id = var.vcn_compartment_id
   display_name   = "API Endpoint - Node Pool ${count.index + 1} Comm"
-  vcn_id         = oci_core_vcn.oke_vcn[0].id
+  vcn_id         = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id
   defined_tags   = var.vcn_tags
 
   # TCP All to Nodes
@@ -193,11 +209,11 @@ resource "oci_core_security_list" "oke_api_endpoint_nodes_sec_list" {
   }
 }
 
-resource "oci_core_security_list" "oke_nodepool_internal_sec_list" {
-  count          = var.use_existing_vcn ? 0 : 1
+resource "oci_core_security_list" "oke_nodepool_sec_list" {
+  count          = 1
   compartment_id = var.vcn_compartment_id
   display_name   = "Nodepool - Internal Comm"
-  vcn_id         = oci_core_vcn.oke_vcn[0].id
+  vcn_id         = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id
   defined_tags   = var.vcn_tags
 
   dynamic "egress_security_rules" {
@@ -222,14 +238,6 @@ resource "oci_core_security_list" "oke_nodepool_internal_sec_list" {
       stateless   = false
     }
   }
-}
-
-resource "oci_core_security_list" "oke_nodepool_api_comm_sec_list" {
-  count          = var.use_existing_vcn ? 0 : 1
-  compartment_id = var.vcn_compartment_id
-  display_name   = "Nodepool - API Comm"
-  vcn_id         = oci_core_vcn.oke_vcn[0].id
-  defined_tags   = var.vcn_tags
 
   egress_security_rules {
     description      = "Allow nodes to communicate with OKE"
@@ -271,14 +279,6 @@ resource "oci_core_security_list" "oke_nodepool_api_comm_sec_list" {
     source      = local.api_subnet_cidr
     stateless   = false
   }
-}
-
-resource "oci_core_security_list" "oke_nodepool_external_comm_sec_list" {
-  count          = var.use_existing_vcn ? 0 : 1
-  compartment_id = var.vcn_compartment_id
-  display_name   = "Nodepool External Comm"
-  vcn_id         = oci_core_vcn.oke_vcn[0].id
-  defined_tags   = var.vcn_tags
 
   # ICMP out
   egress_security_rules {
@@ -327,14 +327,6 @@ resource "oci_core_security_list" "oke_nodepool_external_comm_sec_list" {
       max = 22
     }
   }
-}
-
-resource "oci_core_security_list" "oke_nodepool_lb_comm_sec_list" {
-  count          = var.use_existing_vcn ? 0 : 1
-  compartment_id = var.vcn_compartment_id
-  display_name   = "Nodepool - Load Balancer Comm"
-  vcn_id         = oci_core_vcn.oke_vcn[0].id
-  defined_tags   = var.vcn_tags
 
   egress_security_rules {
     # iterator = cidr
@@ -358,14 +350,16 @@ resource "oci_core_security_list" "oke_nodepool_lb_comm_sec_list" {
     stateless   = false
     # }
   }
+
+
 }
 
 
 resource "oci_core_security_list" "oke_lb_sec_list" {
-  count          = var.use_existing_vcn ? 0 : 1
+  count          = 1
   compartment_id = var.vcn_compartment_id
   display_name   = "Internet - Load Balancer Comm"
-  vcn_id         = oci_core_vcn.oke_vcn[0].id
+  vcn_id         = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id
   defined_tags   = var.vcn_tags
 
   egress_security_rules {
@@ -448,12 +442,103 @@ resource "oci_core_subnet" "oke_nodepool_subnet" {
 
   security_list_ids = flatten([
     [oci_core_vcn.oke_vcn[0].default_security_list_id],
-    [oci_core_security_list.oke_nodepool_lb_comm_sec_list[0].id],
-    [oci_core_security_list.oke_nodepool_external_comm_sec_list[0].id],
-    [oci_core_security_list.oke_nodepool_api_comm_sec_list[0].id],
-    [oci_core_security_list.oke_nodepool_internal_sec_list[0].id]
+    # [oci_core_security_list.oke_nodepool_lb_comm_sec_list[0].id],
+    [oci_core_security_list.oke_nodepool_sec_list[0].id],
+    # [oci_core_security_list.oke_nodepool_api_comm_sec_list[0].id],
+    # [oci_core_security_list.oke_nodepool_internal_sec_list[0].id]
   ])
   route_table_id             = oci_core_route_table.oke_rt_via_natgw_and_sg[0].id
   prohibit_public_ip_on_vnic = true
   defined_tags               = var.vcn_tags
+}
+
+# Associations for existing VCNs to ensure security lists are set on existing subnets
+locals {
+  existing_nodepool_subnet_ids = var.use_existing_vcn ? compact([var.np1_subnet, var.np2_subnet, var.np3_subnet]) : []
+}
+
+resource "null_resource" "update_api_subnet_sls" {
+  count = var.use_existing_vcn ? 1 : 0
+
+  triggers = {
+    subnet_id = var.kubernetes_endpoint_subnet
+    new_ids   = jsonencode(concat(
+      [oci_core_security_list.oke_api_endpoint_external_sec_list[0].id],
+      oci_core_security_list.oke_api_endpoint_nodes_sec_list.*.id
+    ))
+  }
+
+  depends_on = [
+    oci_core_security_list.oke_api_endpoint_external_sec_list,
+    oci_core_security_list.oke_api_endpoint_nodes_sec_list
+  ]
+
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-lc"]
+    command = <<-EOT
+      set -euo pipefail
+      export OCI_CLI_PROFILE="${var.oci_profile}"
+      SUBNET_ID="${var.kubernetes_endpoint_subnet}"
+      CURRENT=$(oci network subnet get --subnet-id "$SUBNET_ID" | jq '.data."security-list-ids"')
+      ADD='${jsonencode(concat([oci_core_security_list.oke_api_endpoint_external_sec_list[0].id], oci_core_security_list.oke_api_endpoint_nodes_sec_list.*.id))}'
+      DESIRED=$(jq -n --argjson cur "$CURRENT" --argjson add "$ADD" '$cur + $add | unique')
+      oci network subnet update --subnet-id "$SUBNET_ID" --security-list-ids "$DESIRED" --force --wait-for-state AVAILABLE >/dev/null
+    EOT
+  }
+}
+
+resource "null_resource" "update_lb_subnet_sls" {
+  count = var.use_existing_vcn ? 1 : 0
+
+  triggers = {
+    subnet_id = var.public_lb_subnet
+    new_ids   = jsonencode([oci_core_security_list.oke_lb_sec_list[0].id])
+  }
+
+  depends_on = [
+    oci_core_security_list.oke_lb_sec_list
+  ]
+
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-lc"]
+    command = <<-EOT
+      set -euo pipefail
+      export OCI_CLI_PROFILE="${var.oci_profile}"
+      SUBNET_ID="${var.public_lb_subnet}"
+      CURRENT=$(oci network subnet get --subnet-id "$SUBNET_ID" | jq '.data."security-list-ids"')
+      ADD='${jsonencode([oci_core_security_list.oke_lb_sec_list[0].id])}'
+      DESIRED=$(jq -n --argjson cur "$CURRENT" --argjson add "$ADD" '$cur + $add | unique')
+      oci network subnet update --subnet-id "$SUBNET_ID" --security-list-ids "$DESIRED" --force --wait-for-state AVAILABLE >/dev/null
+    EOT
+  }
+}
+
+resource "null_resource" "update_nodepool_subnet_sls" {
+  for_each = var.use_existing_vcn ? toset(local.existing_nodepool_subnet_ids) : []
+
+  triggers = {
+    subnet_id = each.value
+    new_ids   = jsonencode([
+      oci_core_security_list.oke_nodepool_sec_list[0].id,
+    ])
+  }
+
+  depends_on = [
+    oci_core_security_list.oke_nodepool_sec_list,
+  ]
+
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-lc"]
+    command = <<-EOT
+      set -euo pipefail
+      export OCI_CLI_PROFILE="${var.oci_profile}"
+      SUBNET_ID="${each.value}"
+      CURRENT=$(oci network subnet get --subnet-id "$SUBNET_ID" | jq '.data."security-list-ids"')
+      ADD='${jsonencode([
+        oci_core_security_list.oke_nodepool_sec_list[0].id,
+      ])}'
+      DESIRED=$(jq -n --argjson cur "$CURRENT" --argjson add "$ADD" '$cur + $add | unique')
+      oci network subnet update --subnet-id "$SUBNET_ID" --security-list-ids "$DESIRED" --force --wait-for-state AVAILABLE >/dev/null
+    EOT
+  }
 }
