@@ -42,5 +42,5 @@ variable "force_deployment" {
 
 variable "oci_profile" {
   type    = string
-  default = null
+  default = "DEFAULT"
 }

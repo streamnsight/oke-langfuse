@@ -5,8 +5,9 @@ module "secrets_store_csi_helm_chart_deployment" {
   # count                = local.enable_cert_manager ? (local.use_addon_manager ? 1 : 0) : 0
   source      = "./modules/oke/secrets_store/csi_driver_provider"
   tenancy_ocid = var.tenancy_ocid
-  compartment_id = var.devops_compartment_id
+  compartment_id = local.devops_compartment_id
   region = var.region
+  oci_profile             = var.oci_profile
   devops_environment_id = module.devops_target_cluster_env.environment_id
   devops_project_id = module.devops_setup.project_id
   deploy_id = local.deploy_id
