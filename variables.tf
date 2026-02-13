@@ -479,3 +479,17 @@ variable "use_network_source" {
   type    = bool
   default = true
 }
+
+## Secret storage
+variable secrets_store_vault_compartment_id {
+  type = string
+}
+
+variable secrets_store_vault_id {
+  type = string
+}
+
+variable secrets_store_key_id {
+  type = string
+}
+

@@ -195,6 +195,12 @@ variableGroups:
       #   - not: is_enhanced_cluster
       #   - not: is_endpoint_public
 
+  - title: Secrets Store
+    variables: 
+      - secrets_store_vault_compartment_id 
+      - secrets_store_vault_id
+      - secrets_store_key_id
+
   # - title: "Deployments"
   #   variables:
   #     # - enable_flink
@@ -350,7 +356,7 @@ variables:
     type: oci:kubernetes:versions:id
     title: "Kubernetes Version"
     required: true
-    default: "v1.34.1"
+    default: "v1.34.2"
     description: The Kubernetes version for the cluster.
     dependsOn:
       compartmentId: cluster_compartment_id
@@ -1370,6 +1376,32 @@ variables:
       Unselect this option if you do not have permission to create network sources. Permissions will be limited to the compartment level.
     default: true
 
+  secrets_store_vault_compartment_id:
+    type: oci:identity:compartment:id
+    title: Secrets Store Vault Compartment
+    description: |
+      Compartment for the secrets store vault
+    default: compartment_ocid
+    required: true
+
+  secrets_store_vault_id:
+    type: oci:kms:vault:id
+    title: Vault
+    description: |
+      Screts Store Vault
+    dependsOn:
+      compartmentId: secrets_store_vault_compartment_id
+    required: true
+
+  secrets_store_key_id:
+    type: oci:kms:key:id
+    title: Encryption Key
+    description: |
+      Secrets Store Encryption key
+    dependsOn:
+      compartmentId: secrets_store_vault_compartment_id
+      vaultId: secrets_store_vault_id
+    required: true
 
   object_storage_namespace:
     type: string
