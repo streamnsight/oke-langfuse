@@ -31,7 +31,7 @@ export ARCH=$(podman system info --format json | jq -r .host.arch)
 export BUILDAH_LAYERS=true
 # Pull, patch and build Langfuse project
 rm -rf langfuse
-git clone https://github.com/langfuse/langfuse
+git clone https://github.com/langfuse/langfuse --quiet
 
 pushd langfuse
 
@@ -54,10 +54,14 @@ podman manifest inspect ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/lang
     --is-public false \
 || echo "already exists"
 
+podman pull ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse:${VERSION} > /dev/null 2>&1;
+echo $?
 
-if podman manifest inspect ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse:${VERSION} > /dev/null 2>&1; then
+if podman pull ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse:${VERSION} > /dev/null 2>&1; then
     echo "Image found in the remote repository. Exiting script..."
     exit 0 # Exit with 0 as requested by user if true
+else
+    echo "Image not found, building image..."
 fi
 
 # checkout latest tag branch
@@ -78,7 +82,7 @@ pnpm add follow-redirects@^1.15.11 -w
 cat package.json
 
 # install node modules locally so we can patch openid-client and update the package json to build the container image from lock file
-pnpm install --no-frozen-lockfile
+pnpm install --no-frozen-lockfile --loglevel=warn
 
 
 # get the location of the temporary openid-client module
@@ -93,19 +97,19 @@ sed -i "5i\const { http, https } = require('follow-redirects');" ${TMP_FOLDER}/l
 pnpm patch-commit ${TMP_FOLDER}
 
 ## update the lock file
-pnpm update
+pnpm update --loglevel=warn
 
 # clean up the node_modules
 rm -rf node_modules
 
 # build and publish the LangFuse container image
-podman build --ulimit=nofile=65535:65535 --platform=${PLATFORM} --shm-size=10G -t ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse:${VERSION} --build-arg NEXT_PUBLIC_BASE_PATH=/langfuse -f ./web/Dockerfile .
+podman build -q --ulimit=nofile=65535:65535 --platform=${PLATFORM} --shm-size=10G -t ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse:${VERSION} --build-arg NEXT_PUBLIC_BASE_PATH=/langfuse -f ./web/Dockerfile .
 
 ## push image to repo
 ## Get registry repo token and docker login again to the repo as token may have expried by then
 oci --auth instance_principal raw-request --http-method GET --target-uri https://${REGION}.ocir.io/20180419/docker/token | jq -r .data.token | podman login ${REGION}.ocir.io -u BEARER_TOKEN --password-stdin
 
-podman push ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse:${VERSION}
+podman push -q ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse:${VERSION}
 
 # get image by SHA
 export LANGFUSE_IMAGE=$(podman inspect --format='{{index .RepoDigests 0}}' ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse:${VERSION})
