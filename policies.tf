@@ -61,8 +61,8 @@ module "policies_before_node_pool" {
   compartment_id = var.cluster_compartment_id
   description    = "Policies for ${local.cluster_name} nodes"
   policy_statements = flatten(compact(concat(
-    local.worker_nodes_policy_statements,
-    module.nsg_based_policies[*].policy_statements,
+    coalesce(local.worker_nodes_policy_statements, []),
+    var.use_network_source ? module.nsg_based_policies[0].policy_statements : []
   )))
   providers = {
     oci = oci.home_region
