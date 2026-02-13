@@ -40,8 +40,8 @@ ulimit -a
 # install dependencies
 ## OCI CLI
 
-sudo yum install -y podman git curl jq sed python3.12 python3.12-pip
-python3.12 -m pip install oci-cli==3.71.1
+sudo yum install -q -y podman git curl jq sed python3.12 python3.12-pip
+python3.12 -m pip install -q oci-cli==3.71.1
 # there is a bug in 3.71.2 that prevents auth with intance principal. TODO: update version when bug is fixed
 
 # install nvm to install node
