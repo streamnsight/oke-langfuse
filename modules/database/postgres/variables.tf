@@ -5,6 +5,10 @@ variable "compartment_id" {
   type = string
 }
 
+variable "display_name" {
+  type = string
+}
+
 variable "db_version" {
   type    = string
   default = "16"
@@ -22,7 +26,6 @@ variable "ocpus" {
 
 variable "postgresql_shape" {
   type    = string
-  default = ""
 }
 
 variable "subnet_id" {
