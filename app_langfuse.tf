@@ -90,9 +90,6 @@ module "langfuse_gateway" {
   ]
 }
 
-
-
-
 locals {
   secret_store_csi_provider_permissions = [
     "use secret-family"
@@ -114,6 +111,16 @@ module "langfuse_secret_store_csi_provider_workload_identity_policy" {
   }
 }
 
+module "langfuse_secret_provider_class_deployment" {
+  source = "./modules/apps/langfuse/secret_provider_class"
+  compartment_id        = var.cluster_compartment_id
+  cluster_id            = oci_containerengine_cluster.oci_oke_cluster.id
+  vault_id             = var.secrets_store_vault_id
+  devops_project_id     = module.devops_setup.project_id
+  devops_environment_id = module.devops_target_cluster_env.environment_id
+  depends_on = [
+  ]
+}
 
 # Create the Langfuse secrets and deploy the helm chart
 # The chart is deployed via DevOps pipeline, although secrets are deployed via remote-exec command to avoid storing credentials

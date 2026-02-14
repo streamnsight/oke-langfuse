@@ -66,7 +66,7 @@ secrets-store-csi-driver:
   install: true
   # Install RBAC roles and bindings required for K8S Secrets syncing if true
   syncSecret:
-    enabled: false
+    enabled: true
   enableSecretRotation: false
   rotationPollInterval: 2m
     

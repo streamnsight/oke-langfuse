@@ -17,14 +17,3 @@ module "secrets_store_csi_helm_chart_deployment" {
   ]
 }
 
-module "secrets_store_class_deployment" {
-  source                = "./modules/oke/secrets_store/secret_provider_class"
-  # compartment_id        = local.devops_compartment_id
-  # cluster_id            = oci_containerengine_cluster.oci_oke_cluster.id
-  # devops_project_id     = module.devops_setup.project_id
-  # devops_environment_id = module.devops_target_cluster_env.environment_id
-  # subnet_id             = oci_containerengine_cluster.oci_oke_cluster.endpoint_config[0].subnet_id
-  depends_on = [
-    module.istio_deployment_using_addon_manager
-  ]
-}

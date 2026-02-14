@@ -76,7 +76,7 @@ module "policies_after_node_pool" {
   policy_statements = flatten(compact(concat(
     module.cluster_autoscaler_workload_identity_policy.policy_statements,
     module.native_ingress_workload_identity_policy.policy_statements,
-    module.secret_store_csi_provider_workload_identity_policy.policy_statements
+    module.langfuse_secret_store_csi_provider_workload_identity_policy.policy_statements
   )))
   providers = {
     oci = oci.home_region
