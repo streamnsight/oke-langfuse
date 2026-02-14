@@ -90,6 +90,31 @@ module "langfuse_gateway" {
   ]
 }
 
+
+
+
+locals {
+  secret_store_csi_provider_permissions = [
+    "use secret-family"
+  ]
+}
+
+# define policies statements to use workload identity
+module "langfuse_secret_store_csi_provider_workload_identity_policy" {
+  source               = "./modules/iam/workload_identity"
+  compartment_id       = var.secrets_store_vault_compartment_id
+  workload_name        = "oci-secrets-store-csi-driver-provider"
+  service_account_name = "langfuse-sa"
+  namespace            = "kube-system"
+  permissions          = local.secret_store_csi_provider_permissions
+  defined_tags         = var.defined_tags
+  cluster_id           = oci_containerengine_cluster.oci_oke_cluster.id
+  providers = {
+    oci = oci.home_region
+  }
+}
+
+
 # Create the Langfuse secrets and deploy the helm chart
 # The chart is deployed via DevOps pipeline, although secrets are deployed via remote-exec command to avoid storing credentials
 # in pipeline paramters

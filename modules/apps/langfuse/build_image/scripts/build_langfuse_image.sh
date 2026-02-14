@@ -39,9 +39,10 @@ pushd langfuse
 # export LANGFUSE_VERSION=$(git tag --sort=v:refname | tail -1)
 # get app version from chart version
 export LANGFUSE_VERSION=$(helm show chart langfuse/langfuse --version ${HELM_CHART_VERSION} | grep appVersion | awk '{print $2}')
-
+echo "Langfuse version: $LANGFUSE_VERSION"
 
 export VERSION=${LANGFUSE_VERSION:-latest}
+echo "Langfuse version: $VERSION"
 
 ## Get registry repo token and docker login again to the repo as token may have expried by then
 oci --auth instance_principal raw-request --http-method GET --target-uri https://${REGION}.ocir.io/20180419/docker/token | jq -r .data.token | podman login ${REGION}.ocir.io -u BEARER_TOKEN --password-stdin

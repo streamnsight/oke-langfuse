@@ -46,13 +46,13 @@ podman manifest inspect ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/oci-
 || echo "already exists"
 
 # build for this platform. Note we use the same compute image as the OKE nodes for this instance, so we're building for the OKE platform being deployed.
-podman build --platform=${PLATFORM} -t ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/oci-genai-gateway:oci .
+podman build -q --platform=${PLATFORM} -t ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/oci-genai-gateway:oci .
 
 ## push image to repo
 ## Get registry repo token and docker login again to the repo as token may have expried by then
 oci --auth instance_principal raw-request --http-method GET --target-uri https://${REGION}.ocir.io/20180419/docker/token | jq -r .data.token | podman login ${REGION}.ocir.io -u BEARER_TOKEN --password-stdin
 
-podman push ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/oci-genai-gateway:oci
+podman push -q ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/oci-genai-gateway:oci
 
 popd
 # clean up

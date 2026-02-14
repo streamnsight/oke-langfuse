@@ -5,7 +5,7 @@ locals {
   namespace = data.oci_objectstorage_namespace.ns.namespace
   charts = [
     {
-      "repo_name"     = "oci-secret-store-provider"
+      "repo_name"     = "oci-secrets-store-provider"
       "repo_url"      = "https://oracle.github.io/oci-secrets-store-csi-driver-provider/charts"
       "chart_name"    = "oci-secrets-store-csi-driver-provider"
       "chart_version" = "${var.secrets_store_csi_provider_helm_chart_version}"
@@ -80,7 +80,7 @@ resource "oci_devops_deploy_artifact" "helm_chart_values_deploy_artifact" {
 module "secrets_store_csi_provider_chart_devops_artifact" {
   source        = "../../../devops/artifacts/helm_chart"
   display_name  = "secrets_store_csi_provider"
-  chart_url     = "oci://${var.region}.ocir.io/${local.namespace}/${var.deploy_id}/secrets_store_csi_provider/oci-secrets-store-csi-driver-provider"
+  chart_url     = "oci://${var.region}.ocir.io/${local.namespace}/${var.deploy_id}/oci-secrets-store-provider/oci-secrets-store-csi-driver-provider"
   chart_version = var.secrets_store_csi_provider_helm_chart_version
   project_id    = var.devops_project_id
   defined_tags  = var.defined_tags

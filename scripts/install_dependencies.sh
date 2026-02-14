@@ -80,6 +80,7 @@ set -x
 # install helm to get default values and find version of the Langfuse image for the chart version used
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4 | bash
 
+helm version
 # install Helm chart repo
 helm repo add langfuse https://langfuse.github.io/langfuse-k8s
 helm repo update
