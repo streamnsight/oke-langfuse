@@ -20,10 +20,19 @@ variable "devops_environment_id" {
 variable "artifact_repo_id" {
   type = string
 }
+
 variable "builder_instance_private_ip" {
   type = string
 }
 
 variable "builder_instance_private_key_secret_ocid" {
+  type = string
+}
+
+variable "deploy_id" {
+  type = string
+}
+
+variable "ocir_namespace" {
   type = string
 }

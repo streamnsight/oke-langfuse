@@ -9,9 +9,9 @@ resource "oci_artifacts_repository" "langfuse_secret_provider_class_manifest_rep
 
   # Purge any remaining artifacts before destroying the repository.
   provisioner "local-exec" {
-    when    = destroy
+    when       = destroy
     on_failure = continue
-    command = <<-CMD
+    command    = <<-CMD
       set -e
       REPO_ID="${self.id}"
       for i in $(seq 1 12); do
@@ -40,9 +40,9 @@ resource "oci_generic_artifacts_content_artifact_by_path" "langfuse_secret_provi
 
   # delete the resource from artifact repo on destroy as it blocks destroy of the artifact repo itself
   provisioner "local-exec" {
-    when    = destroy
+    when       = destroy
     on_failure = continue
-    command = <<-CMD
+    command    = <<-CMD
       oci artifacts generic artifact delete --artifact-id ${self.id} --force
     CMD
   }
