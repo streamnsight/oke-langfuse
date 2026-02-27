@@ -33,11 +33,11 @@ resource "oci_devops_deploy_artifact" "oci_genai_gateway_manifest" {
 data "external" "create_oci_genai_gateway_vault_secrets" {
   program = ["${path.module}/scripts/create_vault_secrets.sh"]
   query = {
-    deploy_id = var.deploy_id
-    profile = var.oci_profile
+    deploy_id                          = var.deploy_id
+    profile                            = var.oci_profile
     secrets_store_vault_compartment_id = var.secrets_store_vault_compartment_id
-    secrets_store_vault_id = var.secrets_store_vault_id
-    secrets_store_key_id = var.secrets_store_key_id
+    secrets_store_vault_id             = var.secrets_store_vault_id
+    secrets_store_key_id               = var.secrets_store_key_id
   }
 }
 
@@ -145,7 +145,7 @@ module "build_oci_genai_gateway_image_shell_stage" {
     }
   ]
   command_spec_content = file("${path.module}/scripts/command_spec.yaml")
-  depends_on = [ data.external.create_oci_genai_gateway_vault_secrets ]
+  depends_on           = [data.external.create_oci_genai_gateway_vault_secrets]
 }
 
 

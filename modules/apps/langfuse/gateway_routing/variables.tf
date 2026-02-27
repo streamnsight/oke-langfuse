@@ -27,3 +27,7 @@ variable "langfuse_hostname" {
 variable "subnet_id" {
   type = string
 }
+
+variable "artifact_repo_id" {
+  type = string
+}

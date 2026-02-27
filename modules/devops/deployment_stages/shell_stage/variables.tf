@@ -37,7 +37,7 @@ variable "subnet_id" {
   type = string
 }
 
-variable timeout {
-  type = number
+variable "timeout" {
+  type    = number
   default = 600
 }

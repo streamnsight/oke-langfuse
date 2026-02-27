@@ -19,9 +19,9 @@ resource "oci_devops_deploy_artifact" "commandspec" {
 
   # delete the resource from artifact repo on destroy as it blocks destroy of the artifact repo itself
   provisioner "local-exec" {
-    when    = destroy
+    when       = destroy
     on_failure = continue
-    command = <<-CMD
+    command    = <<-CMD
       oci artifacts generic artifact delete --artifact-id ${self.id} --force
     CMD
   }
@@ -86,10 +86,10 @@ resource "oci_devops_deploy_stage" "deploy_stage" {
 }
 
 resource "oci_devops_deployment" "deployment" {
-  deploy_pipeline_id            = oci_devops_deploy_pipeline.pipeline.id
-  deployment_type               = "PIPELINE_DEPLOYMENT"
-  display_name                  = replace(var.stage_name, "_", "-")
-  defined_tags                  = var.defined_tags
+  deploy_pipeline_id = oci_devops_deploy_pipeline.pipeline.id
+  deployment_type    = "PIPELINE_DEPLOYMENT"
+  display_name       = replace(var.stage_name, "_", "-")
+  defined_tags       = var.defined_tags
   deployment_arguments {
     dynamic "items" {
       for_each = var.deploy_pipeline_parameters

@@ -6,6 +6,28 @@ resource "oci_artifacts_repository" "oci_native_ingress_class_manifest_repositor
   display_name    = "oci_native_ingress_class_manifest_repo"
   is_immutable    = false # Set to true if artifacts in this repository should be immutable
   repository_type = "GENERIC"
+
+  # Purge any remaining artifacts before destroying the repository.
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-CMD
+      set -e
+      REPO_ID="${self.id}"
+      for i in $(seq 1 12); do
+        IDS=$(oci artifacts generic artifact list --repository-id "$REPO_ID" --all --query 'data.items[].id' --raw-output | tr -d '\r')
+        if [ -z "$IDS" ]; then
+          exit 0
+        fi
+        for id in $IDS; do
+          oci artifacts generic artifact delete --artifact-id "$id" --force || true
+        done
+        sleep 5
+      done
+      oci artifacts generic artifact list --repository-id "$REPO_ID" --all --query 'data.items[].id'
+      echo "Repository still has artifacts after retries." 1>&2
+      exit 1
+    CMD
+  }
 }
 
 resource "oci_generic_artifacts_content_artifact_by_path" "oci_native_ingress_class_manifest_artifact" {
@@ -110,4 +132,3 @@ resource "oci_devops_deployment" "oci_native_ingress_class_deployment" {
     ignore_changes = [defined_tags]
   }
 }
-

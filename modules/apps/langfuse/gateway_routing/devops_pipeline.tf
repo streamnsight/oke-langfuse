@@ -1,17 +1,10 @@
 ## Copyright © 2022-2026, Oracle and/or its affiliates.
 ## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
 
-resource "oci_artifacts_repository" "langfuse_gateway_routing_manifest_repository" {
-  compartment_id  = var.compartment_id
-  display_name    = "langfuse_gateway_routing_manifest_repo"
-  is_immutable    = false # Set to true if artifacts in this repository should be immutable
-  repository_type = "GENERIC"
-}
-
 resource "oci_generic_artifacts_content_artifact_by_path" "langfuse_gateway_routing_manifest_artifact" {
   #Required
   artifact_path = "langfuse.HTTPRoute.yaml"
-  repository_id = oci_artifacts_repository.langfuse_gateway_routing_manifest_repository.id
+  repository_id = var.artifact_repo_id
   version       = "0.1.0"
   content       = file("${path.module}/manifests/langfuse.HTTPRoute.yaml")
 
@@ -60,7 +53,7 @@ resource "oci_devops_deploy_pipeline" "langfuse_gateway_routing" {
     }
     items {
       name          = "REGISTRY_OCID"
-      default_value = oci_artifacts_repository.langfuse_gateway_routing_manifest_repository.id
+      default_value = var.artifact_repo_id
       description   = "OCID of the artifact repository"
     }
     items {

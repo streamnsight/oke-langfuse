@@ -31,3 +31,8 @@ variable "force_deployment" {
   type    = bool
   default = false
 }
+
+
+variable "artifact_repo_id" {
+  type = string
+}

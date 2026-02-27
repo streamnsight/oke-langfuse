@@ -48,6 +48,6 @@ module "build_langfuse_image_shell_stage" {
     }
   ]
   command_spec_content = file("${path.module}/scripts/command_spec.yaml")
-  timeout = 3600
+  timeout              = 3600
 }
 

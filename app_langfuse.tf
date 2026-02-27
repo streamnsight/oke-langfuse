@@ -90,6 +90,7 @@ module "langfuse_gateway" {
   subnet_id             = oci_containerengine_cluster.oci_oke_cluster.endpoint_config[0].subnet_id
   devops_project_id     = module.devops_setup.project_id
   devops_environment_id = module.devops_target_cluster_env.environment_id
+  artifact_repo_id      = oci_artifacts_repository.artifact_repository.id
   depends_on = [
     module.istio_deployment_using_addon_manager,
     module.istio_gateway_crds
@@ -222,6 +223,7 @@ module "langfuse_gateway_routing" {
   devops_project_id     = module.devops_setup.project_id
   devops_environment_id = module.devops_target_cluster_env.environment_id
   langfuse_hostname     = local.langfuse_url
+  artifact_repo_id      = oci_artifacts_repository.artifact_repository.id
   defined_tags          = var.defined_tags
 
   depends_on = [

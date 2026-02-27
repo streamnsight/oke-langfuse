@@ -5,18 +5,18 @@
 data "external" "create_langfuse_vault_secrets" {
   program = ["${path.module}/scripts/create_vault_secrets.sh"]
   query = {
-    deploy_id = var.deploy_id
-    profile = var.oci_profile
+    deploy_id                          = var.deploy_id
+    profile                            = var.oci_profile
     secrets_store_vault_compartment_id = var.secrets_store_vault_compartment_id
-    secrets_store_vault_id = var.secrets_store_vault_id
-    secrets_store_key_id = var.secrets_store_key_id
-    idcs_client_id = var.idcs_client_id
-    idcs_client_secret = var.idcs_client_secret
-    idcs_issuer = var.idcs_domain_url
-    s3_access_key = var.s3_client_id
-    s3_secret_key = var.s3_client_secret
-    psql_password = var.psql_password
-    psql_url = "postgresql://langfuse:${urlencode(var.psql_password)}@${var.psql_endpoint.fqdn}:${var.psql_endpoint.port}/postgres?sslmode=verify-full&sslrootcert=/secrets/db-keystore/CaCertificate-langfuse.pub"
+    secrets_store_vault_id             = var.secrets_store_vault_id
+    secrets_store_key_id               = var.secrets_store_key_id
+    idcs_client_id                     = var.idcs_client_id
+    idcs_client_secret                 = var.idcs_client_secret
+    idcs_issuer                        = var.idcs_domain_url
+    s3_access_key                      = var.s3_client_id
+    s3_secret_key                      = var.s3_client_secret
+    psql_password                      = var.psql_password
+    psql_url                           = "postgresql://langfuse:${urlencode(var.psql_password)}@${var.psql_endpoint.fqdn}:${var.psql_endpoint.port}/postgres?sslmode=verify-full&sslrootcert=/secrets/db-keystore/CaCertificate-langfuse.pub"
   }
 }
 
