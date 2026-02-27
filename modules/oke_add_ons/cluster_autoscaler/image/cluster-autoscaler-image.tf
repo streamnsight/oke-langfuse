@@ -24,21 +24,6 @@ locals {
   image_version = data.external.cluster_autoscaler_image_tag.result["image"] != "-" ? "v${split("-", data.external.cluster_autoscaler_image_tag.result["image"])[0]}" : null
 }
 
-# resource "null_resource" "cluster_autoscaler_images_tags" {
-
-#   triggers = {
-#     region = var.ocir_region
-#   }
-#   provisioner "local-exec" {
-#     command = "oci raw-request --http-method GET --target-uri https://${var.ocir_region}.ocir.io/v2/oracle/oci-cluster-autoscaler/tags/list | jq '.data | .tags // []' > ${path.module}/ca_image_tags.${var.ocir_region}.json"
-#   }
-
-#   provisioner "local-exec" {
-#     when    = destroy
-#     command = "printf ${path.module}/${self.id}"
-#   }
-# }
-
 data "external" "cluster_autoscaler_image_tag" {
   program = ["bash", "${path.module}/get_image_tag.sh"]
   query = {
@@ -46,9 +31,3 @@ data "external" "cluster_autoscaler_image_tag" {
     kubernetes_version = local.k8s_major_minor
   }
 }
-
-# data "local_file" "cluster_autoscaler_image_tags" {
-#   filename   = "${path.module}/ca_image_tags.${var.ocir_region}.json"
-#   depends_on = [null_resource.cluster_autoscaler_images_tags]
-# }
-

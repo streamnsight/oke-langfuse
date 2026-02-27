@@ -11,6 +11,7 @@ resource "oci_generic_artifacts_content_artifact_by_path" "langfuse_gateway_mani
   # delete the resource from artifact repo on destroy as it blocks destroy of the artifact repo itself
   provisioner "local-exec" {
     when    = destroy
+    on_failure = continue
     command = <<-CMD
       oci artifacts generic artifact delete --artifact-id ${self.id} --force
     CMD

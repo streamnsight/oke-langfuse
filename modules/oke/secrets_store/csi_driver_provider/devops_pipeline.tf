@@ -33,6 +33,7 @@ resource "oci_artifacts_repository" "helm_chart_values_repository" {
   # Purge any remaining artifacts before destroying the repository.
   provisioner "local-exec" {
     when    = destroy
+    on_failure = continue
     command = <<-CMD
       set -e
       REPO_ID="${self.id}"
@@ -63,6 +64,7 @@ resource "oci_generic_artifacts_content_artifact_by_path" "helm_chart_values_art
   # delete the resource from artifact repo on destroy as it blocks destroy of the artifact repo itself
   provisioner "local-exec" {
     when    = destroy
+    on_failure = continue
     command = <<-CMD
       oci artifacts generic artifact delete --artifact-id ${self.id} --force
     CMD
@@ -99,6 +101,7 @@ resource "oci_devops_deploy_artifact" "helm_chart_values_deploy_artifact" {
   # delete the resource from artifact repo on destroy as it blocks destroy of the artifact repo itself
   provisioner "local-exec" {
     when    = destroy
+    on_failure = continue
     command = <<-CMD
       oci artifacts generic artifact delete --artifact-id ${self.id} --force
     CMD
