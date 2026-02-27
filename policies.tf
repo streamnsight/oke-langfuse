@@ -20,7 +20,7 @@ module "network_source_group" {
 }
 
 locals {
-  cluster_nodes = "ALL { request.principal.type = 'instance' , request.principal.compartment.id = '${var.cluster_compartment_id}' }" 
+  cluster_nodes = "ALL { request.principal.type = 'instance' , request.principal.compartment.id = '${var.cluster_compartment_id}' }"
   worker_nodes_policy_statements = var.use_network_source ? [] : compact([
     "allow any-user to read repos in compartment id ${var.cluster_compartment_id} where ${local.cluster_nodes}",
     "allow any-user to manage generative-ai-family in compartment id ${var.cluster_compartment_id} where ${local.cluster_nodes}",
@@ -45,7 +45,7 @@ locals {
 }
 
 module "nsg_based_policies" {
-  count         = var.use_network_source ? 1 : 0
+  count          = var.use_network_source ? 1 : 0
   source         = "./modules/iam/nsg_policies"
   nsg_name       = local.nsg_name
   compartment_id = var.cluster_compartment_id
@@ -76,7 +76,7 @@ module "policies_after_node_pool" {
   policy_statements = flatten(compact(concat(
     module.cluster_autoscaler_workload_identity_policy.policy_statements,
     module.native_ingress_workload_identity_policy.policy_statements,
-    module.langfuse_secret_store_csi_provider_workload_identity_policy.policy_statements
+    # module.langfuse_secret_store_csi_provider_workload_identity_policy.policy_statements
   )))
   providers = {
     oci = oci.home_region

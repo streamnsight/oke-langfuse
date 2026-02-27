@@ -90,19 +90,9 @@ langfuse:
         - name: db-keystore   # referencing an existing secret to mount server/client certs for postgres
           secret:
             secretName: langfuse-postgres-cert  # contain the following files (server-ca.pem, sslidentity.pk12)
-        # Mount Vault secrets as files using Secrets Store CSI
-        - name: secrets-store-inline
-          csi:
-            driver: secrets-store.csi.k8s.io
-            readOnly: true
-            volumeAttributes:
-              secretProviderClass: langfuse-from-vault
       extraVolumeMounts:
         - name: db-keystore
           mountPath: /secrets/db-keystore  # mounting the db-keystore store certs in the pod under the given path
-          readOnly: true
-        - name: secrets-store-inline
-          mountPath: /mnt/secrets-store
           readOnly: true
 
   worker:
@@ -113,19 +103,9 @@ langfuse:
         - name: db-keystore   # referencing an existing secret to mount server/client certs for postgres
           secret:
             secretName: langfuse-postgres-cert  # contain the following files (server-ca.pem, sslidentity.pk12)
-        # Mount Vault secrets as files using Secrets Store CSI
-        - name: secrets-store-inline
-          csi:
-            driver: secrets-store.csi.k8s.io
-            readOnly: true
-            volumeAttributes:
-              secretProviderClass: langfuse-from-vault
       extraVolumeMounts:
         - name: db-keystore
           mountPath: /secrets/db-keystore  # mounting the db-keystore store certs in the pod under the given path
-          readOnly: true
-        - name: secrets-store-inline
-          mountPath: /mnt/secrets-store
           readOnly: true
       additionalEnv: 
       - name: DATABASE_URL  # Using the certs in the url eg. postgresql://the-db-user:the-password@postgres-host:5432/langfuse?ssl=true&sslmode=require&sslcert=/secrets/db-keystore/server-ca.pem&sslidentity=/secrets/db-keystore/sslidentity.pk12&sslpassword=the-ssl-identity-pw

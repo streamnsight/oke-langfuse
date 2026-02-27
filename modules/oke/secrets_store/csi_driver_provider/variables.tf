@@ -1,8 +1,8 @@
 ## Copyright © 2022-2026, Oracle and/or its affiliates.
 ## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
 
-variable tenancy_ocid {
-  type = string 
+variable "tenancy_ocid" {
+  type = string
 }
 
 variable "compartment_id" {
@@ -18,7 +18,7 @@ variable "deploy_id" {
 }
 
 variable "secrets_store_csi_provider_helm_chart_version" {
-  type = string
+  type    = string
   default = "0.4.1"
 }
 

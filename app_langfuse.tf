@@ -67,12 +67,18 @@ locals {
 
 # Build Langfuse patched container image
 module "build_langfuse_image" {
-  source          = "./modules/apps/langfuse/build_image"
-  builder_details = module.builder_instance.details
+  source                                   = "./modules/apps/langfuse/build_image"
+  compartment_id                           = local.devops_compartment_id
+  devops_project_id                        = module.devops_setup.project_id
+  devops_environment_id                    = module.devops_target_cluster_env.environment_id
+  artifact_repo_id                         = local.artifact_repo_id
+  subnet_id                                = var.use_existing_vcn ? local.node_pools[0]["subnet"] : oci_core_subnet.oke_nodepool_subnet[0].id
+  builder_instance_private_ip              = module.builder_instance.details.private_ip
+  builder_instance_private_key_secret_ocid = data.external.builder_ssh_key_to_vault.result.private_key_secret_ocid
 
   depends_on = [
     module.builder_instance,
-    null_resource.builder_setup
+    module.builder_setup_shell_stage
   ]
 }
 
@@ -90,67 +96,97 @@ module "langfuse_gateway" {
   ]
 }
 
-locals {
-  secret_store_csi_provider_permissions = [
-    "use secret-family"
-  ]
-}
+# locals {
+#   secret_store_csi_provider_permissions = [
+#     "use secret-family"
+#   ]
+# }
 
-# define policies statements to use workload identity
-module "langfuse_secret_store_csi_provider_workload_identity_policy" {
-  source               = "./modules/iam/workload_identity"
-  compartment_id       = var.secrets_store_vault_compartment_id
-  workload_name        = "oci-secrets-store-csi-driver-provider"
-  service_account_name = "langfuse-sa"
-  namespace            = "kube-system"
-  permissions          = local.secret_store_csi_provider_permissions
-  defined_tags         = var.defined_tags
-  cluster_id           = oci_containerengine_cluster.oci_oke_cluster.id
-  providers = {
-    oci = oci.home_region
-  }
-}
+# # define policies statements to use workload identity
+# module "langfuse_secret_store_csi_provider_workload_identity_policy" {
+#   source               = "./modules/iam/workload_identity"
+#   compartment_id       = var.secrets_store_vault_compartment_id
+#   workload_name        = "oci-secrets-store-csi-driver-provider"
+#   service_account_name = "langfuse-sa"
+#   namespace            = "kube-system"
+#   permissions          = local.secret_store_csi_provider_permissions
+#   defined_tags         = var.defined_tags
+#   cluster_id           = oci_containerengine_cluster.oci_oke_cluster.id
+#   providers = {
+#     oci = oci.home_region
+#   }
+# }
 
-module "langfuse_secret_provider_class_deployment" {
-  source = "./modules/apps/langfuse/secret_provider_class"
-  compartment_id        = var.cluster_compartment_id
-  cluster_id            = oci_containerengine_cluster.oci_oke_cluster.id
-  vault_id             = var.secrets_store_vault_id
-  devops_project_id     = module.devops_setup.project_id
-  devops_environment_id = module.devops_target_cluster_env.environment_id
-  depends_on = [
-  ]
-}
+# module "langfuse_create_secrets_in_vault" {
+#   source = "./modules/apps/langfuse/create_secrets_in_vault"
+#   compartment_id              = var.cluster_compartment_id
+#   # tenancy_ocid                = var.tenancy_ocid
+#   # region                      = var.region
+#   # oci_profile                 = var.oci_profile
+#   vault_id = var.secrets_store_vault_id
+#   key_id = var.secrets_store_key_id
+#   subnet_id             = oci_containerengine_cluster.oci_oke_cluster.endpoint_config[0].subnet_id
+#   psql_endpoint               = module.langfuse_postgres.details.endpoint
+#   psql_password               = module.langfuse_postgres.details.password
+#   psql_cert                   = module.langfuse_postgres.details.cert
+#   s3_client_id                = var.langfuse_s3_access_key
+#   s3_client_secret            = var.langfuse_s3_secret_key
+#   idcs_app_id                 = local.idcs_app_id
+#   idcs_client_id              = local.idcs_client_id
+#   idcs_client_secret          = local.idcs_client_secret
+#   idcs_domain_url             = local.idcs_domain_url
+#   # redis_hostname              = module.langfuse_redis.details.hostname
+#   # redis_password              = module.langfuse_redis.details.password
+#   devops_project_id           = module.devops_setup.project_id
+#   devops_environment_id       = module.devops_target_cluster_env.environment_id
+# }
+
+# module "langfuse_secret_provider_class_deployment" {
+#   source = "./modules/apps/langfuse/secret_provider_class"
+#   compartment_id        = var.cluster_compartment_id
+#   cluster_id            = oci_containerengine_cluster.oci_oke_cluster.id
+#   vault_id             = var.secrets_store_vault_id
+#   devops_project_id     = module.devops_setup.project_id
+#   devops_environment_id = module.devops_target_cluster_env.environment_id
+#   depends_on = [
+#   ]
+# }
 
 # Create the Langfuse secrets and deploy the helm chart
 # The chart is deployed via DevOps pipeline, although secrets are deployed via remote-exec command to avoid storing credentials
 # in pipeline paramters
 # TODO, see how to use https://github.com/oracle/oci-secrets-store-csi-driver-provider to provision the secrets from vault
 module "langfuse_chart" {
-  source                      = "./modules/apps/langfuse/helm_chart"
-  compartment_id              = var.cluster_compartment_id
-  tenancy_ocid                = var.tenancy_ocid
-  region                      = var.region
-  oci_profile                 = var.oci_profile
-  cluster_id                  = oci_containerengine_cluster.oci_oke_cluster.id
-  builder_details             = module.builder_instance.details
-  psql_endpoint               = module.langfuse_postgres.details.endpoint
-  psql_password               = module.langfuse_postgres.details.password
-  psql_cert                   = module.langfuse_postgres.details.cert
-  s3_client_id                = var.langfuse_s3_access_key
-  s3_client_secret            = var.langfuse_s3_secret_key
-  idcs_app_id                 = local.idcs_app_id
-  idcs_client_id              = local.idcs_client_id
-  idcs_client_secret          = local.idcs_client_secret
-  idcs_domain_url             = local.idcs_domain_url
-  redis_hostname              = module.langfuse_redis.details.hostname
-  redis_password              = module.langfuse_redis.details.password
-  devops_project_id           = module.devops_setup.project_id
-  devops_environment_id       = module.devops_target_cluster_env.environment_id
-  object_storage_bucket       = local.object_storage_bucket
-  deploy_id                   = local.deploy_id
-  langfuse_helm_chart_version = var.langfuse_helm_chart_version
-  langfuse_hostname           = local.langfuse_url
+  source                                   = "./modules/apps/langfuse/helm_chart"
+  compartment_id                           = var.cluster_compartment_id
+  tenancy_ocid                             = var.tenancy_ocid
+  region                                   = var.region
+  oci_profile                              = var.oci_profile
+  cluster_id                               = oci_containerengine_cluster.oci_oke_cluster.id
+  artifact_repo_id                         = local.artifact_repo_id
+  subnet_id                                = var.use_existing_vcn ? local.node_pools[0]["subnet"] : oci_core_subnet.oke_nodepool_subnet[0].id
+  builder_instance_private_ip              = module.builder_instance.details.private_ip
+  builder_instance_private_key_secret_ocid = data.external.builder_ssh_key_to_vault.result.private_key_secret_ocid
+  psql_endpoint                            = module.langfuse_postgres.details.endpoint
+  psql_password                            = module.langfuse_postgres.details.password
+  psql_ocid                                = module.langfuse_postgres.details.ocid
+  s3_client_id                             = var.langfuse_s3_access_key
+  s3_client_secret                         = var.langfuse_s3_secret_key
+  idcs_app_id                              = local.idcs_app_id
+  idcs_client_id                           = local.idcs_client_id
+  idcs_client_secret                       = local.idcs_client_secret
+  idcs_domain_url                          = local.idcs_domain_url
+  redis_hostname                           = module.langfuse_redis.details.hostname
+  redis_password                           = module.langfuse_redis.details.password
+  devops_project_id                        = module.devops_setup.project_id
+  devops_environment_id                    = module.devops_target_cluster_env.environment_id
+  object_storage_bucket                    = local.object_storage_bucket
+  deploy_id                                = local.deploy_id
+  langfuse_helm_chart_version              = var.langfuse_helm_chart_version
+  langfuse_hostname                        = local.langfuse_url
+  secrets_store_vault_compartment_id       = var.secrets_store_vault_compartment_id
+  secrets_store_vault_id                   = var.secrets_store_vault_id
+  secrets_store_key_id                     = var.secrets_store_key_id
 
 
   depends_on = [
@@ -191,6 +227,6 @@ module "langfuse_gateway_routing" {
   depends_on = [
     module.cert_manager_deployment_using_addon_manager,
     module.istio_deployment_using_addon_manager,
-    module.langfuse_chart
+    # module.langfuse_chart
   ]
 }

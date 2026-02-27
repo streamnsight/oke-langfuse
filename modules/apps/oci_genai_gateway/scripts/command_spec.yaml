@@ -1,0 +1,67 @@
+version: 0.1
+component: command
+timeoutInSeconds: 10000
+shell: bash
+failImmediatelyOnError: true
+inputArtifacts:
+- name: oci-genai-gateway-image-build-script
+  type: GENERIC_ARTIFACT
+  artifactId: ${BUILD_OCI_GENAI_GATEWAY_IMAGE_ARTIFACT_OCID}
+  registryId: ${REGISTRY_OCID}
+  path: build_oci_genai_gateway_image.sh
+  version: 0.1.0
+  location: ./build_oci_genai_gateway_image.sh
+- name: create-oci-genai-gateway-secrets-script
+  type: GENERIC_ARTIFACT
+  artifactId: ${CREATE_OCI_GENAI_GATEWAY_SECRETS_SCRIPT_ARTIFACT_OCID}
+  registryId: ${REGISTRY_OCID}
+  path: create_oci_genai_gateway_oke_secrets.sh
+  version: 0.1.0
+  location: ./create_oci_genai_gateway_oke_secrets.sh
+steps:
+  - type: Command
+    name: Build OCI GenAI Gateway Image
+    timeoutInSeconds: 1200
+    command: |
+      set -euxo pipefail
+      echo "setting up builder instance dependencies..."
+      # get the SSH private key for the builder instance
+      OUT_FILE="./id_ed25519"
+      oci secrets secret-bundle get \
+        --secret-id "$SSH_PRIVATE_KEY_SECRET_OCID" \
+        --query 'data."secret-bundle-content".content' \
+        --raw-output \
+        | base64 --decode > "$OUT_FILE"
+      chmod 600 "$OUT_FILE"
+      # build oic genai gateway image
+      scp -i "$OUT_FILE" -o "StrictHostKeyChecking=no" ./build_oci_genai_gateway_image.sh opc@${BUILDER_INSTANCE_IP}:~/build_oci_genai_gateway_image.sh
+      scp -i "$OUT_FILE" -o "StrictHostKeyChecking=no" ./create_oci_genai_gateway_oke_secrets.sh opc@${BUILDER_INSTANCE_IP}:~/create_oci_genai_gateway_oke_secrets.sh
+
+      ssh -i "$OUT_FILE" -o "StrictHostKeyChecking=no" opc@${BUILDER_INSTANCE_IP}  <<'REMOTE_EOF'
+      set -euxo pipefail
+
+      echo "Remote: running on $(hostname) as $(whoami) in $PWD"
+      ls -la ~/
+
+      chmod +x ~/build_oci_genai_gateway_image.sh
+      
+      # run the script without -e / pipefail influencing it
+      set +e +o pipefail
+      ~/build_oci_genai_gateway_image.sh
+      rc=$?
+      set -euo pipefail
+
+      exit $rc
+      REMOTE_EOF
+
+      # create OCI GenAI Gateway secret
+      export REGION=${REGION}
+      export DEPLOY_ID=${DEPLOY_ID}
+      export PROFILE=${PROFILE}
+      export CLUSTER_ID=${CLUSTER_ID}
+      export SECRET_STORE_VAULT_ID=${SECRET_STORE_VAULT_ID}
+      export SECRET_STORE_KEY_ID=${SECRET_STORE_KEY_ID}
+      export COMPARTMENT_ID=${COMPARTMENT_ID}
+
+      chmod +x ~/create_oci_genai_gateway_oke_secrets.sh
+      ~/create_oci_genai_gateway_oke_secrets.sh

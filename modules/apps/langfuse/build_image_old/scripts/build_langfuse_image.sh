@@ -55,6 +55,9 @@ podman manifest inspect ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/lang
     --is-public false \
 || echo "already exists"
 
+podman pull ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse:${VERSION} > /dev/null 2>&1;
+echo $?
+
 if podman pull ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse:${VERSION} > /dev/null 2>&1; then
     echo "Image found in the remote repository. Exiting script..."
     exit 0 # Exit with 0 as requested by user if true

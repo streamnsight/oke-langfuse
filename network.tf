@@ -2,11 +2,11 @@
 ## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
 
 locals {
-  subnet_cidrs            = cidrsubnets(var.vcn_cidr, 12, 8, 4, 4, 4) # API + 1 LB + 3 node pools
+  subnet_cidrs                    = cidrsubnets(var.vcn_cidr, 12, 8, 4, 4, 4) # API + 1 LB + 3 node pools
   created_api_subnet_cidr         = element(local.subnet_cidrs, 0)
   created_lb_subnet_cidr          = element(local.subnet_cidrs, 1)
   created_node_pool_subnets_cidrs = slice(local.subnet_cidrs, 2, 5)
-  ADs                     = data.oci_identity_availability_domains.ADs.availability_domains.*.name
+  ADs                             = data.oci_identity_availability_domains.ADs.availability_domains.*.name
 }
 
 data "oci_core_vcn" "existing_vcn" {
@@ -16,15 +16,15 @@ data "oci_core_vcn" "existing_vcn" {
 }
 
 data "oci_core_subnets" "subnets" {
-    count  = var.use_existing_vcn ? 1 : 0
-    compartment_id = data.oci_core_vcn.existing_vcn[0].compartment_id
-    vcn_id = data.oci_core_vcn.existing_vcn[0].id
+  count          = var.use_existing_vcn ? 1 : 0
+  compartment_id = data.oci_core_vcn.existing_vcn[0].compartment_id
+  vcn_id         = data.oci_core_vcn.existing_vcn[0].id
 }
 
 locals {
-  existing_subnet_cidrs_map = var.use_existing_vcn ? {for s in data.oci_core_subnets.subnets[0].subnets[*]: s.id => s.cidr_block } : {}
-  api_subnet_cidr = var.use_existing_vcn ? local.existing_subnet_cidrs_map[var.kubernetes_endpoint_subnet] : local.created_api_subnet_cidr
-  lb_subnet_cidr = var.use_existing_vcn ? local.existing_subnet_cidrs_map[var.public_lb_subnet] : local.created_lb_subnet_cidr
+  existing_subnet_cidrs_map = var.use_existing_vcn ? { for s in data.oci_core_subnets.subnets[0].subnets[*] : s.id => s.cidr_block } : {}
+  api_subnet_cidr           = var.use_existing_vcn ? local.existing_subnet_cidrs_map[var.kubernetes_endpoint_subnet] : local.created_api_subnet_cidr
+  lb_subnet_cidr            = var.use_existing_vcn ? local.existing_subnet_cidrs_map[var.public_lb_subnet] : local.created_lb_subnet_cidr
   node_pool_subnets_cidrs = var.use_existing_vcn ? [
     for s in [var.np1_subnet, var.np2_subnet, var.np3_subnet] :
     local.existing_subnet_cidrs_map[s]
@@ -462,7 +462,7 @@ resource "null_resource" "update_api_subnet_sls" {
 
   triggers = {
     subnet_id = var.kubernetes_endpoint_subnet
-    new_ids   = jsonencode(concat(
+    new_ids = jsonencode(concat(
       [oci_core_security_list.oke_api_endpoint_external_sec_list[0].id],
       oci_core_security_list.oke_api_endpoint_nodes_sec_list.*.id
     ))
@@ -475,7 +475,7 @@ resource "null_resource" "update_api_subnet_sls" {
 
   provisioner "local-exec" {
     interpreter = ["/bin/bash", "-lc"]
-    command = <<-EOT
+    command     = <<-EOT
       set -euo pipefail
       export OCI_CLI_PROFILE="${var.oci_profile}"
       SUBNET_ID="${var.kubernetes_endpoint_subnet}"
@@ -501,7 +501,7 @@ resource "null_resource" "update_lb_subnet_sls" {
 
   provisioner "local-exec" {
     interpreter = ["/bin/bash", "-lc"]
-    command = <<-EOT
+    command     = <<-EOT
       set -euo pipefail
       export OCI_CLI_PROFILE="${var.oci_profile}"
       SUBNET_ID="${var.public_lb_subnet}"
@@ -518,7 +518,7 @@ resource "null_resource" "update_nodepool_subnet_sls" {
 
   triggers = {
     subnet_id = each.value
-    new_ids   = jsonencode([
+    new_ids = jsonencode([
       oci_core_security_list.oke_nodepool_sec_list[0].id,
     ])
   }
@@ -535,10 +535,10 @@ resource "null_resource" "update_nodepool_subnet_sls" {
       SUBNET_ID="${each.value}"
       CURRENT=$(oci network subnet get --subnet-id "$SUBNET_ID" | jq '.data."security-list-ids"')
       ADD='${jsonencode([
-        oci_core_security_list.oke_nodepool_sec_list[0].id,
-      ])}'
+    oci_core_security_list.oke_nodepool_sec_list[0].id,
+])}'
       DESIRED=$(jq -n --argjson cur "$CURRENT" --argjson add "$ADD" '$cur + $add | unique')
       oci network subnet update --subnet-id "$SUBNET_ID" --security-list-ids "$DESIRED" --force --wait-for-state AVAILABLE >/dev/null
     EOT
-  }
+}
 }

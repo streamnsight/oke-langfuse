@@ -146,7 +146,7 @@ resource "oci_containerengine_node_pool" "oci_oke_node_pool" {
   node_pool_cycling_details {
     is_node_cycling_enabled = true
     maximum_surge           = 1
-    maximum_unavailable     = 0
+    maximum_unavailable     = 1
   }
 
   node_metadata = module.cloud_init_script.content
@@ -161,7 +161,7 @@ resource "oci_containerengine_node_pool" "oci_oke_node_pool" {
     ]
   }
 
-  depends_on = [ 
+  depends_on = [
     module.policies_before_node_pool
   ]
 }

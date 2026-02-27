@@ -125,7 +125,7 @@ variable "np1_image_id" {
 }
 
 variable "np1_boot_volume_size_in_gbs" {
-  default = 50
+  default = 500
 }
 
 variable "np1_tags" {
@@ -481,15 +481,15 @@ variable "use_network_source" {
 }
 
 ## Secret storage
-variable secrets_store_vault_compartment_id {
+variable "secrets_store_vault_compartment_id" {
   type = string
 }
 
-variable secrets_store_vault_id {
+variable "secrets_store_vault_id" {
   type = string
 }
 
-variable secrets_store_key_id {
+variable "secrets_store_key_id" {
   type = string
 }
 

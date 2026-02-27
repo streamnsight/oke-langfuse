@@ -1,0 +1,51 @@
+version: 0.1
+component: command
+timeoutInSeconds: 10000
+shell: bash
+failImmediatelyOnError: true
+inputArtifacts:
+- name: letsencrypt-cluster-issuer
+  type: GENERIC_ARTIFACT
+  artifactId: ${LETSENCRYPT_CLUSTERISSUER_ARTIFACT_OCID}
+  registryId: ${REGISTRY_OCID}
+  path: letsencrypt.ClusterIssuer.yaml
+  version: 0.1.0
+  location: ./letsencrypt.ClusterIssuer.yaml
+- name: create-langfuse-secrets-script
+  type: GENERIC_ARTIFACT
+  artifactId: ${CREATE_LANGFUSE_SECRETS_ARTIFACT_OCID}
+  registryId: ${REGISTRY_OCID}
+  path: create_oke_secrets.sh
+  version: 0.1.0
+  location: ./create_oke_secrets.sh
+steps:
+  - type: Command
+    name: Langfuse secrets and cert dependencies
+    timeoutInSeconds: 600
+    command: |
+      set -euo pipefail
+      
+
+      oci --version
+      kubectl version --client
+
+
+      export REGION=${REGION}
+      export DEPLOY_ID=${DEPLOY_ID}
+      export PROFILE=${PROFILE}
+      export CLUSTER_ID=${CLUSTER_ID}
+      export SECRET_STORE_VAULT_ID=${SECRET_STORE_VAULT_ID}
+      export SECRET_STORE_KEY_ID=${SECRET_STORE_KEY_ID}
+      export COMPARTMENT_ID=${COMPARTMENT_ID}
+      export PSQL_OCID=${PSQL_OCID}
+
+      env | sort
+
+      # create secrets
+
+      chmod +x ./create_oke_secrets.sh
+      ./create_oke_secrets.sh
+
+      # Deploye Cluster Issuers
+
+      kubectl apply -f ./letsencrypt.ClusterIssuer.yaml

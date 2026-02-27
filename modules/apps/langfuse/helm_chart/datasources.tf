@@ -5,3 +5,10 @@ data "oci_objectstorage_namespace" "ns" {
   compartment_id = var.tenancy_ocid
 }
 
+
+data "external" "langfuse_version" {
+  program = ["${path.module}/scripts/get_langfuse_version.sh"]
+  query = {
+    langfuse_helm_chart_version = var.langfuse_helm_chart_version
+  }
+}

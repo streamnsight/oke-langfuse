@@ -17,14 +17,18 @@ variable "psql_endpoint" {
   type = map(any)
 }
 
-variable "psql_cert" {
-  type      = string
-  sensitive = true
-}
+# variable "psql_cert" {
+#   type      = string
+#   sensitive = true
+# }
 
 variable "psql_password" {
   type      = string
   sensitive = true
+}
+
+variable "psql_ocid" {
+  type = string
 }
 
 variable "s3_client_id" {
@@ -111,10 +115,34 @@ variable "langfuse_hostname" {
   type = string
 }
 
-variable "builder_details" {
-  type = map(any)
+variable "object_storage_bucket" {
+  type = string
 }
 
-variable "object_storage_bucket" {
+variable "subnet_id" {
+  type = string
+}
+
+variable "builder_instance_private_ip" {
+  type = string
+}
+
+variable "builder_instance_private_key_secret_ocid" {
+  type = string
+}
+
+variable "artifact_repo_id" {
+  type = string
+}
+
+variable "secrets_store_vault_compartment_id" {
+  type = string
+}
+
+variable "secrets_store_vault_id" {
+  type = string
+}
+
+variable "secrets_store_key_id" {
   type = string
 }

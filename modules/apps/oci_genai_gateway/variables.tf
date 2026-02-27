@@ -5,6 +5,11 @@ variable "compartment_id" {
   type = string
 }
 
+variable "oci_profile" {
+  type    = string
+  default = "DEFAULT"
+}
+
 variable "tenancy_namespace" {
   type = string
 }
@@ -17,6 +22,10 @@ variable "region" {
   type = string
 }
 
+variable "cluster_id" {
+  type = string
+}
+
 variable "genai_region" {
   type = string
 }
@@ -25,11 +34,19 @@ variable "deploy_id" {
   type = string
 }
 
-variable "oci_genai_gateway_tag" {
+variable "subnet_id" {
   type = string
 }
 
-variable "cluster_id" {
+variable "builder_instance_private_ip" {
+  type = string
+}
+
+variable "builder_instance_private_key_secret_ocid" {
+  type = string
+}
+
+variable "oci_genai_gateway_tag" {
   type = string
 }
 
@@ -40,6 +57,11 @@ variable "devops_project_id" {
 variable "devops_environment_id" {
   type = string
 }
+
+variable "artifact_repo_id" {
+  type = string
+}
+
 variable "defined_tags" {
   type    = any
   default = {}
@@ -50,6 +72,14 @@ variable "force_deployment" {
   default = false
 }
 
-variable "builder_details" {
-  type = map(any)
+variable "secrets_store_vault_compartment_id" {
+  type = string
+}
+
+variable "secrets_store_vault_id" {
+  type = string
+}
+
+variable "secrets_store_key_id" {
+  type = string
 }

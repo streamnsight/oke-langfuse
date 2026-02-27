@@ -1,0 +1,29 @@
+version: 0.1
+component: command
+timeoutInSeconds: 10000
+shell: bash
+failImmediatelyOnError: true
+# inputArtifacts:
+# - name: langfuse-gateway-routing-manifest
+#   type: GENERIC_ARTIFACT
+#   artifactId: ${ARTIFACT_OCID}
+#   registryId: ${REGISTRY_OCID}
+#   path: langfuse.HTTPRoute.yaml
+#   version: 0.1.0
+#   location: ./langfuse.HTTPRoute.yaml
+steps:
+  - type: Command
+    name: Apply HTTPRoute manifest
+    timeoutInSeconds: 600
+    command: |
+      set -euo pipefail
+      echo "Applying HTTPRoute manifest..."
+      echo "${CLUSTER_OCID}"
+      oci ce cluster create-kubeconfig --cluster-id ${CLUSTER_OCID} --file $HOME/.kube/config --token-version 2.0.0  --kube-endpoint PRIVATE_ENDPOINT
+      template=$(< ./langfuse.HTTPRoute.yaml)
+      # patch cert-manager to enable gateway-api
+      kubectl patch deployment cert-manager -n cert-manager --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--enable-gateway-api"}]'
+      kubectl wait --for=condition=available -n cert-manager --timeout=60s deployment/cert-manager
+      # deploy HTTPRoute and Cert request
+      eval "echo \"${template}\"" | kubectl apply -f - -n langfuse
+      # kubectl apply -f ./langfuse.HTTPRoute.yaml -n langfuse

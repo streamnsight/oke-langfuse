@@ -25,7 +25,7 @@ variable "ocpus" {
 }
 
 variable "postgresql_shape" {
-  type    = string
+  type = string
 }
 
 variable "subnet_id" {
