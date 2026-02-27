@@ -17,7 +17,7 @@ steps:
     timeoutInSeconds: 600
     command: |
       set -euo pipefail
-      echo "Applying HTTPRoute manifest..."
+      echo "Applying Gateway manifest..."
       echo "${CLUSTER_OCID}"
       oci ce cluster create-kubeconfig --cluster-id ${CLUSTER_OCID} --file $HOME/.kube/config --token-version 2.0.0  --kube-endpoint PRIVATE_ENDPOINT
       kubectl apply -f ./langfuse.Gateway.yaml -n langfuse

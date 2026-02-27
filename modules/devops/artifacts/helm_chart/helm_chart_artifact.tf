@@ -29,6 +29,7 @@ resource "oci_devops_deploy_artifact" "helm_chart" {
   # delete the resource from artifact repo on destroy as it blocks destroy of the artifact repo itself
   provisioner "local-exec" {
     when    = destroy
+    on_failure = continue
     command = <<-CMD
       oci artifacts generic artifact delete --artifact-id ${self.id} --force
     CMD

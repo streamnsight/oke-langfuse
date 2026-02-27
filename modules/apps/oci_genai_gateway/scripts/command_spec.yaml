@@ -63,5 +63,5 @@ steps:
       export SECRET_STORE_KEY_ID=${SECRET_STORE_KEY_ID}
       export COMPARTMENT_ID=${COMPARTMENT_ID}
 
-      chmod +x ~/create_oci_genai_gateway_oke_secrets.sh
-      ~/create_oci_genai_gateway_oke_secrets.sh
+      chmod +x ./create_oci_genai_gateway_oke_secrets.sh
+      ./create_oci_genai_gateway_oke_secrets.sh
