@@ -1,0 +1,23 @@
+version: 0.1
+component: command
+timeoutInSeconds: 10000
+shell: bash
+failImmediatelyOnError: true
+steps:
+  - type: Command
+    name: Setup Builder instance manifest
+    timeoutInSeconds: 600
+    command: |
+      set -euxo pipefail
+      echo "setting up builder instance dependencies..."
+      # get the SSH private key for the builder instance
+      OUT_FILE="./id_ed25519"
+      oci secrets secret-bundle get \
+        --secret-id "$SSH_PRIVATE_KEY_SECRET_OCID" \
+        --query 'data."secret-bundle-content".content' \
+        --raw-output \
+        | base64 --decode > "$OUT_FILE"
+      chmod 600 "$OUT_FILE"
+      # install dependencies
+      ssh -i "$OUT_FILE" -o "StrictHostKeyChecking=no" opc@${BUILDER_INSTANCE_IP} 'sudo shutdown +10 "System will shut down in 10 minutes"'
+      

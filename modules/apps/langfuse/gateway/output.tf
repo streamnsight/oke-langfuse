@@ -12,10 +12,28 @@ data "oci_load_balancer_load_balancers" "load_balancers" {
 
 
 locals {
-  lb = [for lb in data.oci_load_balancer_load_balancers.load_balancers.load_balancers : lb.ip_addresses[0]
+  lb = [for lb in data.oci_load_balancer_load_balancers.load_balancers.load_balancers : lb
   if lb.defined_tags["Oracle-Tags.CreatedBy"] == var.cluster_id && lookup(lb.freeform_tags, "source", "") == "istio-gateway"]
 }
 
 output "ip_address" {
-  value = local.lb[0]
+  value = local.lb[0].ip_addresses[0]
+}
+
+output "load_balancer_ocid" {
+  value = local.lb[0].id
+}
+
+resource "null_resource" "destroy_load_balancer" {
+  triggers = {
+    lb_ocid : local.lb[0].id
+  }
+  provisioner "local-exec" {
+    when       = destroy
+    on_failure = continue
+    command    = <<-CMD
+      set -e
+      oci lb load-balancer delete --load-balancer-id ${self.triggers.lob_ocid} --force
+    CMD
+  }
 }

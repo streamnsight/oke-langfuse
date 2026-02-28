@@ -130,7 +130,38 @@ module "builder_setup_shell_stage" {
       description   = "OCID of the artifact repository"
     }
   ]
-  command_spec_content = file("./scripts/command_spec.yaml")
+  command_spec_content = file("./scripts/command_spec.setup.yaml")
+}
+
+module "builder_terminate_shell_stage" {
+  source                = "./modules/devops/deployment_stages/shell_stage"
+  compartment_id        = local.devops_compartment_id
+  subnet_id             = var.use_existing_vcn ? local.node_pools[0]["subnet"] : oci_core_subnet.oke_nodepool_subnet[0].id
+  stage_name            = "builder_terminate"
+  devops_project_id     = module.devops_setup.project_id
+  devops_environment_id = module.devops_target_cluster_env.environment_id
+  deploy_pipeline_parameters = [
+    {
+      name          = "SSH_PRIVATE_KEY_SECRET_OCID"
+      default_value = data.external.builder_ssh_key_to_vault.result.private_key_secret_ocid
+      description   = "Private key for access to builder instance"
+    },
+    {
+      name          = "BUILDER_INSTANCE_IP"
+      default_value = module.builder_instance.details.private_ip
+      description   = "setup script"
+    },
+    {
+      name          = "REGISTRY_OCID"
+      default_value = local.artifact_repo_id
+      description   = "OCID of the artifact repository"
+    }
+  ]
+  command_spec_content = file("./scripts/command_spec.terminate.yaml")
+  depends_on = [
+    module.oci_genai_gateway,
+    module.langfuse_chart,
+  ]
 }
 
 
