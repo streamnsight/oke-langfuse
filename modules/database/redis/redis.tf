@@ -29,13 +29,30 @@ resource "oci_redis_redis_cluster" "redis" {
   # TODO make this work on local with api_key auth and profile
   provisioner "local-exec" {
     when       = destroy
-    on_failure = continue
     command    = <<-EOT
 set -x -o pipefail
 export VCN_ID=$(oci network subnet get --subnet-id ${self.subnet_id} | jq -r '.data."vcn-id"')
-export REDIS_SEC_LIST_ID=$(oci network security-list list --compartment-id ${self.compartment_id} --vcn-id $VCN_ID | jq -r '.data[] | select(."display-name" == "redis-security-list") | .id')
-oci network security-list delete --security-list-id $REDIS_SEC_LIST_ID --force
+
+MAX_ATTEMPTS=6
+SLEEP_SECONDS=5
+
+for attempt in $(seq 1 $MAX_ATTEMPTS); do
+  REDIS_SEC_LIST_ID=$(oci network security-list list --compartment-id ${self.compartment_id} --vcn-id $VCN_ID | jq -r '.data[] | select(."display-name" == "redis-security-list") | .id' | head -n 1)
+  if [ -z "$REDIS_SEC_LIST_ID" ] || [ "$REDIS_SEC_LIST_ID" = "null" ]; then
+    echo "redis-security-list not found; nothing to delete."
+    exit 0
+  fi
+
+  echo "Attempt ${attempt}/${MAX_ATTEMPTS}: deleting security list ${REDIS_SEC_LIST_ID}"
+  oci network security-list delete --security-list-id $REDIS_SEC_LIST_ID --force || true
+  sleep $SLEEP_SECONDS
+done
+
+REDIS_SEC_LIST_ID=$(oci network security-list list --compartment-id ${self.compartment_id} --vcn-id $VCN_ID | jq -r '.data[] | select(."display-name" == "redis-security-list") | .id' | head -n 1)
+if [ -n "$REDIS_SEC_LIST_ID" ] && [ "$REDIS_SEC_LIST_ID" != "null" ]; then
+  echo "redis-security-list still present after retries: ${REDIS_SEC_LIST_ID}"
+  exit 1
+fi
 EOT
   }
 }
-

@@ -159,8 +159,11 @@ module "builder_terminate_shell_stage" {
   ]
   command_spec_content = file("./scripts/command_spec.terminate.yaml")
   depends_on = [
+    module.builder_instance,
+    module.builder_setup_shell_stage,
     module.oci_genai_gateway,
-    module.langfuse_chart,
+    module.build_langfuse_image,
+    module.langfuse_chart
   ]
 }
 

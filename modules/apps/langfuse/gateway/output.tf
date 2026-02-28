@@ -23,17 +23,3 @@ output "ip_address" {
 output "load_balancer_ocid" {
   value = local.lb[0].id
 }
-
-resource "null_resource" "destroy_load_balancer" {
-  triggers = {
-    lb_ocid : local.lb[0].id
-  }
-  provisioner "local-exec" {
-    when       = destroy
-    on_failure = continue
-    command    = <<-CMD
-      set -e
-      oci lb load-balancer delete --load-balancer-id ${self.triggers.lob_ocid} --force
-    CMD
-  }
-}

@@ -112,3 +112,19 @@ resource "oci_devops_deployment" "langfuse_gateway_deployment" {
   ]
   lifecycle { ignore_changes = [defined_tags] }
 }
+
+
+
+resource "null_resource" "destroy_load_balancer" {
+  triggers = {
+    lb_ocid = local.lb[0].id
+  }
+  provisioner "local-exec" {
+    when       = destroy
+    on_failure = continue
+    command    = <<-CMD
+      set -e
+      oci lb load-balancer delete --load-balancer-id ${self.triggers.lb_ocid} --force
+    CMD
+  }
+}
