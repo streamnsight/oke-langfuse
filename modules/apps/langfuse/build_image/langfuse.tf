@@ -71,7 +71,7 @@ resource "null_resource" "langfuse_ocir_repo_cleanup" {
       REPO_ID=$(oci artifacts container repository list \
         --compartment-id ${self.triggers.compartment_id} \
         --all \
-        --query "data.items[?name=='${self.triggers.deploy_id}/langfuse'].id | [0]" \
+        --query "data.items[?\"display-name\"=='${self.triggers.deploy_id}/langfuse'].id | [0]" \
         --raw-output | tr -d '\r')
       if [ -n "$REPO_ID" ] && [ "$REPO_ID" != "null" ]; then
         oci artifacts container repository delete --repository-id "$REPO_ID" --force

@@ -31,7 +31,7 @@ resource "oci_redis_redis_cluster" "redis" {
     when       = destroy
     on_failure = continue
     command    = <<-EOT
-set -x -o pipefail
+set -o pipefail
 export VCN_ID=$(oci network subnet get --subnet-id ${self.subnet_id} | jq -r '.data."vcn-id"')
 
 MAX_ATTEMPTS=6
