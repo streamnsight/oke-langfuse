@@ -29,6 +29,7 @@ resource "oci_redis_redis_cluster" "redis" {
   # TODO make this work on local with api_key auth and profile
   provisioner "local-exec" {
     when       = destroy
+    on_failure = continue
     command    = <<-EOT
 set -x -o pipefail
 export VCN_ID=$(oci network subnet get --subnet-id ${self.subnet_id} | jq -r '.data."vcn-id"')
@@ -43,14 +44,26 @@ for attempt in $(seq 1 $MAX_ATTEMPTS); do
     exit 0
   fi
 
-  echo "Attempt ${attempt}/${MAX_ATTEMPTS}: deleting security list ${REDIS_SEC_LIST_ID}"
+  SUBNET_JSON=$(oci network subnet get --subnet-id ${self.subnet_id})
+  SUBNET_SEC_LIST_IDS=$(echo "$SUBNET_JSON" | jq -c '.data."security-list-ids"')
+  if echo "$SUBNET_SEC_LIST_IDS" | jq -e --arg id "$REDIS_SEC_LIST_ID" 'index($id) != null' >/dev/null; then
+    NEW_SUBNET_SEC_LIST_IDS=$(echo "$SUBNET_SEC_LIST_IDS" | jq -c --arg id "$REDIS_SEC_LIST_ID" 'map(select(. != $id))')
+    if [ "$NEW_SUBNET_SEC_LIST_IDS" = "[]" ]; then
+      echo "Skipping detach; subnet would have no security lists after removal."
+    else
+      echo "Detaching redis-security-list from subnet ${self.subnet_id}"
+      oci network subnet update --subnet-id ${self.subnet_id} --security-list-ids "$NEW_SUBNET_SEC_LIST_IDS" --force || true
+    fi
+  fi
+
+  echo "Attempt $attempt/$MAX_ATTEMPTS: deleting security list $REDIS_SEC_LIST_ID"
   oci network security-list delete --security-list-id $REDIS_SEC_LIST_ID --force || true
   sleep $SLEEP_SECONDS
 done
 
 REDIS_SEC_LIST_ID=$(oci network security-list list --compartment-id ${self.compartment_id} --vcn-id $VCN_ID | jq -r '.data[] | select(."display-name" == "redis-security-list") | .id' | head -n 1)
 if [ -n "$REDIS_SEC_LIST_ID" ] && [ "$REDIS_SEC_LIST_ID" != "null" ]; then
-  echo "redis-security-list still present after retries: ${REDIS_SEC_LIST_ID}"
+  echo "redis-security-list still present after retries: $REDIS_SEC_LIST_ID"
   exit 1
 fi
 EOT
