@@ -53,7 +53,7 @@ kubectl get secret langfuse-idcs -n langfuse \
 kubectl create secret generic langfuse-idcs \
     --namespace langfuse \
     --from-literal="client-id"="$(get_secret ${DEPLOY_ID}_LANGFUSE_IDCS_CLIENT_ID)" \
-    --from-literal="client-secret"="$(get_secret ${DEPLOY_ID}_LANGFUSE_CLIENT_SECRET)" \
+    --from-literal="client-secret"="$(get_secret ${DEPLOY_ID}_LANGFUSE_IDCS_CLIENT_SECRET)" \
     --from-literal="issuer"="$(get_secret ${DEPLOY_ID}_LANGFUSE_IDCS_ISSUER)" \
     --from-literal="name"="Oracle IDCS"
 
