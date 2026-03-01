@@ -3,7 +3,7 @@
 
 resource "null_resource" "langfuse_vault_secrets_schedule_deletion" {
   triggers = {
-    profile = var.oci_profile
+    profile         = var.oci_profile
     secret_ids_json = jsonencode(var.secret_ids)
   }
 

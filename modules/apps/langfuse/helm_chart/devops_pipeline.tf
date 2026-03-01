@@ -42,8 +42,6 @@ resource "oci_generic_artifacts_content_artifact_by_path" "create_cluster_issuer
   }
 }
 
-
-
 resource "oci_generic_artifacts_content_artifact_by_path" "helm_chart_values_artifact" {
   #Required
   artifact_path = "values.yaml"
