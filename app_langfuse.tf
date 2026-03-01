@@ -76,7 +76,7 @@ module "build_langfuse_image" {
   builder_instance_private_ip              = module.builder_instance.details.private_ip
   builder_instance_private_key_secret_ocid = data.external.builder_ssh_key_to_vault.result.private_key_secret_ocid
   deploy_id                                = local.deploy_id
-  ocir_namespace                           = data.oci_objectstorage_namespace.ns.namespace
+  tenancy_namespace                        = data.oci_objectstorage_namespace.ns.namespace
 
   depends_on = [
     module.builder_instance,

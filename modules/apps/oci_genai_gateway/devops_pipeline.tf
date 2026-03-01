@@ -208,7 +208,7 @@ resource "null_resource" "oci_genai_gateway_ocir_repo_cleanup" {
     on_failure = continue
     command    = <<-CMD
       set -e
-      REPO_NAME="${self.triggers.ocir_namespace}/${self.triggers.deploy_id}/oci_genai_gateway"
+      REPO_NAME="${self.triggers.tenancy_namespace}/${self.triggers.deploy_id}/oci_genai_gateway"
       REPO_ID=$(oci artifacts container repository list \
         --compartment-id ${self.triggers.compartment_id} \
         --all \

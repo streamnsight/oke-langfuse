@@ -33,6 +33,6 @@ variable "deploy_id" {
   type = string
 }
 
-variable "ocir_namespace" {
+variable "tenancy_namespace" {
   type = string
 }

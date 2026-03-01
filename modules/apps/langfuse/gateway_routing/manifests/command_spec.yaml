@@ -26,4 +26,3 @@ steps:
       kubectl wait --for=condition=available -n cert-manager --timeout=60s deployment/cert-manager
       # deploy HTTPRoute and Cert request
       eval "echo \"${template}\"" | kubectl apply -f - -n langfuse
-      # kubectl apply -f ./langfuse.HTTPRoute.yaml -n langfuse

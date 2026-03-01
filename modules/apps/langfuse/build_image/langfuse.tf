@@ -53,9 +53,9 @@ module "build_langfuse_image_shell_stage" {
 
 resource "null_resource" "langfuse_ocir_repo_cleanup" {
   triggers = {
-    deploy_id      = var.deploy_id
-    ocir_namespace = var.ocir_namespace
-    compartment_id = var.compartment_id
+    deploy_id         = var.deploy_id
+    tenancy_namespace = var.tenancy_namespace
+    compartment_id    = var.compartment_id
   }
 
   depends_on = [
@@ -67,7 +67,7 @@ resource "null_resource" "langfuse_ocir_repo_cleanup" {
     on_failure = continue
     command    = <<-CMD
       set -e
-      REPO_NAME="${self.triggers.ocir_namespace}/${self.triggers.deploy_id}/langfuse"
+      REPO_NAME="${self.triggers.tenancy_namespace}/${self.triggers.deploy_id}/langfuse"
       REPO_ID=$(oci artifacts container repository list \
         --compartment-id ${self.triggers.compartment_id} \
         --all \

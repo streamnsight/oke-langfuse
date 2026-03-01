@@ -33,6 +33,9 @@ module "devops_target_cluster_env" {
   project_id     = module.devops_setup.project_id
   target_cluster = oci_containerengine_cluster.oci_oke_cluster
   defined_tags   = var.defined_tags
+  depends_on = [
+    oci_core_subnet.oke_api_endpoint_subnet
+  ]
 }
 
 # Create policies for the DevOps service to do its work.
