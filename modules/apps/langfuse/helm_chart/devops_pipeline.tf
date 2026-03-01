@@ -13,22 +13,6 @@ locals {
   ]
 }
 
-# set the langfuse container image version into a file, triggered by a change in the chart version that contains that info
-# but is not accessible via terraform directly
-# resource "terraform_data" "langfuse_version" {
-#   input = var.langfuse_helm_chart_version
-#   triggers_replace = {
-#     helm_chart_version = var.langfuse_helm_chart_version
-#   }
-#   provisioner "local-exec" {
-#     command = <<EOT
-#     helm repo add langfuse https://langfuse.github.io/langfuse-k8s
-#     helm repo update
-#     export LANGFUSE_VERSION=$(helm show chart langfuse/langfuse --version ${var.langfuse_helm_chart_version} | grep appVersion | awk '{print $2}')
-#     echo $LANGFUSE_VERSION > ${path.module}/langfuse.version
-#     EOT
-#   }
-# }
 
 module "push_langfuse_chart" {
   for_each                 = { for c in local.charts : c["repo_name"] => c }
@@ -40,13 +24,6 @@ module "push_langfuse_chart" {
   oss_charts_repo_prefix   = var.deploy_id
   chart                    = each.value
 }
-
-# resource "oci_artifacts_repository" "helm_chart_values_repository" {
-#   compartment_id  = var.compartment_id
-#   display_name    = "langfuse_helm_chart_values_repo"
-#   is_immutable    = false # Set to true if artifacts in this repository should be immutable
-#   repository_type = "GENERIC"
-# }
 
 resource "oci_generic_artifacts_content_artifact_by_path" "create_cluster_issuers_artifact" {
   #Required
