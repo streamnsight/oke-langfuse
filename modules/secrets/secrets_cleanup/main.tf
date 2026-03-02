@@ -4,7 +4,7 @@
 resource "null_resource" "langfuse_vault_secrets_schedule_deletion" {
   triggers = {
     profile         = var.oci_profile
-    secret_ids_json = jsonencode(var.secret_ids)
+    secret_ids_json = jsonencode(sort(var.secret_ids))
   }
 
   provisioner "local-exec" {
@@ -78,4 +78,5 @@ resource "null_resource" "langfuse_vault_secrets_schedule_deletion" {
       done
     CMD
   }
+  lifecycle { ignore_changes = [triggers] }
 }

@@ -627,9 +627,9 @@ variables:
     type: integer
     title: Boot Volume Size (Gb)
     description: Boot volume size
-    default: 50
+    default: 200
     minimum: 50
-    maximum: 500
+    maximum: 1000
     required: true
 
   np1_add_tag:
