@@ -15,7 +15,7 @@ locals {
   use_addon_manager = var.is_enhanced_cluster
 
   object_storage_namespace = var.object_storage_namespace == null ? data.oci_objectstorage_namespace.ns.namespace : var.object_storage_namespace
-  devops_compartment_id    = var.devops_compartment_id == null ? var.cluster_compartment_id : var.devops_compartment_id
+  devops_compartment_id    = var.devops_compartment_id == null ? var.compartment_id : var.devops_compartment_id
 }
 
 # Setup the DevOps project when using DevOps
