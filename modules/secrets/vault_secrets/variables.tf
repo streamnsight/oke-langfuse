@@ -40,14 +40,20 @@ variable "secrets" {
 
   validation {
     condition = alltrue([
-      for secret in var.secrets : secret.generator == null || contains(["openssl_hex"], secret.generator.type)
+      for secret in var.secrets : (
+        try(secret.generator.type, null) == null
+        || contains(["openssl_hex"], try(secret.generator.type, ""))
+      )
     ])
     error_message = "Supported generator types are: openssl_hex."
   }
 
   validation {
     condition = alltrue([
-      for secret in var.secrets : secret.generator == null || secret.generator.bytes > 0
+      for secret in var.secrets : (
+        try(secret.generator.type, null) == null
+        || try(secret.generator.bytes, 0) > 0
+      )
     ])
     error_message = "Generator bytes must be greater than 0 when a generator is provided."
   }
