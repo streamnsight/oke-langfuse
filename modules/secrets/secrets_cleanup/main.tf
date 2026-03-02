@@ -78,5 +78,7 @@ resource "null_resource" "langfuse_vault_secrets_schedule_deletion" {
       done
     CMD
   }
+  # ignore triggers or secrets get deleted on most re-apply / updates, 
+  # because the OCIDs are read from data-external that trigger replace
   lifecycle { ignore_changes = [triggers] }
 }

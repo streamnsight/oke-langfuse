@@ -30,4 +30,7 @@ resource "null_resource" "langfuse_ocir_repo_cleanup" {
       fi
     CMD
   }
+  # trigger only on actual terraform destroy
+  # otehrwise may be triggered by any update / replace
+  lifecycle { ignore_changes = [triggers] }
 }
