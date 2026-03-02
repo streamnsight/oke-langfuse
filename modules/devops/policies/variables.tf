@@ -13,6 +13,10 @@ variable "cluster_compartment_id" {
   type = string
 }
 
+variable "secrets_store_vault_compartment_id" {
+  type = string
+}
+
 variable "cluster_name" {
   type = string
 }

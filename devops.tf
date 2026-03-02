@@ -40,11 +40,12 @@ module "devops_target_cluster_env" {
 
 # Create policies for the DevOps service to do its work.
 module "devops_policies" {
-  source                 = "./modules/devops/policies"
-  devops_compartment_id  = local.devops_compartment_id
-  vcn_compartment_id     = var.vcn_compartment_id
-  cluster_compartment_id = var.cluster_compartment_id
-  cluster_name           = local.cluster_name_sanitized
+  source                             = "./modules/devops/policies"
+  devops_compartment_id              = local.devops_compartment_id
+  vcn_compartment_id                 = var.vcn_compartment_id
+  cluster_compartment_id             = var.cluster_compartment_id
+  secrets_store_vault_compartment_id = var.secrets_store_vault_compartment_id
+  cluster_name                       = local.cluster_name_sanitized
   providers = {
     oci = oci.home_region
   }

@@ -126,7 +126,7 @@ SECRET_OCIDS_JSON='{}'
 
 while IFS= read -r SECRET_ITEM; do
     SECRET_NAME=$(jq -r '.name' <<< "${SECRET_ITEM}")
-    VALUE_PRESENT=$(jq -r 'has("value")' <<< "${SECRET_ITEM}")
+    VALUE_PRESENT=$(jq -r '(.value // null) != null' <<< "${SECRET_ITEM}")
     SECRET_VALUE=$(jq -r '.value // empty' <<< "${SECRET_ITEM}")
     REQUIRED=$(jq -r '.required // true' <<< "${SECRET_ITEM}")
     GENERATOR_TYPE=$(jq -r '.generator.type // empty' <<< "${SECRET_ITEM}")
