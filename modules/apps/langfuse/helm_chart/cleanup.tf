@@ -4,8 +4,8 @@
 module "secrets_cleanup" {
   source      = "../../../secrets/secrets_cleanup"
   oci_profile = var.oci_profile
-  secret_ids  = values(data.external.create_langfuse_vault_secrets.result)
+  secret_ids  = values(module.langfuse_vault_secrets.secret_ocids_by_name)
   depends_on = [
-    data.external.create_langfuse_vault_secrets
+    module.langfuse_vault_secrets
   ]
 }

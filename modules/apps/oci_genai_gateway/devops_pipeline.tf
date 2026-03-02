@@ -29,16 +29,20 @@ resource "oci_devops_deploy_artifact" "oci_genai_gateway_manifest" {
   }
 }
 
+module "oci_genai_gateway_vault_secrets" {
+  source = "../../secrets/vault_secrets"
 
-data "external" "create_oci_genai_gateway_vault_secrets" {
-  program = ["${path.module}/scripts/create_vault_secrets.sh"]
-  query = {
-    deploy_id                          = var.deploy_id
-    profile                            = var.oci_profile
-    secrets_store_vault_compartment_id = var.secrets_store_vault_compartment_id
-    secrets_store_vault_id             = var.secrets_store_vault_id
-    secrets_store_key_id               = var.secrets_store_key_id
-  }
+  profile        = var.oci_profile
+  compartment_id = var.secrets_store_vault_compartment_id
+  vault_id       = var.secrets_store_vault_id
+  key_id         = var.secrets_store_key_id
+
+  secrets = [
+    {
+      name      = "${var.deploy_id}_OCI_GENAI_GATEWAY_DEFAULT_API_KEY"
+      generator = { type = "openssl_hex", bytes = 56 }
+    }
+  ]
 }
 
 resource "oci_generic_artifacts_content_artifact_by_path" "create_oci_genai_gateway_oke_secrets_script_artifact" {
@@ -145,9 +149,8 @@ module "build_oci_genai_gateway_image_shell_stage" {
     }
   ]
   command_spec_content = file("${path.module}/scripts/command_spec.yaml")
-  depends_on           = [data.external.create_oci_genai_gateway_vault_secrets]
+  depends_on           = [module.oci_genai_gateway_vault_secrets]
 }
-
 
 resource "oci_devops_deploy_stage" "oci_genai_gateway" {
   deploy_pipeline_id = oci_devops_deploy_pipeline.oci_genai_gateway.id
@@ -190,4 +193,3 @@ resource "oci_devops_deployment" "oci_genai_gateway_deployment" {
     ignore_changes = [defined_tags]
   }
 }
-
