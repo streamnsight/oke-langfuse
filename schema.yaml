@@ -1248,13 +1248,14 @@ variables:
     type: enum
     # enumerated values
     enum:
+    - "1.5.22"
     - "1.5.14"
     # - "latest" # TODO support latest version and look up the chart version
     title: LangFuse Helm Chart Version
     description: | 
       Version of the LangFuse Helm chart.
       Supported versions are listed. 
-    default: "1.5.14"
+    default: "1.5.22"
 
   # Database Section
   postgresql_shape:
