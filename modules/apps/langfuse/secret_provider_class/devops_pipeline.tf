@@ -72,7 +72,7 @@ resource "oci_devops_deploy_artifact" "langfuse_secret_provider_class_manifest" 
 resource "oci_devops_deploy_pipeline" "langfuse_secret_provider_class" {
   deploy_pipeline_parameters {
     items {
-      name          = "SECRET_STORE_VAULT_ID"
+      name          = "SECRETS_STORE_VAULT_ID"
       default_value = var.vault_id
       description   = "The vault OCID"
     }

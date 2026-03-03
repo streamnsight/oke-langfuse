@@ -136,12 +136,12 @@ module "langfuse_secrets_shell_stage" {
       description   = "DEPLOY ID"
     },
     {
-      name          = "SECRET_STORE_VAULT_ID"
+      name          = "SECRETS_STORE_VAULT_ID"
       default_value = var.secrets_store_vault_id
       description   = "OCID of the vault"
     },
     {
-      name          = "SECRET_STORE_KEY_ID"
+      name          = "SECRETS_STORE_KEY_ID"
       default_value = var.secrets_store_key_id
       description   = "OCID of the key"
     },

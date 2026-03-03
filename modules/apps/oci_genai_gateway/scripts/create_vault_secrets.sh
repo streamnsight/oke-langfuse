@@ -10,7 +10,7 @@ set -euo pipefail
 # FOO and BAZ shell variables.
 # jq will ensure that the values are properly quoted
 # and escaped for consumption by the shell.
-eval "$(jq -r '@sh "DEPLOY_ID=\(.deploy_id) SECRET_STORE_KEY_ID=\(.secrets_store_key_id) SECRET_STORE_VAULT_ID=\(.secrets_store_vault_id) COMPARTMENT_ID=\(.secrets_store_vault_compartment_id) PROFILE=\(.profile)"')"
+eval "$(jq -r '@sh "DEPLOY_ID=\(.deploy_id) SECRETS_STORE_KEY_ID=\(.secrets_store_key_id) SECRETS_STORE_VAULT_ID=\(.secrets_store_vault_id) SECRETS_STORE_VAULT_COMPARTMENT_ID=\(.secrets_store_vault_compartment_id) PROFILE=\(.profile)"')"
 
 wait_for_secret_active() {
     local SECRET_ID="$1"
@@ -52,8 +52,8 @@ get_or_create_secret() {
 
     SECRET_OCID=$(oci vault secret list \
         --profile ${PROFILE} \
-        --compartment-id "$COMPARTMENT_ID" \
-        --vault-id "$SECRET_STORE_VAULT_ID" \
+        --compartment-id "$SECRETS_STORE_VAULT_COMPARTMENT_ID" \
+        --vault-id "$SECRETS_STORE_VAULT_ID" \
         --all \
         --query "data[?\"secret-name\"=='${SECRET_NAME}' && \"lifecycle-state\"=='ACTIVE'].id | [0]" \
         --raw-output)
@@ -61,8 +61,8 @@ get_or_create_secret() {
     if [ -z "${SECRET_OCID}" ] || [ "${SECRET_OCID}" = "null" ]; then
         SECRET_OCID=$(oci vault secret list \
             --profile ${PROFILE} \
-            --compartment-id "$COMPARTMENT_ID" \
-            --vault-id "$SECRET_STORE_VAULT_ID" \
+            --compartment-id "$SECRETS_STORE_VAULT_COMPARTMENT_ID" \
+            --vault-id "$SECRETS_STORE_VAULT_ID" \
             --all \
             --query "data[?\"secret-name\"=='${SECRET_NAME}'].id | [0]" \
             --raw-output)
@@ -72,12 +72,12 @@ get_or_create_secret() {
         echo "creating secret ${SECRET_NAME}" >&2
         SECRET_OCID=$(oci vault secret create-base64 \
             --profile ${PROFILE} \
-            --compartment-id "$COMPARTMENT_ID" \
+            --compartment-id "$SECRETS_STORE_VAULT_COMPARTMENT_ID" \
             --secret-name "${SECRET_NAME}" \
             --secret-content-name "${SECRET_NAME}" \
             --description "${SECRET_NAME}" \
-            --vault-id "$SECRET_STORE_VAULT_ID" \
-            --key-id "$SECRET_STORE_KEY_ID" \
+            --vault-id "$SECRETS_STORE_VAULT_ID" \
+            --key-id "$SECRETS_STORE_KEY_ID" \
             --secret-content-content "$(printf '%s' "${SECRET_VALUE}" | base64)" \
             --secret-content-stage CURRENT \
             | jq -r '.data.id')

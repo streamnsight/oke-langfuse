@@ -17,6 +17,7 @@ export REGION=$(curl -s -H "Authorization: Bearer Oracle" http://169.254.169.254
 export COMPARTMENT_ID=$(curl -s -H "Authorization: Bearer Oracle" http://169.254.169.254/opc/v2/instance/ | jq -r ".compartmentId")
 export TENANCY_ID=$(curl -s -H "Authorization: Bearer Oracle" http://169.254.169.254/opc/v2/instance/ | jq -r ".tenantId")
 export INSTANCE_OCID=$(curl -s -H "Authorization: Bearer Oracle" http://169.254.169.254/opc/v2/instance/ | jq -r ".id")
+export CLUSTER_COMPARTMENT_ID=$(curl -s -H "Authorization: Bearer Oracle" http://169.254.169.254/opc/v2/instance/ | jq -r ".metadata.cluster_compartment_id")
 export DEPLOY_ID=$(curl -s -H "Authorization: Bearer Oracle" http://169.254.169.254/opc/v2/instance/ | jq -r ".metadata.deploy_id")
 export TENANCY_NAMESPACE=$(oci --auth instance_principal os ns get | jq -r ".data")
 export PLATFORM=$(podman system info --format json | jq .version.OsArch)
@@ -40,7 +41,7 @@ oci --auth instance_principal raw-request --http-method GET --target-uri https:/
 ## check if container repo exists or create it
 podman manifest inspect ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/oci-genai-gateway \
 || oci --auth instance_principal artifacts container repository create \
-    --compartment-id ${COMPARTMENT_ID} \
+    --compartment-id ${CLUSTER_COMPARTMENT_ID} \
     --display-name ${DEPLOY_ID}/oci-genai-gateway \
     --is-public false \
 || echo "already exists"

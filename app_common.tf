@@ -2,7 +2,7 @@
 ## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
 
 resource "oci_artifacts_repository" "artifact_repository" {
-  compartment_id  = local.devops_compartment_id
+  compartment_id  = var.devops_compartment_id
   display_name    = "artifact_repo_for_${local.deploy_id}"
   is_immutable    = false # Set to true if artifacts in this repository should be immutable
   repository_type = "GENERIC"
@@ -56,15 +56,16 @@ module "builder_instance" {
   compartment_id      = var.cluster_compartment_id
   availability_domain = local.ADs[0]
   subnet_id           = var.use_existing_vcn ? local.node_pools[0]["subnet"] : oci_core_subnet.oke_nodepool_subnet[0].id
-  display_name  = "${local.cluster_name_sanitized}-builder"
-  compute_shape = local.node_pools[0].node_shape
-  image_id      = local.node_pools[0].image_id
+  display_name        = "${local.cluster_name_sanitized}-builder"
+  compute_shape       = local.node_pools[0].node_shape
+  image_id            = local.node_pools[0].image_id
   metadata = {
-    deploy_id                          = local.deploy_id
-    cluster_id                         = oci_containerengine_cluster.oci_oke_cluster.id
+    deploy_id = local.deploy_id
+    # cluster_id                         = oci_containerengine_cluster.oci_oke_cluster.id
     langfuse_helm_chart_version        = var.langfuse_helm_chart_version
     lb_subnet_id                       = var.use_existing_vcn ? var.public_lb_subnet : oci_core_subnet.oke_lb_subnet[0].id
     oci_profile                        = var.oci_profile
+    cluster_compartment_id             = var.cluster_compartment_id
     secrets_store_vault_compartment_id = var.secrets_store_vault_compartment_id
     secrets_store_vault_id             = var.secrets_store_vault_id
     secrets_store_key_id               = var.secrets_store_key_id
@@ -87,11 +88,11 @@ module "builder_instance" {
 data "external" "builder_ssh_key_to_vault" {
   program = ["./scripts/builder_ssh_key.sh"]
   query = {
-    oci_profile            = var.oci_profile
-    compartment_id         = var.secrets_store_vault_compartment_id
-    secrets_store_vault_id = var.secrets_store_vault_id
-    secrets_store_key_id   = var.secrets_store_key_id
-    secret_name            = "${local.deploy_id}_LANGFUSE_BUILDER_PRIVATE_KEY"
+    oci_profile                        = var.oci_profile
+    secrets_store_vault_compartment_id = var.secrets_store_vault_compartment_id
+    secrets_store_vault_id             = var.secrets_store_vault_id
+    secrets_store_key_id               = var.secrets_store_key_id
+    secret_name                        = "${local.deploy_id}_LANGFUSE_BUILDER_PRIVATE_KEY"
   }
 }
 
@@ -102,7 +103,7 @@ output "builder_public_key" {
 
 module "builder_setup_shell_stage" {
   source                = "./modules/devops/deployment_stages/shell_stage"
-  compartment_id        = local.devops_compartment_id
+  compartment_id        = var.devops_compartment_id
   subnet_id             = var.use_existing_vcn ? local.node_pools[0]["subnet"] : oci_core_subnet.oke_nodepool_subnet[0].id
   stage_name            = "builder_setup"
   devops_project_id     = module.devops_setup.project_id
@@ -134,7 +135,7 @@ module "builder_setup_shell_stage" {
 
 module "builder_terminate_shell_stage" {
   source                = "./modules/devops/deployment_stages/shell_stage"
-  compartment_id        = local.devops_compartment_id
+  compartment_id        = var.devops_compartment_id
   subnet_id             = var.use_existing_vcn ? local.node_pools[0]["subnet"] : oci_core_subnet.oke_nodepool_subnet[0].id
   stage_name            = "builder_terminate"
   devops_project_id     = module.devops_setup.project_id

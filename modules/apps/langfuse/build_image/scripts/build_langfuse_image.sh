@@ -20,7 +20,7 @@ export COMPARTMENT_ID=$(curl -s -H "Authorization: Bearer Oracle" http://169.254
 export TENANCY_ID=$(curl -s -H "Authorization: Bearer Oracle" http://169.254.169.254/opc/v2/instance/ | jq -r ".tenantId")
 export INSTANCE_OCID=$(curl -s -H "Authorization: Bearer Oracle" http://169.254.169.254/opc/v2/instance/ | jq -r ".id")
 export DEPLOY_ID=$(curl -s -H "Authorization: Bearer Oracle" http://169.254.169.254/opc/v2/instance/ | jq -r ".metadata.deploy_id")
-export CLUSTER_ID=$(curl -s -H "Authorization: Bearer Oracle" http://169.254.169.254/opc/v2/instance/ | jq -r ".metadata.cluster_id")
+export CLUSTER_COMPARTMENT_ID=$(curl -s -H "Authorization: Bearer Oracle" http://169.254.169.254/opc/v2/instance/ | jq -r ".metadata.cluster_compartment_id")
 export HELM_CHART_VERSION=$(curl -s -H "Authorization: Bearer Oracle" http://169.254.169.254/opc/v2/instance/ | jq -r ".metadata.langfuse_helm_chart_version")
 export TENANCY_NAMESPACE=$(oci --auth instance_principal os ns get | jq -r ".data")
 export PLATFORM=$(podman system info --format json | jq .version.OsArch)
@@ -50,7 +50,7 @@ oci --auth instance_principal raw-request --http-method GET --target-uri https:/
 ## Check if repo exists or create it
 podman manifest inspect ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse \
 || oci --auth instance_principal artifacts container repository create \
-    --compartment-id ${COMPARTMENT_ID} \
+    --compartment-id ${CLUSTER_COMPARTMENT_ID} \
     --display-name ${DEPLOY_ID}/langfuse \
     --is-public false \
 || echo "already exists"

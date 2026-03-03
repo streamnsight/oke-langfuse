@@ -68,7 +68,7 @@ locals {
 # Build Langfuse patched container image
 module "build_langfuse_image" {
   source                                   = "./modules/apps/langfuse/build_image"
-  compartment_id                           = local.devops_compartment_id
+  compartment_id                           = var.devops_compartment_id
   devops_project_id                        = module.devops_setup.project_id
   devops_environment_id                    = module.devops_target_cluster_env.environment_id
   artifact_repo_id                         = local.artifact_repo_id

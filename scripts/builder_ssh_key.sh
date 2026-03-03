@@ -7,13 +7,13 @@ set -e +x -o pipefail
 # FOO and BAZ shell variables.
 # jq will ensure that the values are properly quoted
 # and escaped for consumption by the shell.
-eval "$(jq -r '@sh "OCI_PROFILE=\(.oci_profile) SECRET_STORE_VAULT_ID=\(.secrets_store_vault_id) COMPARTMENT_ID=\(.compartment_id) SECRET_STORE_KEY_ID=\(.secrets_store_key_id) SECRET_NAME=\(.secret_name)"')"
+eval "$(jq -r '@sh "OCI_PROFILE=\(.oci_profile) SECRETS_STORE_VAULT_ID=\(.secrets_store_vault_id) SECRETS_STORE_VAULT_COMPARTMENT_ID=\(.secrets_store_vault_compartment_id) SECRETS_STORE_KEY_ID=\(.secrets_store_key_id) SECRET_NAME=\(.secret_name)"')"
 
 # check if the secret exists; if it does make sure we don't overwrite it
 SECRET_OCID=$(oci vault secret list \
   --profile "$OCI_PROFILE" \
-  --compartment-id "$COMPARTMENT_ID" \
-  --vault-id "$SECRET_STORE_VAULT_ID" \
+  --compartment-id "$SECRETS_STORE_VAULT_COMPARTMENT_ID" \
+  --vault-id "$SECRETS_STORE_VAULT_ID" \
   --all \
   --query "data[?\"secret-name\"=='${SECRET_NAME}'].id | [0]" \
   --raw-output)
@@ -27,12 +27,12 @@ if [ -z "${SECRET_OCID}" ] || [ "$SECRET_OCID" == "" ]; then
     # Placeholder for whatever data-fetching logic your script implements
     SECRET_OCID=$(oci vault secret create-base64 \
         --profile "$OCI_PROFILE" \
-        --compartment-id "$COMPARTMENT_ID" \
+        --compartment-id "$SECRETS_STORE_VAULT_COMPARTMENT_ID" \
         --secret-name "${SECRET_NAME}" \
         --secret-content-name "${SECRET_NAME}" \
         --description "builder instance SSH private key" \
-        --vault-id "$SECRET_STORE_VAULT_ID" \
-        --key-id "$SECRET_STORE_KEY_ID" \
+        --vault-id "$SECRETS_STORE_VAULT_ID" \
+        --key-id "$SECRETS_STORE_KEY_ID" \
         --secret-content-content "$(base64 -i ./id_rsa)" \
         --secret-content-stage CURRENT \
         | jq -r '.data.id')

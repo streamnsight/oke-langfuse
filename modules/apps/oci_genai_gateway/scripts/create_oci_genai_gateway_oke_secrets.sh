@@ -18,8 +18,8 @@ function get_secret() {
 
     SECRET_OCID=$(oci vault secret list \
     --auth resource_principal \
-    --compartment-id "$COMPARTMENT_ID" \
-    --vault-id "$SECRET_STORE_VAULT_ID" \
+    --compartment-id "$SECRETS_STORE_VAULT_COMPARTMENT_ID" \
+    --vault-id "$SECRETS_STORE_VAULT_ID" \
     --all \
     --query "data[?\"secret-name\"=='${1}'].id | [0]" \
     --raw-output)

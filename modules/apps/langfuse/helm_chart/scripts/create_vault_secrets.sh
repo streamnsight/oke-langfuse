@@ -10,7 +10,7 @@ set -euo pipefail
 # FOO and BAZ shell variables.
 # jq will ensure that the values are properly quoted
 # and escaped for consumption by the shell.
-eval "$(jq -r '@sh "DEPLOY_ID=\(.deploy_id) SECRET_STORE_KEY_ID=\(.secrets_store_key_id) SECRET_STORE_VAULT_ID=\(.secrets_store_vault_id) COMPARTMENT_ID=\(.secrets_store_vault_compartment_id) PROFILE=\(.profile) IDCS_CLIENT_ID=\(.idcs_client_id) IDCS_CLIENT_SECRET=\(.idcs_client_secret) IDCS_ISSUER=\(.idcs_issuer) S3_ACCESS_KEY=\(.s3_access_key) S3_SECRET_KEY=\(.s3_secret_key) PSQL_PASSWORD=\(.psql_password) PSQL_URL=\(.psql_url)"')"
+eval "$(jq -r '@sh "DEPLOY_ID=\(.deploy_id) SECRETS_STORE_KEY_ID=\(.secrets_store_key_id) SECRETS_STORE_VAULT_ID=\(.secrets_store_vault_id) COMPARTMENT_ID=\(.secrets_store_vault_compartment_id) PROFILE=\(.profile) IDCS_CLIENT_ID=\(.idcs_client_id) IDCS_CLIENT_SECRET=\(.idcs_client_secret) IDCS_ISSUER=\(.idcs_issuer) S3_ACCESS_KEY=\(.s3_access_key) S3_SECRET_KEY=\(.s3_secret_key) PSQL_PASSWORD=\(.psql_password) PSQL_URL=\(.psql_url)"')"
 
 require_non_empty() {
     local VALUE_NAME="$1"
@@ -71,7 +71,7 @@ get_or_create_secret() {
     SECRET_OCID=$(oci vault secret list \
         --profile ${PROFILE} \
         --compartment-id "$COMPARTMENT_ID" \
-        --vault-id "$SECRET_STORE_VAULT_ID" \
+        --vault-id "$SECRETS_STORE_VAULT_ID" \
         --all \
         --query "data[?\"secret-name\"=='${SECRET_NAME}' && \"lifecycle-state\"=='ACTIVE'].id | [0]" \
         --raw-output)
@@ -80,7 +80,7 @@ get_or_create_secret() {
         SECRET_OCID=$(oci vault secret list \
             --profile ${PROFILE} \
             --compartment-id "$COMPARTMENT_ID" \
-            --vault-id "$SECRET_STORE_VAULT_ID" \
+            --vault-id "$SECRETS_STORE_VAULT_ID" \
             --all \
             --query "data[?\"secret-name\"=='${SECRET_NAME}'].id | [0]" \
             --raw-output)
@@ -94,8 +94,8 @@ get_or_create_secret() {
             --secret-name "${SECRET_NAME}" \
             --secret-content-name "${SECRET_NAME}" \
             --description "${SECRET_NAME}" \
-            --vault-id "$SECRET_STORE_VAULT_ID" \
-            --key-id "$SECRET_STORE_KEY_ID" \
+            --vault-id "$SECRETS_STORE_VAULT_ID" \
+            --key-id "$SECRETS_STORE_KEY_ID" \
             --secret-content-content "$(printf '%s' "${SECRET_VALUE}" | base64)" \
             --secret-content-stage CURRENT \
             | jq -r '.data.id')

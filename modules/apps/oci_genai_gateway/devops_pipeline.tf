@@ -117,19 +117,19 @@ module "build_oci_genai_gateway_image_shell_stage" {
       description   = "DEPLOY ID"
     },
     {
-      name          = "SECRET_STORE_VAULT_ID"
+      name          = "SECRETS_STORE_VAULT_ID"
       default_value = var.secrets_store_vault_id
       description   = "OCID of the vault"
     },
     {
-      name          = "SECRET_STORE_KEY_ID"
+      name          = "SECRETS_STORE_KEY_ID"
       default_value = var.secrets_store_key_id
       description   = "OCID of the key"
     },
     {
-      name          = "COMPARTMENT_ID"
+      name          = "SECRETS_STORE_VAULT_COMPARTMENT_ID"
       default_value = var.secrets_store_vault_compartment_id
-      description   = "Compartment ID"
+      description   = "Secrets Store Compartment ID"
     }
   ]
   command_spec_content = file("${path.module}/scripts/command_spec.yaml")

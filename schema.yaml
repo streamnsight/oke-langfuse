@@ -190,7 +190,7 @@ variableGroups:
   - title: "DevOps Deployment Pipelines"
     variables:
       - devops_compartment_id
-    visible: false
+    visible: true
       # and:
       #   - not: is_enhanced_cluster
       #   - not: is_endpoint_public
@@ -1040,6 +1040,14 @@ variables:
     dependsOn:
       compartmentId: cluster_compartment_id
     visible: np3_add_tag
+
+  devops_compartment_id:
+    type: oci:identity:compartment:id
+    title: Compartment for the DevOps Deployment pipelines
+    description: Compartment where the DevOps pipelines will be created
+    visible: true
+    default: compartment_ocid
+    required: true
 
   identity_domain_id:
     type: string #oci:identity:domains:id
