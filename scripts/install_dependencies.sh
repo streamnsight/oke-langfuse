@@ -40,8 +40,8 @@ ulimit -a
 # install dependencies
 ## OCI CLI
 
-sudo yum install -y podman git curl jq sed python3.12 python3.12-pip
-python3.12 -m pip install oci-cli==3.71.1
+sudo yum install -q -y podman git curl jq sed python3.12 python3.12-pip
+python3.12 -m pip install -q oci-cli==3.71.1
 # there is a bug in 3.71.2 that prevents auth with intance principal. TODO: update version when bug is fixed
 
 # install nvm to install node
@@ -80,6 +80,7 @@ set -x
 # install helm to get default values and find version of the Langfuse image for the chart version used
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4 | bash
 
+helm version
 # install Helm chart repo
 helm repo add langfuse https://langfuse.github.io/langfuse-k8s
 helm repo update

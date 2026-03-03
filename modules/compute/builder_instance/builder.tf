@@ -14,7 +14,7 @@ resource "oci_core_instance" "builder" {
   create_vnic_details {
     #Optional
     assign_ipv6ip    = false
-    assign_public_ip = true
+    assign_public_ip = var.assign_public_ip
     display_name     = var.display_name
     subnet_id        = var.subnet_id
   }

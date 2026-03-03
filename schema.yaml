@@ -190,10 +190,16 @@ variableGroups:
   - title: "DevOps Deployment Pipelines"
     variables:
       - devops_compartment_id
-    visible: false
+    visible: true
       # and:
       #   - not: is_enhanced_cluster
       #   - not: is_endpoint_public
+
+  - title: Secrets Store
+    variables: 
+      - secrets_store_vault_compartment_id 
+      - secrets_store_vault_id
+      - secrets_store_key_id
 
   # - title: "Deployments"
   #   variables:
@@ -350,7 +356,7 @@ variables:
     type: oci:kubernetes:versions:id
     title: "Kubernetes Version"
     required: true
-    default: "v1.34.1"
+    default: "v1.34.2"
     description: The Kubernetes version for the cluster.
     dependsOn:
       compartmentId: cluster_compartment_id
@@ -621,9 +627,9 @@ variables:
     type: integer
     title: Boot Volume Size (Gb)
     description: Boot volume size
-    default: 50
+    default: 200
     minimum: 50
-    maximum: 500
+    maximum: 1000
     required: true
 
   np1_add_tag:
@@ -1035,6 +1041,14 @@ variables:
       compartmentId: cluster_compartment_id
     visible: np3_add_tag
 
+  devops_compartment_id:
+    type: oci:identity:compartment:id
+    title: Compartment for the DevOps Deployment pipelines
+    description: Compartment where the DevOps pipelines will be created
+    visible: true
+    default: compartment_ocid
+    required: true
+
   identity_domain_id:
     type: string #oci:identity:domains:id
     title: OCI Identity Domain OCID
@@ -1234,13 +1248,14 @@ variables:
     type: enum
     # enumerated values
     enum:
+    - "1.5.22"
     - "1.5.14"
     # - "latest" # TODO support latest version and look up the chart version
     title: LangFuse Helm Chart Version
     description: | 
       Version of the LangFuse Helm chart.
       Supported versions are listed. 
-    default: "1.5.14"
+    default: "1.5.22"
 
   # Database Section
   postgresql_shape:
@@ -1370,6 +1385,32 @@ variables:
       Unselect this option if you do not have permission to create network sources. Permissions will be limited to the compartment level.
     default: true
 
+  secrets_store_vault_compartment_id:
+    type: oci:identity:compartment:id
+    title: Secrets Store Vault Compartment
+    description: |
+      Compartment for the secrets store vault
+    default: compartment_ocid
+    required: true
+
+  secrets_store_vault_id:
+    type: oci:kms:vault:id
+    title: Vault
+    description: |
+      Screts Store Vault
+    dependsOn:
+      compartmentId: secrets_store_vault_compartment_id
+    required: true
+
+  secrets_store_key_id:
+    type: oci:kms:key:id
+    title: Encryption Key
+    description: |
+      Secrets Store Encryption key
+    dependsOn:
+      compartmentId: secrets_store_vault_compartment_id
+      vaultId: secrets_store_vault_id
+    required: true
 
   object_storage_namespace:
     type: string

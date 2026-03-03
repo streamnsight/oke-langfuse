@@ -30,6 +30,11 @@ variable "ssh_authorized_keys" {
   type = string
 }
 
+variable "assign_public_ip" {
+  type    = bool
+  default = false
+}
+
 variable "ocpus" {
   type    = number
   default = 4

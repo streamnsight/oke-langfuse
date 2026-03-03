@@ -23,3 +23,7 @@ variable "cluster_id" {
 variable "subnet_id" {
   type = string
 }
+
+variable "artifact_repo_id" {
+  type = string
+}

@@ -13,23 +13,6 @@ locals {
   ]
 }
 
-# set the langfuse container image version into a file, triggered by a change in the chart version that contains that info
-# but is not accessible via terraform directly
-resource "terraform_data" "langfuse_version" {
-  input = var.langfuse_helm_chart_version
-  triggers_replace = {
-    helm_chart_version = var.langfuse_helm_chart_version
-  }
-  provisioner "local-exec" {
-    command = <<EOT
-    helm repo add langfuse https://langfuse.github.io/langfuse-k8s
-    helm repo update
-    export LANGFUSE_VERSION=$(helm show chart langfuse/langfuse --version ${var.langfuse_helm_chart_version} | grep appVersion | awk '{print $2}')
-    echo $LANGFUSE_VERSION > ${path.module}/langfuse.version
-    EOT
-  }
-}
-#echo $(git ls-remote --tags https://github.com/langfuse/langfuse | sort -t/ -k3V | tail -1 | awk -F '/' '{print $3}') > ${path.module}/langfuse.version"
 
 module "push_langfuse_chart" {
   for_each                 = { for c in local.charts : c["repo_name"] => c }
@@ -42,28 +25,38 @@ module "push_langfuse_chart" {
   chart                    = each.value
 }
 
-resource "oci_artifacts_repository" "helm_chart_values_repository" {
-  compartment_id  = var.compartment_id
-  display_name    = "langfuse_helm_chart_values_repo"
-  is_immutable    = false # Set to true if artifacts in this repository should be immutable
-  repository_type = "GENERIC"
+resource "oci_generic_artifacts_content_artifact_by_path" "create_cluster_issuers_artifact" {
+  #Required
+  artifact_path = "letsencrypt.ClusterIssuer.yaml"
+  repository_id = var.artifact_repo_id
+  version       = "0.1.0"
+  content       = file("${path.module}/scripts/letsencrypt.ClusterIssuer.yaml")
+
+  # delete the resource from artifact repo on destroy as it blocks destroy of the artifact repo itself
+  provisioner "local-exec" {
+    when       = destroy
+    on_failure = continue
+    command    = <<-CMD
+      oci artifacts generic artifact delete --artifact-id ${self.id} --force
+    CMD
+  }
 }
 
 resource "oci_generic_artifacts_content_artifact_by_path" "helm_chart_values_artifact" {
   #Required
   artifact_path = "values.yaml"
-  repository_id = oci_artifacts_repository.helm_chart_values_repository.id
+  repository_id = var.artifact_repo_id
   version       = "0.1.0"
   content       = file("${path.module}/values.template.yaml")
 
   # delete the resource from artifact repo on destroy as it blocks destroy of the artifact repo itself
   provisioner "local-exec" {
-    when    = destroy
-    command = <<-CMD
+    when       = destroy
+    on_failure = continue
+    command    = <<-CMD
       oci artifacts generic artifact delete --artifact-id ${self.id} --force
     CMD
   }
-
 }
 
 resource "oci_devops_deploy_artifact" "helm_chart_values_deploy_artifact" {
@@ -76,7 +69,7 @@ resource "oci_devops_deploy_artifact" "helm_chart_values_deploy_artifact" {
     #Optional
     deploy_artifact_path    = "values.yaml"
     deploy_artifact_version = "0.1.0"
-    repository_id           = oci_artifacts_repository.helm_chart_values_repository.id
+    repository_id           = var.artifact_repo_id
   }
   deploy_artifact_type = "GENERIC_FILE"
   project_id           = var.devops_project_id
@@ -109,7 +102,7 @@ resource "oci_devops_deploy_pipeline" "langfuse" {
   # deploy_pipeline_parameters {
   # }
   description  = "Langfuse"
-  display_name = "langfuse"
+  display_name = "langfuse-helm-chart"
   project_id   = var.devops_project_id
   defined_tags = var.defined_tags
 
@@ -134,7 +127,8 @@ resource "oci_devops_deploy_pipeline" "langfuse" {
         {
           name          = "LANGFUSE_IMAGE_TAG"
           description   = "Langfuse container image tag / version"
-          default_value = chomp(file("${path.module}/langfuse.version"))
+          default_value = data.external.langfuse_version.result.langfuse_version
+          # chomp(file("${path.module}/langfuse.version"))
         },
         {
           name          = "LANGFUSE_HOSTNAME"
@@ -166,7 +160,7 @@ resource "oci_devops_deploy_pipeline" "langfuse" {
   lifecycle {
     ignore_changes = [defined_tags]
     replace_triggered_by = [
-      # terraform_data.langfuse_version,
+      data.external.langfuse_version,
       # oci_generic_artifacts_content_artifact_by_path.helm_chart_values_artifact
     ]
   }
@@ -237,7 +231,7 @@ resource "oci_devops_deploy_stage" "langfuse" {
 resource "oci_devops_deployment" "langfuse_deployment" {
   deploy_pipeline_id = oci_devops_deploy_pipeline.langfuse.id
   deployment_type    = "PIPELINE_DEPLOYMENT"
-  display_name       = "langfuse"
+  display_name       = "langfuse-helm-chart"
   defined_tags       = var.defined_tags
   #previous_deployment_id = <<Optional value not found in discovery>>
   trigger_new_devops_deployment = tostring(var.force_deployment)
@@ -245,7 +239,8 @@ resource "oci_devops_deployment" "langfuse_deployment" {
   depends_on = [
     oci_devops_deploy_stage.langfuse,
     module.push_langfuse_chart,
-    module.langfuse_chart_devops_artifact
+    module.langfuse_chart_devops_artifact,
+    module.langfuse_secrets_shell_stage
   ]
   lifecycle {
     ignore_changes = [defined_tags]

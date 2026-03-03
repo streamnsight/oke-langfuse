@@ -1,3 +1,6 @@
+## Copyright © 2022-2026, Oracle and/or its affiliates.
+## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
+
 version: 0.1
 component: command
 timeoutInSeconds: 10000
@@ -22,8 +25,11 @@ steps:
       oci ce cluster create-kubeconfig --cluster-id ${CLUSTER_OCID} --file $HOME/.kube/config --token-version 2.0.0  --kube-endpoint PRIVATE_ENDPOINT
       template=$(< ./langfuse.HTTPRoute.yaml)
       # patch cert-manager to enable gateway-api
-      kubectl patch deployment cert-manager -n cert-manager --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--enable-gateway-api"}]'
       kubectl wait --for=condition=available -n cert-manager --timeout=60s deployment/cert-manager
+      kubectl patch deployment cert-manager -n cert-manager --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--enable-gateway-api"}]'
+      kubectl wait --for=condition=available -n cert-manager --timeout=120s deployment/cert-manager
+
+      kubectl describe deployment cert-manager -n cert-manager | grep -e "--enable-gateway-api"
+
       # deploy HTTPRoute and Cert request
       eval "echo \"${template}\"" | kubectl apply -f - -n langfuse
-      # kubectl apply -f ./langfuse.HTTPRoute.yaml -n langfuse

@@ -42,7 +42,7 @@ resource "oci_psql_db_system" "langfuse_postgres" {
   }
   db_version = var.db_version
   #description = <<Optional value not found in discovery>>
-  display_name = "langfuse"
+  display_name = var.display_name
   freeform_tags = {
   }
   instance_count              = "1"

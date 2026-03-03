@@ -44,7 +44,7 @@ resource "oci_devops_deploy_stage" "istio_gateway_crds" {
     items { id = oci_devops_deploy_pipeline.istio_gateway_crds.id }
   }
   deploy_stage_type                 = "SHELL"
-  description                       = "Deploy Istioa Gateway CRDs(Shell stage)"
+  description                       = "Deploy Istio Gateway CRDs(Shell stage)"
   display_name                      = "istio-gateway-crds-shell"
   defined_tags                      = var.defined_tags
   command_spec_deploy_artifact_id   = oci_devops_deploy_artifact.istio_gateway_crds_commandspec.id

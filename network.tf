@@ -2,11 +2,11 @@
 ## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
 
 locals {
-  subnet_cidrs            = cidrsubnets(var.vcn_cidr, 12, 8, 4, 4, 4) # API + 1 LB + 3 node pools
+  subnet_cidrs                    = cidrsubnets(var.vcn_cidr, 12, 8, 4, 4, 4) # API + 1 LB + 3 node pools
   created_api_subnet_cidr         = element(local.subnet_cidrs, 0)
   created_lb_subnet_cidr          = element(local.subnet_cidrs, 1)
   created_node_pool_subnets_cidrs = slice(local.subnet_cidrs, 2, 5)
-  ADs                     = data.oci_identity_availability_domains.ADs.availability_domains.*.name
+  ADs                             = data.oci_identity_availability_domains.ADs.availability_domains.*.name
 }
 
 data "oci_core_vcn" "existing_vcn" {
@@ -16,15 +16,15 @@ data "oci_core_vcn" "existing_vcn" {
 }
 
 data "oci_core_subnets" "subnets" {
-    count  = var.use_existing_vcn ? 1 : 0
-    compartment_id = data.oci_core_vcn.existing_vcn[0].compartment_id
-    vcn_id = data.oci_core_vcn.existing_vcn[0].id
+  count          = var.use_existing_vcn ? 1 : 0
+  compartment_id = data.oci_core_vcn.existing_vcn[0].compartment_id
+  vcn_id         = data.oci_core_vcn.existing_vcn[0].id
 }
 
 locals {
-  existing_subnet_cidrs_map = var.use_existing_vcn ? {for s in data.oci_core_subnets.subnets[0].subnets[*]: s.id => s.cidr_block } : {}
-  api_subnet_cidr = var.use_existing_vcn ? local.existing_subnet_cidrs_map[var.kubernetes_endpoint_subnet] : local.created_api_subnet_cidr
-  lb_subnet_cidr = var.use_existing_vcn ? local.existing_subnet_cidrs_map[var.public_lb_subnet] : local.created_lb_subnet_cidr
+  existing_subnet_cidrs_map = var.use_existing_vcn ? { for s in data.oci_core_subnets.subnets[0].subnets[*] : s.id => s.cidr_block } : {}
+  api_subnet_cidr           = var.use_existing_vcn ? local.existing_subnet_cidrs_map[var.kubernetes_endpoint_subnet] : local.created_api_subnet_cidr
+  lb_subnet_cidr            = var.use_existing_vcn ? local.existing_subnet_cidrs_map[var.public_lb_subnet] : local.created_lb_subnet_cidr
   node_pool_subnets_cidrs = var.use_existing_vcn ? [
     for s in [var.np1_subnet, var.np2_subnet, var.np3_subnet] :
     local.existing_subnet_cidrs_map[s]
@@ -137,6 +137,32 @@ resource "oci_core_security_list" "oke_api_endpoint_external_sec_list" {
       max = 6443
     }
   }
+
+  provisioner "local-exec" {
+    when        = destroy
+    interpreter = ["/bin/bash", "-lc"]
+    command     = <<-EOT
+      set -euo pipefail
+      export OCI_CLI_PROFILE="$${OCI_PROFILE:-DEFAULT}"
+      SL_ID="${self.id}"
+      VCN_ID="${self.vcn_id}"
+      COMPARTMENT_ID="${self.compartment_id}"
+
+      SUBNET_IDS=$(oci network subnet list --compartment-id "$COMPARTMENT_ID" --vcn-id "$VCN_ID" --all | jq -r '.data[].id')
+      for SUBNET_ID in $SUBNET_IDS; do
+        CURRENT=$(oci network subnet get --subnet-id "$SUBNET_ID" | jq '.data."security-list-ids"')
+        if ! echo "$CURRENT" | jq -e --arg id "$SL_ID" 'index($id) != null' >/dev/null; then
+          continue
+        fi
+        DESIRED=$(jq -n --argjson cur "$CURRENT" --arg id "$SL_ID" '$cur - [$id]')
+        if [ "$(echo "$DESIRED" | jq 'length')" -eq 0 ]; then
+          echo "Skipping update for subnet $SUBNET_ID (resulting security-list-ids would be empty)." >&2
+          continue
+        fi
+        oci network subnet update --subnet-id "$SUBNET_ID" --security-list-ids "$DESIRED" --force --wait-for-state AVAILABLE >/dev/null
+      done
+    EOT
+  }
 }
 
 resource "oci_core_security_list" "oke_api_endpoint_nodes_sec_list" {
@@ -206,6 +232,32 @@ resource "oci_core_security_list" "oke_api_endpoint_nodes_sec_list" {
       min = 12250
       max = 12250
     }
+  }
+
+  provisioner "local-exec" {
+    when        = destroy
+    interpreter = ["/bin/bash", "-lc"]
+    command     = <<-EOT
+      set -euo pipefail
+      export OCI_CLI_PROFILE="$${OCI_PROFILE:-DEFAULT}"
+      SL_ID="${self.id}"
+      VCN_ID="${self.vcn_id}"
+      COMPARTMENT_ID="${self.compartment_id}"
+
+      SUBNET_IDS=$(oci network subnet list --compartment-id "$COMPARTMENT_ID" --vcn-id "$VCN_ID" --all | jq -r '.data[].id')
+      for SUBNET_ID in $SUBNET_IDS; do
+        CURRENT=$(oci network subnet get --subnet-id "$SUBNET_ID" | jq '.data."security-list-ids"')
+        if ! echo "$CURRENT" | jq -e --arg id "$SL_ID" 'index($id) != null' >/dev/null; then
+          continue
+        fi
+        DESIRED=$(jq -n --argjson cur "$CURRENT" --arg id "$SL_ID" '$cur - [$id]')
+        if [ "$(echo "$DESIRED" | jq 'length')" -eq 0 ]; then
+          echo "Skipping update for subnet $SUBNET_ID (resulting security-list-ids would be empty)." >&2
+          continue
+        fi
+        oci network subnet update --subnet-id "$SUBNET_ID" --security-list-ids "$DESIRED" --force --wait-for-state AVAILABLE >/dev/null
+      done
+    EOT
   }
 }
 
@@ -351,9 +403,32 @@ resource "oci_core_security_list" "oke_nodepool_sec_list" {
     # }
   }
 
+  provisioner "local-exec" {
+    when        = destroy
+    interpreter = ["/bin/bash", "-lc"]
+    command     = <<-EOT
+      set -euo pipefail
+      export OCI_CLI_PROFILE="$${OCI_PROFILE:-DEFAULT}"
+      SL_ID="${self.id}"
+      VCN_ID="${self.vcn_id}"
+      COMPARTMENT_ID="${self.compartment_id}"
 
+      SUBNET_IDS=$(oci network subnet list --compartment-id "$COMPARTMENT_ID" --vcn-id "$VCN_ID" --all | jq -r '.data[].id')
+      for SUBNET_ID in $SUBNET_IDS; do
+        CURRENT=$(oci network subnet get --subnet-id "$SUBNET_ID" | jq '.data."security-list-ids"')
+        if ! echo "$CURRENT" | jq -e --arg id "$SL_ID" 'index($id) != null' >/dev/null; then
+          continue
+        fi
+        DESIRED=$(jq -n --argjson cur "$CURRENT" --arg id "$SL_ID" '$cur - [$id]')
+        if [ "$(echo "$DESIRED" | jq 'length')" -eq 0 ]; then
+          echo "Skipping update for subnet $SUBNET_ID (resulting security-list-ids would be empty)." >&2
+          continue
+        fi
+        oci network subnet update --subnet-id "$SUBNET_ID" --security-list-ids "$DESIRED" --force --wait-for-state AVAILABLE >/dev/null
+      done
+    EOT
+  }
 }
-
 
 resource "oci_core_security_list" "oke_lb_sec_list" {
   count          = 1
@@ -396,6 +471,32 @@ resource "oci_core_security_list" "oke_lb_sec_list" {
       min = 443
       max = 443
     }
+  }
+
+  provisioner "local-exec" {
+    when        = destroy
+    interpreter = ["/bin/bash", "-lc"]
+    command     = <<-EOT
+      set -euo pipefail
+      export OCI_CLI_PROFILE="$${OCI_PROFILE:-DEFAULT}"
+      SL_ID="${self.id}"
+      VCN_ID="${self.vcn_id}"
+      COMPARTMENT_ID="${self.compartment_id}"
+
+      SUBNET_IDS=$(oci network subnet list --compartment-id "$COMPARTMENT_ID" --vcn-id "$VCN_ID" --all | jq -r '.data[].id')
+      for SUBNET_ID in $SUBNET_IDS; do
+        CURRENT=$(oci network subnet get --subnet-id "$SUBNET_ID" | jq '.data."security-list-ids"')
+        if ! echo "$CURRENT" | jq -e --arg id "$SL_ID" 'index($id) != null' >/dev/null; then
+          continue
+        fi
+        DESIRED=$(jq -n --argjson cur "$CURRENT" --arg id "$SL_ID" '$cur - [$id]')
+        if [ "$(echo "$DESIRED" | jq 'length')" -eq 0 ]; then
+          echo "Skipping update for subnet $SUBNET_ID (resulting security-list-ids would be empty)." >&2
+          continue
+        fi
+        oci network subnet update --subnet-id "$SUBNET_ID" --security-list-ids "$DESIRED" --force --wait-for-state AVAILABLE >/dev/null
+      done
+    EOT
   }
 }
 
@@ -457,12 +558,159 @@ locals {
   existing_nodepool_subnet_ids = var.use_existing_vcn ? compact([var.np1_subnet, var.np2_subnet, var.np3_subnet]) : []
 }
 
+/*
+resource "null_resource" "detach_api_subnet_sls" {
+  count = var.use_existing_vcn ? 1 : 0
+
+  triggers = {
+    subnet_id      = var.kubernetes_endpoint_subnet
+    oci_profile    = var.oci_profile
+    vcn_id         = var.vcn_id
+    compartment_id = var.vcn_compartment_id
+    remove_names = jsonencode(concat(
+      ["API Endpoint External Comm"],
+      [for i in range(length(local.node_pool_subnets_cidrs)) : "API Endpoint - Node Pool ${i + 1} Comm"]
+    ))
+  }
+
+  provisioner "local-exec" {
+    when        = destroy
+    interpreter = ["/bin/bash", "-lc"]
+    command     = <<-EOT
+      set -euo pipefail
+      export OCI_CLI_PROFILE="${self.triggers.oci_profile}"
+      SUBNET_ID="${self.triggers.subnet_id}"
+      VCN_ID="${self.triggers.vcn_id}"
+      COMPARTMENT_ID="${self.triggers.compartment_id}"
+      REMOVE_NAMES='${self.triggers.remove_names}'
+
+      REMOVE_IDS=$(jq -n '[]')
+      for name in $(echo "$REMOVE_NAMES" | jq -r '.[]'); do
+        id=$(oci network security-list list --compartment-id "$COMPARTMENT_ID" --vcn-id "$VCN_ID" --display-name "$name" | jq -r '.data[0].id // empty')
+        if [ -n "$id" ]; then
+          REMOVE_IDS=$(jq -n --argjson cur "$REMOVE_IDS" --arg id "$id" '$cur + [$id]')
+        fi
+      done
+
+      if [ "$(echo "$REMOVE_IDS" | jq 'length')" -eq 0 ]; then
+        echo "No matching security lists found for subnet $SUBNET_ID; skipping." >&2
+        exit 0
+      fi
+
+      CURRENT=$(oci network subnet get --subnet-id "$SUBNET_ID" | jq '.data."security-list-ids"')
+      DESIRED=$(jq -n --argjson cur "$CURRENT" --argjson rm "$REMOVE_IDS" '$cur - $rm')
+      if [ "$(echo "$DESIRED" | jq 'length')" -eq 0 ]; then
+        echo "Skipping update for subnet $SUBNET_ID (resulting security-list-ids would be empty)." >&2
+        exit 0
+      fi
+      oci network subnet update --subnet-id "$SUBNET_ID" --security-list-ids "$DESIRED" --force --wait-for-state AVAILABLE >/dev/null
+    EOT
+  }
+}
+*/
+
+/*
+resource "null_resource" "detach_lb_subnet_sls" {
+  count = var.use_existing_vcn ? 1 : 0
+
+  triggers = {
+    subnet_id      = var.public_lb_subnet
+    oci_profile    = var.oci_profile
+    vcn_id         = var.vcn_id
+    compartment_id = var.vcn_compartment_id
+    remove_names   = jsonencode(["Internet - Load Balancer Comm"])
+  }
+
+  provisioner "local-exec" {
+    when        = destroy
+    interpreter = ["/bin/bash", "-lc"]
+    command     = <<-EOT
+      set -euo pipefail
+      export OCI_CLI_PROFILE="${self.triggers.oci_profile}"
+      SUBNET_ID="${self.triggers.subnet_id}"
+      VCN_ID="${self.triggers.vcn_id}"
+      COMPARTMENT_ID="${self.triggers.compartment_id}"
+      REMOVE_NAMES='${self.triggers.remove_names}'
+
+      REMOVE_IDS=$(jq -n '[]')
+      for name in $(echo "$REMOVE_NAMES" | jq -r '.[]'); do
+        id=$(oci network security-list list --compartment-id "$COMPARTMENT_ID" --vcn-id "$VCN_ID" --display-name "$name" | jq -r '.data[0].id // empty')
+        if [ -n "$id" ]; then
+          REMOVE_IDS=$(jq -n --argjson cur "$REMOVE_IDS" --arg id "$id" '$cur + [$id]')
+        fi
+      done
+
+      if [ "$(echo "$REMOVE_IDS" | jq 'length')" -eq 0 ]; then
+        echo "No matching security lists found for subnet $SUBNET_ID; skipping." >&2
+        exit 0
+      fi
+
+      CURRENT=$(oci network subnet get --subnet-id "$SUBNET_ID" | jq '.data."security-list-ids"')
+      DESIRED=$(jq -n --argjson cur "$CURRENT" --argjson rm "$REMOVE_IDS" '$cur - $rm')
+      if [ "$(echo "$DESIRED" | jq 'length')" -eq 0 ]; then
+        echo "Skipping update for subnet $SUBNET_ID (resulting security-list-ids would be empty)." >&2
+        exit 0
+      fi
+      oci network subnet update --subnet-id "$SUBNET_ID" --security-list-ids "$DESIRED" --force --wait-for-state AVAILABLE >/dev/null
+    EOT
+  }
+}
+*/
+
+/*
+resource "null_resource" "detach_nodepool_subnet_sls" {
+  for_each = var.use_existing_vcn ? toset(local.existing_nodepool_subnet_ids) : []
+
+  triggers = {
+    subnet_id      = each.value
+    oci_profile    = var.oci_profile
+    vcn_id         = var.vcn_id
+    compartment_id = var.vcn_compartment_id
+    remove_names   = jsonencode(["Nodepool - Internal Comm"])
+  }
+
+  provisioner "local-exec" {
+    when        = destroy
+    interpreter = ["/bin/bash", "-lc"]
+    command     = <<-EOT
+      set -euo pipefail
+      export OCI_CLI_PROFILE="${self.triggers.oci_profile}"
+      SUBNET_ID="${self.triggers.subnet_id}"
+      VCN_ID="${self.triggers.vcn_id}"
+      COMPARTMENT_ID="${self.triggers.compartment_id}"
+      REMOVE_NAMES='${self.triggers.remove_names}'
+
+      REMOVE_IDS=$(jq -n '[]')
+      for name in $(echo "$REMOVE_NAMES" | jq -r '.[]'); do
+        id=$(oci network security-list list --compartment-id "$COMPARTMENT_ID" --vcn-id "$VCN_ID" --display-name "$name" | jq -r '.data[0].id // empty')
+        if [ -n "$id" ]; then
+          REMOVE_IDS=$(jq -n --argjson cur "$REMOVE_IDS" --arg id "$id" '$cur + [$id]')
+        fi
+      done
+
+      if [ "$(echo "$REMOVE_IDS" | jq 'length')" -eq 0 ]; then
+        echo "No matching security lists found for subnet $SUBNET_ID; skipping." >&2
+        exit 0
+      fi
+
+      CURRENT=$(oci network subnet get --subnet-id "$SUBNET_ID" | jq '.data."security-list-ids"')
+      DESIRED=$(jq -n --argjson cur "$CURRENT" --argjson rm "$REMOVE_IDS" '$cur - $rm')
+      if [ "$(echo "$DESIRED" | jq 'length')" -eq 0 ]; then
+        echo "Skipping update for subnet $SUBNET_ID (resulting security-list-ids would be empty)." >&2
+        exit 0
+      fi
+      oci network subnet update --subnet-id "$SUBNET_ID" --security-list-ids "$DESIRED" --force --wait-for-state AVAILABLE >/dev/null
+    EOT
+  }
+}
+*/
+
 resource "null_resource" "update_api_subnet_sls" {
   count = var.use_existing_vcn ? 1 : 0
 
   triggers = {
     subnet_id = var.kubernetes_endpoint_subnet
-    new_ids   = jsonencode(concat(
+    new_ids = jsonencode(concat(
       [oci_core_security_list.oke_api_endpoint_external_sec_list[0].id],
       oci_core_security_list.oke_api_endpoint_nodes_sec_list.*.id
     ))
@@ -475,7 +723,7 @@ resource "null_resource" "update_api_subnet_sls" {
 
   provisioner "local-exec" {
     interpreter = ["/bin/bash", "-lc"]
-    command = <<-EOT
+    command     = <<-EOT
       set -euo pipefail
       export OCI_CLI_PROFILE="${var.oci_profile}"
       SUBNET_ID="${var.kubernetes_endpoint_subnet}"
@@ -501,7 +749,7 @@ resource "null_resource" "update_lb_subnet_sls" {
 
   provisioner "local-exec" {
     interpreter = ["/bin/bash", "-lc"]
-    command = <<-EOT
+    command     = <<-EOT
       set -euo pipefail
       export OCI_CLI_PROFILE="${var.oci_profile}"
       SUBNET_ID="${var.public_lb_subnet}"
@@ -518,7 +766,7 @@ resource "null_resource" "update_nodepool_subnet_sls" {
 
   triggers = {
     subnet_id = each.value
-    new_ids   = jsonencode([
+    new_ids = jsonencode([
       oci_core_security_list.oke_nodepool_sec_list[0].id,
     ])
   }
@@ -535,10 +783,10 @@ resource "null_resource" "update_nodepool_subnet_sls" {
       SUBNET_ID="${each.value}"
       CURRENT=$(oci network subnet get --subnet-id "$SUBNET_ID" | jq '.data."security-list-ids"')
       ADD='${jsonencode([
-        oci_core_security_list.oke_nodepool_sec_list[0].id,
-      ])}'
+    oci_core_security_list.oke_nodepool_sec_list[0].id,
+])}'
       DESIRED=$(jq -n --argjson cur "$CURRENT" --argjson add "$ADD" '$cur + $add | unique')
       oci network subnet update --subnet-id "$SUBNET_ID" --security-list-ids "$DESIRED" --force --wait-for-state AVAILABLE >/dev/null
     EOT
-  }
+}
 }

@@ -15,13 +15,12 @@ locals {
   use_addon_manager = var.is_enhanced_cluster
 
   object_storage_namespace = var.object_storage_namespace == null ? data.oci_objectstorage_namespace.ns.namespace : var.object_storage_namespace
-  devops_compartment_id    = var.devops_compartment_id == null ? var.cluster_compartment_id : var.devops_compartment_id
 }
 
 # Setup the DevOps project when using DevOps
 module "devops_setup" {
   source         = "./modules/devops/project"
-  compartment_id = local.devops_compartment_id
+  compartment_id = var.devops_compartment_id
   project_name   = "${local.cluster_name}-deployments"
   target_cluster = oci_containerengine_cluster.oci_oke_cluster
   defined_tags   = var.defined_tags
@@ -33,15 +32,19 @@ module "devops_target_cluster_env" {
   project_id     = module.devops_setup.project_id
   target_cluster = oci_containerengine_cluster.oci_oke_cluster
   defined_tags   = var.defined_tags
+  depends_on = [
+    oci_core_subnet.oke_api_endpoint_subnet
+  ]
 }
 
 # Create policies for the DevOps service to do its work.
 module "devops_policies" {
-  source                 = "./modules/devops/policies"
-  devops_compartment_id  = local.devops_compartment_id
-  vcn_compartment_id     = var.vcn_compartment_id
-  cluster_compartment_id = var.cluster_compartment_id
-  cluster_name           = local.cluster_name_sanitized
+  source                             = "./modules/devops/policies"
+  devops_compartment_id              = var.devops_compartment_id
+  vcn_compartment_id                 = var.vcn_compartment_id
+  cluster_compartment_id             = var.cluster_compartment_id
+  secrets_store_vault_compartment_id = var.secrets_store_vault_compartment_id
+  cluster_name                       = local.cluster_name_sanitized
   providers = {
     oci = oci.home_region
   }

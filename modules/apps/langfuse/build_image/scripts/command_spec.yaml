@@ -1,0 +1,50 @@
+version: 0.1
+component: command
+timeoutInSeconds: 10000
+shell: bash
+failImmediatelyOnError: true
+inputArtifacts:
+- name: langfuse-image-build-script
+  type: GENERIC_ARTIFACT
+  artifactId: ${LANGFUSE_IMAGE_BUILD_SCRIPT_ARTIFACT_OCID}
+  registryId: ${REGISTRY_OCID}
+  path: build_langfuse_image.sh
+  version: 0.1.0
+  location: ./build_langfuse_image.sh
+steps:
+  - type: Command
+    name: Build Langfuse Image
+    timeoutInSeconds: 3600
+    command: |
+      set -euxo pipefail
+      echo "setting up builder instance dependencies..."
+      # get the SSH private key for the builder instance
+      OUT_FILE="./id_ed25519"
+      oci secrets secret-bundle get \
+        --secret-id "$SSH_PRIVATE_KEY_SECRET_OCID" \
+        --query 'data."secret-bundle-content".content' \
+        --raw-output \
+        | base64 --decode > "$OUT_FILE"
+      chmod 600 "$OUT_FILE"
+      # build langfuse image
+      # copy script to builder
+      scp -i "$OUT_FILE" -o StrictHostKeyChecking=no \
+        ./build_langfuse_image.sh opc@${BUILDER_INSTANCE_IP}:~/build_langfuse_image.sh
+
+      # run everything remote in ONE ssh session (avoids command-spec truncation issues)
+      ssh -i "$OUT_FILE" -o StrictHostKeyChecking=no opc@${BUILDER_INSTANCE_IP} <<'REMOTE_EOF'
+      set -euxo pipefail
+
+      echo "Remote: running on $(hostname) as $(whoami) in $PWD"
+      ls -la ~/
+
+      chmod +x ~/build_langfuse_image.sh
+      
+      # run the script without -e / pipefail influencing it
+      set +e +o pipefail
+      ~/build_langfuse_image.sh
+      rc=$?
+      set -euo pipefail
+
+      exit $rc
+      REMOTE_EOF

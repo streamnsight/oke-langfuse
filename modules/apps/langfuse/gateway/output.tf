@@ -1,3 +1,5 @@
+## Copyright © 2022-2026, Oracle and/or its affiliates.
+## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
 
 data "oci_load_balancer_load_balancers" "load_balancers" {
   #Required
@@ -12,10 +14,14 @@ data "oci_load_balancer_load_balancers" "load_balancers" {
 
 
 locals {
-  lb = [for lb in data.oci_load_balancer_load_balancers.load_balancers.load_balancers : lb.ip_addresses[0]
+  lb = [for lb in data.oci_load_balancer_load_balancers.load_balancers.load_balancers : lb
   if lb.defined_tags["Oracle-Tags.CreatedBy"] == var.cluster_id && lookup(lb.freeform_tags, "source", "") == "istio-gateway"]
 }
 
 output "ip_address" {
-  value = local.lb[0]
+  value = local.lb[0].ip_addresses[0]
+}
+
+output "load_balancer_ocid" {
+  value = local.lb[0].id
 }
