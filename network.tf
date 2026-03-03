@@ -430,7 +430,6 @@ resource "oci_core_security_list" "oke_nodepool_sec_list" {
   }
 }
 
-
 resource "oci_core_security_list" "oke_lb_sec_list" {
   count          = 1
   compartment_id = var.vcn_compartment_id

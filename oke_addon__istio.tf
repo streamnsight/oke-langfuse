@@ -3,7 +3,7 @@
 
 module "istio_deployment_using_addon_manager" {
   # count                = local.enable_cert_manager ? (local.use_addon_manager ? 1 : 0) : 0
-  source      = "./modules/oke_add_ons/istio/deployment/enhanced_cluster_addon"
+  source      = "./modules/oke/cluster_addons/istio/deployment/enhanced_cluster_addon"
   cluster_id  = oci_containerengine_cluster.oci_oke_cluster.id
   nb_replicas = 1
   depends_on = [

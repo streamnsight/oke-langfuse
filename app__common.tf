@@ -61,7 +61,7 @@ module "builder_instance" {
   image_id            = local.node_pools[0].image_id
   metadata = {
     deploy_id = local.deploy_id
-    # cluster_id                         = oci_containerengine_cluster.oci_oke_cluster.id
+    cluster_id                         = oci_containerengine_cluster.oci_oke_cluster.id
     langfuse_helm_chart_version        = var.langfuse_helm_chart_version
     lb_subnet_id                       = var.use_existing_vcn ? var.public_lb_subnet : oci_core_subnet.oke_lb_subnet[0].id
     oci_profile                        = var.oci_profile

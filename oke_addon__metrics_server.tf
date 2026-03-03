@@ -13,7 +13,7 @@ locals {
 module "metrics_server_deployment_with_addon_manager" {
   #TODO set flag for deploy metrics server
   count         = local.cluster_autoscaler_enabled ? (local.use_addon_manager ? 1 : 0) : 0
-  source        = "./modules/oke_add_ons/metrics_server/deployment/enhanced_cluster_addon"
+  source        = "./modules/oke/cluster_addons/metrics_server/deployment/enhanced_cluster_addon"
   cluster_id    = oci_containerengine_cluster.oci_oke_cluster.id
   nb_replicas   = 2
   addon_version = null # null sets auto-update
