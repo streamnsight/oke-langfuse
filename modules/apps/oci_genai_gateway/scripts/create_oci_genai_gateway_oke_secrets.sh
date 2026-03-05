@@ -34,6 +34,8 @@ function get_secret() {
     printf '%s' "$SECRET_VALUE"
 }
 
+kubectl get namespace langfuse || kubectl create namespace langfuse
+
 # oci-genai-gateway default API key value
 kubectl get secret oci-genai-gateway -n langfuse \
 && kubectl delete secret oci-genai-gateway -n langfuse

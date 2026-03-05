@@ -34,6 +34,8 @@ function get_secret() {
     printf '%s' "$SECRET_VALUE"
 }
 
+kubectl get namespace langfuse || kubectl create namespace langfuse
+
 # langfuse password hashing
 kubectl get secret langfuse -n langfuse \
 && kubectl delete secret langfuse -n langfuse
