@@ -19,6 +19,7 @@ The stack can deploy into an existing VCN or create all networking (VCN, subnets
 - cert-manager is installed as an OKE add-on (OKE-managed) and its deployment is patched with `--enable-gateway-api` to support Gateway-based certificates. This is expected to become the default in a future OKE release. However, in the mean time, if the cert-manager was to update, this flag may need to be re-patched in the cert-manager deployment for the certificate to update properly.
 - S3-compatible access requires a Customer Secret Key tied to a user. If that user is removed, Langfuse will lose access to the bucket.
 - IDCS is used for SSO to avoid open self-signup. Langfuse’s built-in auth allows user self-registration, which is not desirable for controlled access, and that feature is de-activated in favor of SSO.
+- 🚨 There is some issue in Langfuse with the S3 compatible API secret and access key [https://github.com/langfuse/langfuse/issues/8449](https://github.com/langfuse/langfuse/issues/8449). When the secret has special characters, esp. the (+) sign, it will fail. WHen creating you Customer secret, if the secret contains those character, delete it and recreate a new one so it does not have tose characters.
 
 ## Getting started with Langfuse on OKE
 
@@ -120,5 +121,6 @@ Refer to the detailed documentation [here](docs/howto.md).
 # TODO
 
 - Offer a choice of self-signed, IP, or domain TLS certificates
-- Explore OSS native client support using workload identity
+- OSS native client support using workload identity (PR here [12379](https://github.com/langfuse/langfuse/pull/12379))
 - Debug policies for cross-compartment deployment (DevOps, cluster, VCN)
+- Vault secret update
