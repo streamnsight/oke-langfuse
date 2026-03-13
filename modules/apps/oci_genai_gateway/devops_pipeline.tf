@@ -68,6 +68,7 @@ module "build_oci_genai_gateway_image_shell_stage" {
   compartment_id        = var.compartment_id
   subnet_id             = var.subnet_id
   stage_name            = "build_oci_genai_gateway_image"
+  shape_name            = var.shape_name
   devops_project_id     = var.devops_project_id
   devops_environment_id = var.devops_environment_id
   deploy_pipeline_parameters = [

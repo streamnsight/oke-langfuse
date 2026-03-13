@@ -41,3 +41,7 @@ variable "timeout" {
   type    = number
   default = 600
 }
+
+variable "shape_name" {
+  type = string
+}

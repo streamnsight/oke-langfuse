@@ -69,6 +69,7 @@ locals {
 module "build_langfuse_image" {
   source                                   = "./modules/apps/langfuse/build_image"
   compartment_id                           = var.devops_compartment_id
+  oci_profile                              = var.oci_profile
   devops_project_id                        = module.devops_setup.project_id
   devops_environment_id                    = module.devops_target_cluster_env.environment_id
   artifact_repo_id                         = local.artifact_repo_id
@@ -77,6 +78,7 @@ module "build_langfuse_image" {
   builder_instance_private_key_secret_ocid = data.external.builder_ssh_key_to_vault.result.private_key_secret_ocid
   deploy_id                                = local.deploy_id
   tenancy_namespace                        = data.oci_objectstorage_namespace.ns.namespace
+  shape_name                               = local.ci_shape_selected
 
   depends_on = [
     module.builder_instance,
@@ -93,6 +95,7 @@ module "langfuse_gateway" {
   devops_project_id     = module.devops_setup.project_id
   devops_environment_id = module.devops_target_cluster_env.environment_id
   artifact_repo_id      = oci_artifacts_repository.artifact_repository.id
+  shape_name            = local.ci_shape_selected
   depends_on = [
     module.istio_deployment_using_addon_manager,
     module.istio_gateway_crds
@@ -164,6 +167,7 @@ module "langfuse_chart" {
   compartment_id                           = var.cluster_compartment_id
   tenancy_ocid                             = var.tenancy_ocid
   region                                   = var.region
+  shape_name                               = local.ci_shape_selected
   oci_profile                              = var.oci_profile
   cluster_id                               = oci_containerengine_cluster.oci_oke_cluster.id
   artifact_repo_id                         = local.artifact_repo_id
@@ -227,6 +231,7 @@ module "langfuse_gateway_routing" {
   langfuse_hostname     = local.langfuse_url
   artifact_repo_id      = oci_artifacts_repository.artifact_repository.id
   defined_tags          = var.defined_tags
+  shape_name            = local.ci_shape_selected
 
   depends_on = [
     module.cert_manager_deployment_using_addon_manager,

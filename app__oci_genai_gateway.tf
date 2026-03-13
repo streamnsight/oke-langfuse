@@ -9,6 +9,7 @@ module "oci_genai_gateway" {
   tenancy_ocid                             = var.tenancy_ocid
   tenancy_namespace                        = data.oci_objectstorage_namespace.ns.namespace
   deploy_id                                = local.deploy_id
+  shape_name                               = local.ci_shape_selected
   region                                   = var.region
   genai_region                             = var.oci_genai_region
   oci_genai_gateway_tag                    = var.oci_genai_gateway_tag

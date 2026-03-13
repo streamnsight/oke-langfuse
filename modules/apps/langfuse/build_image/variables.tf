@@ -36,3 +36,12 @@ variable "deploy_id" {
 variable "tenancy_namespace" {
   type = string
 }
+
+variable "oci_profile" {
+  type    = string
+  default = "DEFAULT"
+}
+
+variable "shape_name" {
+  type = string
+}

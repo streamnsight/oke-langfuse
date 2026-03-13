@@ -91,7 +91,7 @@ resource "oci_devops_deploy_stage" "langfuse_gateway" {
       #Optional
       memory_in_gbs = 8
     }
-    shape_name     = "CI.Standard.E4.Flex"
+    shape_name     = var.shape_name
     compartment_id = var.compartment_id
   }
 

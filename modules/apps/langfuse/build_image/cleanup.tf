@@ -6,6 +6,7 @@ resource "null_resource" "langfuse_ocir_repo_cleanup" {
     deploy_id         = var.deploy_id
     tenancy_namespace = var.tenancy_namespace
     compartment_id    = var.compartment_id
+    profile           = var.oci_profile
   }
 
   depends_on = [
@@ -19,12 +20,13 @@ resource "null_resource" "langfuse_ocir_repo_cleanup" {
       set -e
       REPO_NAME="${self.triggers.tenancy_namespace}/${self.triggers.deploy_id}/langfuse"
       REPO_ID=$(oci artifacts container repository list \
+        --profile ${self.triggers.profile} \
         --compartment-id ${self.triggers.compartment_id} \
         --all \
         --query "data.items[?\"display-name\"=='${self.triggers.deploy_id}/langfuse'].id | [0]" \
         --raw-output | tr -d '\r')
       if [ -n "$REPO_ID" ] && [ "$REPO_ID" != "null" ]; then
-        oci artifacts container repository delete --repository-id "$REPO_ID" --force
+        oci artifacts container repository delete --profile ${self.triggers.profile} --repository-id "$REPO_ID" --force
       else
         echo "OCIR repo $REPO_NAME not found; skipping delete."
       fi
