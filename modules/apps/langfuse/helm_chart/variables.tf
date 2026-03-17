@@ -146,3 +146,7 @@ variable "secrets_store_vault_id" {
 variable "secrets_store_key_id" {
   type = string
 }
+
+variable "shape_name" {
+  type = string
+}

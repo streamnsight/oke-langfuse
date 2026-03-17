@@ -60,7 +60,7 @@ module "builder_instance" {
   compute_shape       = local.node_pools[0].node_shape
   image_id            = local.node_pools[0].image_id
   metadata = {
-    deploy_id = local.deploy_id
+    deploy_id                          = local.deploy_id
     cluster_id                         = oci_containerengine_cluster.oci_oke_cluster.id
     langfuse_helm_chart_version        = var.langfuse_helm_chart_version
     lb_subnet_id                       = var.use_existing_vcn ? var.public_lb_subnet : oci_core_subnet.oke_lb_subnet[0].id
@@ -96,16 +96,13 @@ data "external" "builder_ssh_key_to_vault" {
   }
 }
 
-output "builder_public_key" {
-  value = data.external.builder_ssh_key_to_vault.result
-}
-
 
 module "builder_setup_shell_stage" {
   source                = "./modules/devops/deployment_stages/shell_stage"
   compartment_id        = var.devops_compartment_id
   subnet_id             = var.use_existing_vcn ? local.node_pools[0]["subnet"] : oci_core_subnet.oke_nodepool_subnet[0].id
   stage_name            = "builder_setup"
+  shape_name            = local.ci_shape_selected
   devops_project_id     = module.devops_setup.project_id
   devops_environment_id = module.devops_target_cluster_env.environment_id
   deploy_pipeline_parameters = [
@@ -131,6 +128,7 @@ module "builder_setup_shell_stage" {
     }
   ]
   command_spec_content = file("./scripts/command_spec.setup.yaml")
+  depends_on = [ module.builder_instance ]
 }
 
 module "builder_terminate_shell_stage" {
@@ -138,6 +136,7 @@ module "builder_terminate_shell_stage" {
   compartment_id        = var.devops_compartment_id
   subnet_id             = var.use_existing_vcn ? local.node_pools[0]["subnet"] : oci_core_subnet.oke_nodepool_subnet[0].id
   stage_name            = "builder_terminate"
+  shape_name            = local.ci_shape_selected
   devops_project_id     = module.devops_setup.project_id
   devops_environment_id = module.devops_target_cluster_env.environment_id
   deploy_pipeline_parameters = [

@@ -31,3 +31,7 @@ variable "subnet_id" {
 variable "artifact_repo_id" {
   type = string
 }
+
+variable "shape_name" {
+  type = string
+}

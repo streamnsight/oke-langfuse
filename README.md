@@ -12,11 +12,12 @@ The stack can deploy into an existing VCN or create all networking (VCN, subnets
 
 - Cross-compartment deployments are not supported. Networking, DevOps, Vault, and the deployment must be in the same compartment.
 - If you cannot create the IDCS/IAM application due to lack of permissions, get the app information from your Domain Administrator, and have them update the redirect URL and add users after deployment (see below).
+- 🚨 The Identity Domain must have the **Access signing certificate** option **enabled**. 
 - The stack deploys a **public** load balancer. Public access is required for IDCS and Let’s Encrypt to reach the instance.
 - The load balancer uses an **IP-based** TLS certificate (domain support planned). The Gateway resource provisions the LB, then the IP is used to request a Let’s Encrypt certificate.
-  - Let’s Encrypt IP certificates are **short-lived** and require the `short-lived` profile in the ClusterIssuer.
+  - Let’s Encrypt IP certificates are **short-lived** (7 days).
   - 🚨 Blocking public access to the Langfuse UI will prevent IP certificate renewal.
-- cert-manager is installed as an OKE add-on (OKE-managed) and its deployment is patched with `--enable-gateway-api` to support Gateway-based certificates. This is expected to become the default in a future OKE release. However, in the mean time, if the cert-manager was to update, this flag may need to be re-patched in the cert-manager deployment for the certificate to update properly.
+- cert-manager is installed as an OKE add-on (OKE-managed) and its deployment is patched with `--enable-gateway-api` to support Gateway-based certificates. This is expected to become the default in a future OKE release. However, in the mean time, if the cert-manager was to update, this flag may need to be re-patched in the cert-manager deployment for the certificate to update properly. The version is fixed to v1.19.2 to avoid auto-update.
 - S3-compatible access requires a Customer Secret Key tied to a user. If that user is removed, Langfuse will lose access to the bucket.
 - IDCS is used for SSO to avoid open self-signup. Langfuse’s built-in auth allows user self-registration, which is not desirable for controlled access, and that feature is de-activated in favor of SSO.
 - 🚨 There is some issue in Langfuse with the S3 compatible API secret and access key [https://github.com/langfuse/langfuse/issues/8449](https://github.com/langfuse/langfuse/issues/8449). When the secret has special characters, esp. the (+) sign, it will fail. WHen creating you Customer secret, if the secret contains those character, delete it and recreate a new one so it does not have tose characters.
@@ -39,24 +40,35 @@ For node images, we recommend `Oracle-Linux 8-10 2025-09-16` (latest OKE-optimiz
 
 An IDCS / SSO application is required for authentication and authorization.
 
-If you are not authorized to create the application through the stack, provide the following to your Identity Domain admin:
+If you are an Identity Domain admin, the app will be created and configured for you, and named Langfuse-<deploymentID>
 
+🚨 **Important:** The Identity Domain must have **Access signing certificate** option **enabled**. (In Identity Domain -> Settings tab -> Domain Settings -> Edit Domain Settings)
+
+If this is not the case, you may encounter an **OAuthCallBack error** in Langfuse when trying to login.
+
+If you are not authorized to create the application through the stack, a Domain Administrator will need to create the app and configure it for you. 
+
+Provide the following information to your Identity Domain admin:
+
+- The Identity Domain must have **Access signing certificate** option **enabled**. (In Identity Domain -> Settings tab -> Domain Settings -> Edit Domain Settings)
+
+To create the app:
 - Application Type: `Confidential Application`
-- Application URL: `https://<STACK_IP>/langfuse` (IP is available after stack deploy)
+- Application URL: `https://<irrelevant>/langfuse` (The URL is required but we don't know the IP until after stack deploy, so it should be anything and replaced later)
 - Select **Enforce grants as authorization** to restrict access to assigned users/groups
 
-After the app is created:
+Create the app then:
 
 - Go to **OAuth Configuration** → **Edit OAuth Configuration**
 - Click **Configure this application as a client now**
 - Select `Authorization Code` as the **Allowed Grant Type**
 - Save
 
-After the stack is deployed:
+After the stack is deployed, go back to your Domain administrator for them to:
 
-- Update the Redirect URL to `https://<LANGFUSE_IP>/langfuse/api/auth/callback/custom`
-- Activate the application
-- Assign users or groups
+- Update the Redirect URL in the OAuth Configuration to `https://<LANGFUSE_IP>/langfuse/api/auth/callback/custom`
+- Activate the application (Top right button drop down)
+- Assign users or groups to the application (Users tab)
 
 ## Configuring LLM models in Langfuse
 
@@ -120,7 +132,15 @@ Refer to the detailed documentation [here](docs/howto.md).
 
 # TODO
 
-- Offer a choice of self-signed, IP, or domain TLS certificates
-- OSS native client support using workload identity (PR here [12379](https://github.com/langfuse/langfuse/pull/12379))
-- Debug policies for cross-compartment deployment (DevOps, cluster, VCN)
-- Vault secret update
+[ ] SSL cert: self-signed, 
+[X] SSL Cert: IP cert
+[ ] SSL cert: domain / DNS based certificates
+[ ] OSS native client support using workload identity (PR here [12379](https://github.com/langfuse/langfuse/pull/12379))
+[X] Vault secret update
+[ ] support cross compartment deployments, policies for cross-compartment deployment (DevOps, cluster, VCN)
+[ ] Support deployment on existing cluster
+[ ] look up available shell stages shapes and choose from those only.
+[ ] Cache users / ACLs to restrict cluster access
+[ ] use existing Cache cluster
+[ ] Postgres users ACLs
+[ ] validate deployment from local with profile

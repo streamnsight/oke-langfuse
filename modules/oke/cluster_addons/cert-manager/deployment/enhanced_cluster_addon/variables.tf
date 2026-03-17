@@ -13,10 +13,11 @@ variable "cluster_id" {
 
 variable "cert_manager_version" {
   type    = string
-  default = null
+  default = "v1.19.1" # set to null in the future to auto updater, 
+  # but currently auto update clears the patch for --enable-gateway-api preventing cert update
 }
 
 variable "nb_replicas" {
   type    = string
-  default = 2
+  default = 1
 }

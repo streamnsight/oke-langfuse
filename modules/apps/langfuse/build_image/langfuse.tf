@@ -48,6 +48,7 @@ module "build_langfuse_image_shell_stage" {
     }
   ]
   command_spec_content = file("${path.module}/scripts/command_spec.yaml")
+  shape_name           = var.shape_name
   timeout              = 3600
 }
 
