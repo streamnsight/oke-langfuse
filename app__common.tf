@@ -128,6 +128,7 @@ module "builder_setup_shell_stage" {
     }
   ]
   command_spec_content = file("./scripts/command_spec.setup.yaml")
+  depends_on = [ module.builder_instance ]
 }
 
 module "builder_terminate_shell_stage" {
