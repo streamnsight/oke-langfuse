@@ -20,6 +20,21 @@ variable "use_existing_vcn" {
   default = false
 }
 
+variable "use_existing_cluster" {
+  type    = bool
+  default = false
+}
+
+variable "cluster_ocid" {
+  type    = string
+  default = null
+
+  validation {
+    condition     = var.cluster_ocid == null || trimspace(var.cluster_ocid) != ""
+    error_message = "cluster_ocid must be null or a non-empty OCID string."
+  }
+}
+
 variable "vcn_compartment_id" {
   type = string
 }

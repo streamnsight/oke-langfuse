@@ -70,14 +70,12 @@ module "policies_before_node_pool" {
 }
 
 module "policies_after_node_pool" {
+  count          = local.cluster_autoscaler_enabled ? 1 : 0
   source         = "./modules/iam/policy"
   compartment_id = var.cluster_compartment_id
   description    = "Policies for ${local.cluster_name} add-ons"
-  policy_statements = flatten(compact(concat(
-    module.cluster_autoscaler_workload_identity_policy.policy_statements,
-    module.native_ingress_workload_identity_policy.policy_statements,
-    # module.langfuse_secret_store_csi_provider_workload_identity_policy.policy_statements
-  )))
+  policy_statements = module.cluster_autoscaler_workload_identity_policy[0].policy_statements
+
   providers = {
     oci = oci.home_region
   }

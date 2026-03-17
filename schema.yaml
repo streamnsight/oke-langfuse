@@ -13,7 +13,16 @@ schemaVersion: 1.1.0
 locale: "en"
 variableGroups:
 
+  - title: Existing Cluster
+    variables:
+      - use_existing_cluster
+      - cluster_compartment_id
+      - cluster_ocid
+
   - title: Cluster Networking
+    visible:
+      not:
+        - use_existing_cluster
     variables:
       - use_existing_vcn
       - vcn_compartment_id
@@ -24,12 +33,18 @@ variableGroups:
       - use_network_source
 
   - title: Cluster API Endpoint
+    visible:
+      not:
+        - use_existing_cluster
     variables:
       - is_endpoint_public
       - kubernetes_endpoint_subnet
       - create_bastion
 
   - title: Cluster Definition
+    visible:
+      not:
+        - use_existing_cluster
     variables:
       - cluster_name
       - cluster_compartment_id
@@ -42,16 +57,24 @@ variableGroups:
       - cluster_tags
 
   - title: Number of Node Pools
+    visible:
+      not:
+        - use_existing_cluster
     variables:
       - node_pool_count
 
   - title: Worker Nodes SSH Access
+    visible:
+      not:
+        - use_existing_cluster
     variables:
       - ssh_public_key
 
   - title: Node Pool 1
     visible:
       and:
+        - not:
+          - use_existing_cluster
         - le: 
           - node_pool_count
           - 3
@@ -77,6 +100,8 @@ variableGroups:
   - title: Node Pool 2
     visible:
       and:
+        - not:
+          - use_existing_cluster
         - le: 
           - node_pool_count
           - 3
@@ -102,9 +127,12 @@ variableGroups:
 
   - title: Node Pool 3
     visible:
-      eq: 
-        - node_pool_count
-        - 3
+      and:
+        - not:
+          - use_existing_cluster
+        - eq:
+          - node_pool_count
+          - 3
     variables: 
       - np3_subnet      
       - np3_ha
@@ -128,15 +156,22 @@ variableGroups:
       - private_lb_subnet
       - allow_deploy_public_lb
       - public_lb_subnet
-    visible: ${use_existing_vcn}
+    visible:
+      and:
+        - ${use_existing_vcn}
+        - not:
+          - use_existing_cluster
 
   - title: Services Load Balancing
     variables:
       - allow_deploy_private_lb
       - allow_deploy_public_lb
     visible:
-      not:
-        - ${use_existing_vcn}
+      and:
+        - not:
+          - ${use_existing_vcn}
+        - not:
+          - use_existing_cluster
 
   - title: "Security: Secrets Encryption"
     variables:
@@ -167,10 +202,13 @@ variableGroups:
     variables: 
       - autoscaler_details
     visible:
-      or: 
-        - np1_enable_autoscaler
-        - np2_enable_autoscaler
-        - np3_enable_autoscaler
+      and:
+        - not:
+          - use_existing_cluster
+        - or:
+          - np1_enable_autoscaler
+          - np2_enable_autoscaler
+          - np3_enable_autoscaler
 
   - title: Cluster Autoscaler Advanced Settings
     variables:
@@ -181,6 +219,8 @@ variableGroups:
       # - cluster_autoscaler_use_workload_identity
     visible:
       and:
+        - not:
+          - use_existing_cluster
         - autoscaler_details
         - or: 
           - np1_enable_autoscaler
@@ -233,6 +273,22 @@ variableGroups:
 
 
 variables:
+  use_existing_cluster:
+    type: boolean
+    default: false
+    title: Use an Existing OKE Cluster
+    description: Reuse an existing enhanced OKE cluster (private endpoint required) instead of creating a new one.
+    required: true
+
+  cluster_ocid:
+    type: oci:container:cluster:id
+    title: Existing OKE Cluster OCID
+    description: OCID of an existing enhanced OKE cluster with a private endpoint and at least one node pool of 3+ nodes.
+    visible: use_existing_cluster
+    required: true
+    dependsOn:
+      compartmentId: cluster_compartment_id
+
   # variabels for schema only, to show/hide sections
   autoscaler_details:
     type: boolean

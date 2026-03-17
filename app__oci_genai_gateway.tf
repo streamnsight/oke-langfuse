@@ -16,17 +16,14 @@ module "oci_genai_gateway" {
   devops_project_id                        = module.devops_setup.project_id
   devops_environment_id                    = module.devops_target_cluster_env.environment_id
   artifact_repo_id                         = local.artifact_repo_id
-  subnet_id                                = var.use_existing_vcn ? local.node_pools[0]["subnet"] : oci_core_subnet.oke_nodepool_subnet[0].id
+  subnet_id                                = local.workload_subnet_id
   builder_instance_private_ip              = module.builder_instance.details.private_ip
   builder_instance_private_key_secret_ocid = data.external.builder_ssh_key_to_vault.result.private_key_secret_ocid
   secrets_store_vault_compartment_id       = var.secrets_store_vault_compartment_id
   secrets_store_vault_id                   = var.secrets_store_vault_id
   secrets_store_key_id                     = var.secrets_store_key_id
-  cluster_id                               = local.cluster_id
-  depends_on = [
-    oci_containerengine_node_pool.oci_oke_node_pool,
-    module.builder_setup_shell_stage
-  ]
+  cluster_id                               = local.target_cluster_id
+  depends_on                               = [module.builder_setup_shell_stage]
 }
 
 # output "oci_genai_gateway_default_api_key" {

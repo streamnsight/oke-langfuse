@@ -4,7 +4,7 @@
 # defines trigger to enable specific components based on selection
 locals {
   enable_cert_manager       = var.enable_cert_manager
-  enable_cluster_autoscaler = var.np1_enable_autoscaler || var.np2_enable_autoscaler || var.np3_enable_autoscaler
+  enable_cluster_autoscaler = !var.use_existing_cluster && (var.np1_enable_autoscaler || var.np2_enable_autoscaler || var.np3_enable_autoscaler)
   enable_metrics_server     = var.enable_metrics_server
 }
 
@@ -12,7 +12,7 @@ locals {
 locals {
   any_addon_enabled = local.enable_cert_manager || local.enable_cluster_autoscaler || local.enable_metrics_server
   # enhanced clusters use add-on manager
-  use_addon_manager = var.is_enhanced_cluster
+  use_addon_manager = var.use_existing_cluster ? data.oci_containerengine_cluster.target.type == "ENHANCED_CLUSTER" : var.is_enhanced_cluster
 
   object_storage_namespace = var.object_storage_namespace == null ? data.oci_objectstorage_namespace.ns.namespace : var.object_storage_namespace
 }
@@ -22,7 +22,7 @@ module "devops_setup" {
   source         = "./modules/devops/project"
   compartment_id = var.devops_compartment_id
   project_name   = "${local.cluster_name}-deployments"
-  target_cluster = oci_containerengine_cluster.oci_oke_cluster
+  target_cluster = local.target_cluster
   defined_tags   = var.defined_tags
 }
 
@@ -30,11 +30,8 @@ module "devops_setup" {
 module "devops_target_cluster_env" {
   source         = "./modules/devops/environment"
   project_id     = module.devops_setup.project_id
-  target_cluster = oci_containerengine_cluster.oci_oke_cluster
+  target_cluster = local.target_cluster
   defined_tags   = var.defined_tags
-  depends_on = [
-    oci_core_subnet.oke_api_endpoint_subnet
-  ]
 }
 
 # Create policies for the DevOps service to do its work.

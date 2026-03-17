@@ -12,14 +12,13 @@ locals {
 # This method uses the cluster add-on resource for enhanced clusters
 module "metrics_server_deployment_with_addon_manager" {
   #TODO set flag for deploy metrics server
-  count         = local.cluster_autoscaler_enabled ? (local.use_addon_manager ? 1 : 0) : 0
+  count         = (var.use_existing_cluster ? (local.enable_metrics_server && local.use_addon_manager && !contains(local.existing_addons, "KubernetesMetricsServer")) : (local.enable_metrics_server && var.is_enhanced_cluster)) ? 1 : 0
   source        = "./modules/oke/cluster_addons/metrics_server/deployment/enhanced_cluster_addon"
-  cluster_id    = oci_containerengine_cluster.oci_oke_cluster.id
+  cluster_id    = local.target_cluster_id
   nb_replicas   = 2
   addon_version = null # null sets auto-update
   depends_on = [
-    module.cert_manager_deployment_using_addon_manager, # metrics server depends on cert-manager
-    oci_containerengine_node_pool.oci_oke_node_pool
+    module.cert_manager_deployment_using_addon_manager # metrics server depends on cert-manager
   ]
 }
 

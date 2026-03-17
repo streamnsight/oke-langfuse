@@ -6,6 +6,19 @@ This OCI Resource Manager (Terraform) stack automates deployment of the Langfuse
 
 The stack can deploy into an existing VCN or create all networking (VCN, subnets, security lists, etc.) from scratch. It supports one or more node pools and installs cluster add-ons, then deploys Langfuse for LLM call tracing and evaluation.
 
+It can also deploy into an existing OKE cluster by setting:
+
+- `use_existing_cluster = true`
+- `cluster_ocid = "ocid1.cluster..."`
+
+When using an existing cluster, this stack validates that the target cluster is compatible:
+
+- cluster type must be `ENHANCED_CLUSTER`
+- Kubernetes endpoint must be private (`is_public_ip_enabled = false`)
+- at least one existing node pool must already have 3 or more nodes
+
+In existing-cluster mode, this stack does **not** create cluster/node pools and does **not** deploy cluster autoscaler. It also skips OKE managed add-ons that are already present.
+
 [![Deploy to Oracle Cloud][magic_button]][magic_oke_langfuse_stack]
 
 ## Known limitations
@@ -138,7 +151,7 @@ Refer to the detailed documentation [here](docs/howto.md).
 [ ] OSS native client support using workload identity (PR here [12379](https://github.com/langfuse/langfuse/pull/12379))
 [X] Vault secret update
 [ ] support cross compartment deployments, policies for cross-compartment deployment (DevOps, cluster, VCN)
-[ ] Support deployment on existing cluster
+[X] Support deployment on existing cluster
 [ ] look up available shell stages shapes and choose from those only.
 [ ] Cache users / ACLs to restrict cluster access
 [ ] use existing Cache cluster

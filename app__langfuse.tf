@@ -6,7 +6,7 @@
 module "langfuse_postgres" {
   source               = "./modules/database/postgres"
   compartment_id       = var.cluster_compartment_id
-  subnet_id            = var.use_existing_vcn ? local.node_pools[0]["subnet"] : oci_core_subnet.oke_nodepool_subnet[0].id
+  subnet_id            = local.workload_subnet_id
   postgresql_shape     = var.postgresql_shape
   display_name         = "langfuse-${local.deploy_id}"
   availability_domains = local.ADs
@@ -17,7 +17,7 @@ module "langfuse_redis" {
   source         = "./modules/database/redis"
   compartment_id = var.cluster_compartment_id
   display_name   = local.cluster_name_sanitized
-  subnet_id      = var.use_existing_vcn ? local.node_pools[0]["subnet"] : oci_core_subnet.oke_nodepool_subnet[0].id
+  subnet_id      = local.workload_subnet_id
   node_count     = var.redis_node_count
   node_memory    = var.redis_node_memory
 }
@@ -73,7 +73,7 @@ module "build_langfuse_image" {
   devops_project_id                        = module.devops_setup.project_id
   devops_environment_id                    = module.devops_target_cluster_env.environment_id
   artifact_repo_id                         = local.artifact_repo_id
-  subnet_id                                = var.use_existing_vcn ? local.node_pools[0]["subnet"] : oci_core_subnet.oke_nodepool_subnet[0].id
+  subnet_id                                = local.workload_subnet_id
   builder_instance_private_ip              = module.builder_instance.details.private_ip
   builder_instance_private_key_secret_ocid = data.external.builder_ssh_key_to_vault.result.private_key_secret_ocid
   deploy_id                                = local.deploy_id
@@ -90,8 +90,8 @@ module "build_langfuse_image" {
 module "langfuse_gateway" {
   source                = "./modules/apps/langfuse/gateway"
   compartment_id        = var.cluster_compartment_id
-  cluster_id            = oci_containerengine_cluster.oci_oke_cluster.id
-  subnet_id             = oci_containerengine_cluster.oci_oke_cluster.endpoint_config[0].subnet_id
+  cluster_id            = local.target_cluster_id
+  subnet_id             = data.oci_containerengine_cluster.target.endpoint_config[0].subnet_id
   devops_project_id     = module.devops_setup.project_id
   devops_environment_id = module.devops_target_cluster_env.environment_id
   artifact_repo_id      = oci_artifacts_repository.artifact_repository.id
@@ -169,9 +169,9 @@ module "langfuse_chart" {
   region                                   = var.region
   shape_name                               = local.ci_shape_selected
   oci_profile                              = var.oci_profile
-  cluster_id                               = oci_containerengine_cluster.oci_oke_cluster.id
+  cluster_id                               = local.target_cluster_id
   artifact_repo_id                         = local.artifact_repo_id
-  subnet_id                                = var.use_existing_vcn ? local.node_pools[0]["subnet"] : oci_core_subnet.oke_nodepool_subnet[0].id
+  subnet_id                                = local.workload_subnet_id
   builder_instance_private_ip              = module.builder_instance.details.private_ip
   builder_instance_private_key_secret_ocid = data.external.builder_ssh_key_to_vault.result.private_key_secret_ocid
   psql_endpoint                            = module.langfuse_postgres.details.endpoint
@@ -224,8 +224,8 @@ output "langfuse_url" {
 module "langfuse_gateway_routing" {
   source                = "./modules/apps/langfuse/gateway_routing"
   compartment_id        = var.cluster_compartment_id
-  cluster_id            = oci_containerengine_cluster.oci_oke_cluster.id
-  subnet_id             = oci_containerengine_cluster.oci_oke_cluster.endpoint_config[0].subnet_id
+  cluster_id            = local.target_cluster_id
+  subnet_id             = data.oci_containerengine_cluster.target.endpoint_config[0].subnet_id
   devops_project_id     = module.devops_setup.project_id
   devops_environment_id = module.devops_target_cluster_env.environment_id
   langfuse_hostname     = local.langfuse_url

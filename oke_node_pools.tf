@@ -2,13 +2,14 @@
 ## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
 
 resource "tls_private_key" "public_private_key_pair" {
-  count     = var.ssh_public_key == null ? 1 : 0
+  count     = var.use_existing_cluster ? 0 : (var.ssh_public_key == null ? 1 : 0)
   algorithm = "RSA"
 }
 
 # The cloud init script module populate scripts that get credentials for nodes to pull 
 # images from OCIR.
 module "cloud_init_script" {
+  count  = var.use_existing_cluster ? 0 : 1
   source = "./modules/oke/cloud_init_script"
 }
 
@@ -16,7 +17,7 @@ module "cloud_init_script" {
 # provided. The OKE specific images have k8s components pre-loaded and is much faster to
 # startup, making scale up/down and node cycling events shorter.
 module "recommended_image" {
-  for_each           = toset([for image in [var.np1_image_id, var.np2_image_id, var.np3_image_id] : image if image != null])
+  for_each           = var.use_existing_cluster ? toset([]) : toset([for image in [var.np1_image_id, var.np2_image_id, var.np3_image_id] : image if image != null])
   source             = "./modules/oke/recommended-compute-image"
   image_id           = each.value
   kubernetes_version = local.kubernetes_version
@@ -32,6 +33,7 @@ module "recommended_image" {
 # to deploy in all ADs. This module provides a map of shape availabilities, used in deploying
 # the node pools.
 module "available_shapes" {
+  count          = var.use_existing_cluster ? 0 : 1
   source         = "./modules/compute/shape_availability"
   tenancy_ocid   = var.tenancy_ocid
   compartment_id = var.cluster_compartment_id
@@ -39,7 +41,7 @@ module "available_shapes" {
 }
 
 locals {
-  node_pools = tolist([for node_pool in [
+  node_pools = var.use_existing_cluster ? [] : tolist([for node_pool in [
     var.node_pool_count >= 1 ?
     {
       subnet                  = var.use_existing_vcn ? var.np1_subnet : oci_core_subnet.oke_nodepool_subnet[0].id
@@ -92,9 +94,9 @@ locals {
 }
 
 resource "oci_containerengine_node_pool" "oci_oke_node_pool" {
-  count = length(local.node_pools)
+  count = var.use_existing_cluster ? 0 : length(local.node_pools)
 
-  cluster_id         = oci_containerengine_cluster.oci_oke_cluster.id
+  cluster_id         = local.target_cluster_id
   compartment_id     = var.cluster_compartment_id
   kubernetes_version = local.kubernetes_version
   name               = "${replace(local.node_pools[count.index]["node_shape"], "Standard", "Std")}${length(regexall("Flex", local.node_pools[count.index]["node_shape"])) > 0 ? "-${local.node_pools[count.index]["ocpus"]}-${local.node_pools[count.index]["memory_gb"]}GB" : ""}"
@@ -115,7 +117,7 @@ resource "oci_containerengine_node_pool" "oci_oke_node_pool" {
 
   node_config_details {
     dynamic "placement_configs" {
-      for_each = [for ad in local.node_pools[count.index]["ha"] ? module.available_shapes.shape_ad_availability[local.node_pools[count.index]["node_shape"]] : [local.node_pools[count.index]["ad"]] : ad]
+      for_each = [for ad in local.node_pools[count.index]["ha"] ? module.available_shapes[0].shape_ad_availability[local.node_pools[count.index]["node_shape"]] : [local.node_pools[count.index]["ad"]] : ad]
       content {
         subnet_id           = var.use_existing_vcn ? local.node_pools[count.index]["subnet"] : oci_core_subnet.oke_nodepool_subnet[0].id
         availability_domain = placement_configs.value
@@ -149,7 +151,7 @@ resource "oci_containerengine_node_pool" "oci_oke_node_pool" {
     maximum_unavailable     = 1
   }
 
-  node_metadata = module.cloud_init_script.content
+  node_metadata = module.cloud_init_script[0].content
 
   defined_tags = local.node_pools[count.index]["tags"]
 

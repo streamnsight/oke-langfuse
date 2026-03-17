@@ -15,6 +15,10 @@ devops_compartment_id  = "ocid1.compartment.oc1.."
 use_existing_vcn = false
 vcn_cidr         = "10.0.0.0/16"
 
+## Existing cluster mode (optional)
+# use_existing_cluster = true
+# cluster_ocid         = "ocid1.cluster.oc1.."
+
 ## Endpoint
 is_endpoint_public = false
 
