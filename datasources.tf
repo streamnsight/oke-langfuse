@@ -82,15 +82,17 @@ locals {
     "CI.Standard.E4.Flex" : contains(local.ci_shapes, "CI.Standard.E5.Flex") ?
     "CI.Standard.E5.Flex" : "CI.Standard.x86.Generic"
   )
+
 }
 
-data "oci_identity_domain" "test_domain" {
+data "oci_identity_domain" "identity_domain" {
+  count     = var.create_idcs_app ? 1 : 0
   domain_id = var.identity_domain_id
 }
 
-data "oci_identity_domains_settings" "test_identity_settings" {
+data "oci_identity_domains_settings" "identity_settings" {
   #Required
-  idcs_endpoint = data.oci_identity_domain.test_domain.url
+  idcs_endpoint = var.create_idcs_app ? data.oci_identity_domain.identity_domain[0].url : var.idcs_domain_url
 
   lifecycle {
     postcondition {
@@ -100,23 +102,3 @@ data "oci_identity_domains_settings" "test_identity_settings" {
     }
   }
 }
-
-
-data "oci_identity_domains_setting" "test_setting" {
-  #Required
-  idcs_endpoint = data.oci_identity_domain.test_domain.url
-  setting_id    = "Settings"
-
-  #Optional
-  attribute_sets = ["all"]
-}
-
-
-# output "idcs" {
-#   value = data.oci_identity_domains_settings.test_identity_settings
-# }
-
-# output "idcs_settings" {
-#   value     = data.oci_identity_domains_setting.test_setting
-#   sensitive = true
-# }
