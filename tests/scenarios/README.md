@@ -15,3 +15,8 @@ Each scenario provides a `terraform.tfvars` file and is executed via `terraform 
 - `valid_*` directories must validate successfully.
 - `invalid_*` directories are expected to fail validation.
 - The script exits non-zero if any scenario behaves unexpectedly.
+
+## Current scenario areas
+
+- `networking/`
+- `existing_cluster/`

@@ -120,6 +120,8 @@ Fast validation scenarios to maintain first:
 - `networking/valid_existing_vcn`
 - `networking/invalid_existing_vcn_missing_subnets`
 - `networking/invalid_ocid_format`
+- `existing_cluster/invalid_missing_cluster_ocid`
+- `existing_cluster/invalid_empty_cluster_ocid`
 
 Next scenarios to add incrementally:
 
