@@ -64,6 +64,7 @@ Everything test-specific should live under `./tests`:
 - test documentation
 
 The stack itself only exposes non-sensitive metadata when `test_mode = true`.
+Real deployment values should be injected from `tests/.env` or environment variables rather than committed tfvars.
 
 ## Implementation Changes
 
@@ -139,3 +140,4 @@ Next scenarios to add incrementally:
 - the root `Makefile` is only a convenience passthrough
 - shared fixtures remain dependency-aware because the VCN is reused
 - any stack changes for testing must remain non-sensitive
+- real tenancy, compartment, vault, and credential values should live in ignored `tests/.env` files or injected environment variables

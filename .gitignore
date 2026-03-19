@@ -5,9 +5,12 @@ terraform.tfstate.backup
 test.tfvars
 *.zip
 terraform.tfvars
+!tests/scenarios/**/terraform.tfvars
 CaCertificate-langfuse.pub
 kubeconfig
 *.backup_
 *.tfstate_
 tests/artifacts/*
 !tests/artifacts/README.md
+tests/.env
+tests/.env.local

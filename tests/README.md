@@ -9,6 +9,23 @@ This repository keeps test tooling under `./tests` so it stays separate from sta
 - `tests/fixtures/` contains reusable fixture workspaces and examples
 - `tests/artifacts/` stores generated test outputs and debug snapshots
 
+## Environment
+
+Real tenancy, compartment, vault, and credential-related values should not be committed to the repo.
+
+Use:
+
+```bash
+cp tests/.env.example tests/.env
+```
+
+Then fill in real values in `tests/.env`. The test runner automatically loads:
+
+- `tests/.env`
+- `tests/.env.local`
+
+The recommended pattern is to store Terraform inputs as `TF_VAR_*` exports so both fixture workspaces and stack-level Terraform commands pick them up automatically.
+
 ## Commands
 
 From the repo root:
@@ -38,3 +55,4 @@ Direct runner usage:
 - The fast suite intentionally uses scenario validation and not `terraform test`.
 - The fixture directories are now isolated under `tests/fixtures/`.
 - When `test_mode = true`, the stack exposes extra non-sensitive metadata through `terraform output -json` for local inspection tooling.
+- `tests/.env` and `tests/.env.local` are ignored by git and are the right place for real local test values.

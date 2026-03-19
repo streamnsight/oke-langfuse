@@ -5,6 +5,8 @@ TESTS_DIR="$(cd "$TESTS_LIB_DIR/../.." && pwd)"
 ROOT_DIR="$(cd "$TESTS_DIR/.." && pwd)"
 ARTIFACTS_DIR="$TESTS_DIR/artifacts"
 TF_PLUGIN_DIR="$ROOT_DIR/.terraform/providers"
+TESTS_ENV_FILE="${TESTS_ENV_FILE:-$TESTS_DIR/.env}"
+TESTS_ENV_LOCAL_FILE="${TESTS_ENV_LOCAL_FILE:-$TESTS_DIR/.env.local}"
 
 log() {
   printf '[tests] %s\n' "$*"
@@ -51,3 +53,21 @@ terraform_init_args() {
   fi
   printf '%s\n' "${args[@]}"
 }
+
+load_env_file() {
+  local env_file="$1"
+  if [ -f "$env_file" ]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "$env_file"
+    set +a
+    log "Loaded environment from $env_file"
+  fi
+}
+
+load_tests_env() {
+  load_env_file "$TESTS_ENV_FILE"
+  load_env_file "$TESTS_ENV_LOCAL_FILE"
+}
+
+load_tests_env
