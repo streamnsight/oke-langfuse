@@ -125,7 +125,7 @@ variable "np1_autoscaler_max_nodes" {
 }
 
 variable "np1_node_shape" {
-  default = "VM.Standard.E3.Flex"
+  default = "VM.Standard.E4.Flex"
 }
 
 variable "np1_ocpus" {
