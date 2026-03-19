@@ -26,9 +26,20 @@ collect_cluster_debug() {
   outputs_json="$(load_fixture_outputs "$target")"
   printf '%s\n' "$outputs_json" >"$kube_dir/fixture-outputs.json"
 
+  local stack_outputs
+  stack_outputs="$(root_stack_outputs_json)"
+  printf '%s\n' "$stack_outputs" >"$kube_dir/root-stack-outputs.json"
+
   local cluster_id bastion_id
   cluster_id="$(printf '%s\n' "$outputs_json" | jq -r 'try .cluster_id.value // empty')"
   bastion_id="$(printf '%s\n' "$outputs_json" | jq -r 'try .bastion_id.value // empty')"
+
+  if [ -z "$cluster_id" ]; then
+    cluster_id="$(printf '%s\n' "$stack_outputs" | jq -r 'try .test_metadata.value.cluster.id // empty')"
+  fi
+  if [ -z "$bastion_id" ]; then
+    bastion_id="$(printf '%s\n' "$stack_outputs" | jq -r 'try .test_metadata.value.bastion.id // empty')"
+  fi
 
   if [ -n "$cluster_id" ] && [ -n "${OCI_PROFILE:-}" ]; then
     if command -v obc >/dev/null 2>&1; then

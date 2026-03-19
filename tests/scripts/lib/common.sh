@@ -7,6 +7,7 @@ ARTIFACTS_DIR="$TESTS_DIR/artifacts"
 TF_PLUGIN_DIR="$ROOT_DIR/.terraform/providers"
 TESTS_ENV_FILE="${TESTS_ENV_FILE:-$TESTS_DIR/.env}"
 TESTS_ENV_LOCAL_FILE="${TESTS_ENV_LOCAL_FILE:-$TESTS_DIR/.env.local}"
+ROOT_TERRAFORM_STATE_FILE="${ROOT_TERRAFORM_STATE_FILE:-$ROOT_DIR/terraform.tfstate}"
 
 log() {
   printf '[tests] %s\n' "$*"
@@ -68,6 +69,14 @@ load_env_file() {
 load_tests_env() {
   load_env_file "$TESTS_ENV_FILE"
   load_env_file "$TESTS_ENV_LOCAL_FILE"
+}
+
+root_stack_outputs_json() {
+  if [ -f "$ROOT_TERRAFORM_STATE_FILE" ]; then
+    terraform -chdir="$ROOT_DIR" output -json 2>/dev/null || printf '{}\n'
+  else
+    printf '{}\n'
+  fi
 }
 
 load_tests_env
