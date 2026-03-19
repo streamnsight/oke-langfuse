@@ -16,7 +16,8 @@ variable "cluster_name" {
 }
 
 variable "kubernetes_version" {
-  type = string
+  type    = string
+  default = "v1.34.1"
 }
 
 variable "pods_cidr" {
