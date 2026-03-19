@@ -18,6 +18,8 @@ vcn_cidr         = "10.0.0.0/16"
 ## Existing cluster mode (optional)
 # use_existing_cluster = true
 # cluster_ocid         = "ocid1.cluster.oc1.."
+# enable_existing_cluster_cloud_init_preflight = true
+# existing_cluster_cloud_init_required_markers = ["/var/run/docker_login.sh", "/var/run/docker-credential-helper-init.sh"]
 
 ## Endpoint
 is_endpoint_public = false

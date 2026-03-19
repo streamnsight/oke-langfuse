@@ -71,12 +71,29 @@ resource "oci_containerengine_cluster" "oci_oke_cluster" {
 
 locals {
   target_cluster_id = var.use_existing_cluster ? var.cluster_ocid : oci_containerengine_cluster.oci_oke_cluster[0].id
+  existing_cluster_cloud_init_matching_node_pools = [
+    for node_pool in data.oci_containerengine_node_pools.target.node_pools : node_pool.id
+    if alltrue([
+      for marker in var.existing_cluster_cloud_init_required_markers :
+      strcontains(
+        try(base64decode(lookup(try(node_pool.node_metadata, {}), "user_data", "")), ""),
+        marker
+      )
+    ])
+  ]
 }
 
 check "existing_cluster_requires_cluster_ocid" {
   assert {
     condition     = !var.use_existing_cluster || (var.cluster_ocid != null && var.cluster_ocid != "")
     error_message = "When use_existing_cluster is true, cluster_ocid must be provided and non-empty."
+  }
+}
+
+check "existing_cluster_cloud_init_preflight" {
+  assert {
+    condition     = !var.use_existing_cluster || !var.enable_existing_cluster_cloud_init_preflight || length(local.existing_cluster_cloud_init_matching_node_pools) > 0
+    error_message = "When enable_existing_cluster_cloud_init_preflight is true, at least one existing node pool must expose custom cloud-init metadata containing the expected OCIR bootstrap markers. By default this checks for the stack's docker login and credential-helper bootstrap paths inside node_metadata.user_data."
   }
 }
 
@@ -159,4 +176,3 @@ locals {
 data "oci_containerengine_cluster_kube_config" "oke" {
   cluster_id = local.target_cluster_id
 }
-

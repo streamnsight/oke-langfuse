@@ -35,6 +35,20 @@ variable "cluster_ocid" {
   }
 }
 
+variable "enable_existing_cluster_cloud_init_preflight" {
+  type    = bool
+  default = false
+}
+
+variable "existing_cluster_cloud_init_required_markers" {
+  type = list(string)
+  default = [
+    "/var/run/docker_login.sh",
+    "/var/run/docker-credential-helper-init.sh",
+    "crontab -l 2>/dev/null; echo \"*/20 * * * * root",
+  ]
+}
+
 variable "vcn_compartment_id" {
   type    = string
   default = null

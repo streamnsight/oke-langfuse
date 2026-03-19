@@ -131,6 +131,7 @@ Next scenarios to add incrementally:
 - existing basic cluster rejected
 - existing enhanced cluster with public endpoint rejected
 - existing enhanced cluster with only two nodes rejected
+- existing enhanced cluster with default OKE cloud-init rejected by the optional preflight
 - existing enhanced cluster with three nodes accepted
 - cross-compartment rejection
 

@@ -95,6 +95,11 @@ output "test_metadata" {
       project_id     = module.devops_setup.project_id
       environment_id = module.devops_target_cluster_env.environment_id
     }
+    existing_cluster_preflight = var.use_existing_cluster && var.enable_existing_cluster_cloud_init_preflight ? {
+      compatible             = length(local.existing_cluster_cloud_init_matching_node_pools) > 0
+      matching_node_pool_ids = local.existing_cluster_cloud_init_matching_node_pools
+      required_markers       = var.existing_cluster_cloud_init_required_markers
+    } : null
   } : null
 }
 

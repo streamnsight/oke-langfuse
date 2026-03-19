@@ -291,6 +291,15 @@ variables:
     dependsOn:
       compartmentId: cluster_compartment_id
 
+  enable_existing_cluster_cloud_init_preflight:
+    type: boolean
+    default: false
+    title: Existing Cluster Cloud-Init Preflight
+    description: |
+      Inspect existing node pool metadata and fail early when the target cluster does not appear to include the OCIR bootstrap additions expected by this stack.
+      This is a heuristic check based on node_metadata.user_data.
+    visible: use_existing_cluster
+
   # variabels for schema only, to show/hide sections
   autoscaler_details:
     type: boolean

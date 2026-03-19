@@ -149,6 +149,20 @@ The init script used in this stack, when deploying a new OKE cluster is in the r
 
 The stack DOES NOT attempt to modify an existing cluster cloud-init for obvious reasons, but it WILL FAIL if it does not have proper permission to pull images from OCIR.
 
+The stack already validates that an existing cluster is an `ENHANCED_CLUSTER`, uses a private endpoint, and has at least one node pool with 3 or more nodes.
+
+If you want a faster preflight before the long deployment path starts, you can also enable:
+
+```hcl
+use_existing_cluster                         = true
+cluster_ocid                                 = "ocid1.cluster..."
+enable_existing_cluster_cloud_init_preflight = true
+```
+
+When enabled, Terraform inspects `data.oci_containerengine_node_pools.target.node_pools[*].node_metadata.user_data` and checks for OCIR bootstrap markers that distinguish this stack's custom cloud-init from the default OKE init.
+
+By default the preflight looks for the stack's docker login and docker credential helper bootstrap paths. If your existing cluster uses a different but still valid bootstrap implementation, you can tune the check with `existing_cluster_cloud_init_required_markers`.
+
 
 ## References
 
