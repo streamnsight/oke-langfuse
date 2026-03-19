@@ -1,13 +1,15 @@
 # Enhanced Cluster Fixture
 
-This directory is reserved for the reusable private-endpoint `ENHANCED_CLUSTER` fixture that attaches to the shared network fixture.
+This directory contains the reusable private-endpoint `ENHANCED_CLUSTER` fixture that attaches to the shared network fixture.
 
-Expected purpose:
+Current behavior:
 
-- provision an enhanced OKE cluster on the shared VCN
-- provision one node pool that can be scaled between 2 and 3 nodes
-- optionally provision a bastion used by `obc`
-- expose cluster and bastion IDs through `terraform output -json`
+- reads the shared network outputs from `../network/terraform.tfstate`
+- provisions a private-endpoint `ENHANCED_CLUSTER`
+- provisions one node pool that can be scaled between 2 and 3 nodes
+- uses the stack cloud-init helper for node metadata
+- optionally provisions a bastion used by `obc`
+- exposes cluster and bastion IDs through `terraform output -json`
 
 The lifecycle interface is already wired through:
 

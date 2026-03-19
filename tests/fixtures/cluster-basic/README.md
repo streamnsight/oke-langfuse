@@ -1,12 +1,13 @@
 # Basic Cluster Fixture
 
-This directory is reserved for the reusable private-endpoint `BASIC_CLUSTER` fixture that attaches to the shared network fixture.
+This directory contains the reusable private-endpoint `BASIC_CLUSTER` fixture that attaches to the shared network fixture.
 
-Expected purpose:
+Current behavior:
 
-- provision a basic OKE cluster on the shared VCN
-- optionally provision a bastion used by `obc`
-- expose cluster and bastion IDs through `terraform output -json`
+- reads the shared network outputs from `../network/terraform.tfstate`
+- provisions a private-endpoint `BASIC_CLUSTER`
+- optionally provisions a bastion used by `obc`
+- exposes cluster and bastion IDs through `terraform output -json`
 
 The lifecycle interface is already wired through:
 

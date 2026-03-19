@@ -31,6 +31,14 @@ assert_network_destroy_is_safe() {
   fi
 }
 
+assert_network_fixture_ready() {
+  local network_dir
+  network_dir="$(fixture_dir_for_target network)"
+  if [ ! -f "$network_dir/terraform.tfstate" ]; then
+    die "The shared network fixture must be applied before managing cluster fixtures."
+  fi
+}
+
 assert_fixture_config_exists() {
   local fixture_dir="$1"
   if ! find "$fixture_dir" -maxdepth 1 -type f -name '*.tf' | grep -q .; then
@@ -90,6 +98,9 @@ run_fixture_action() {
 
   if [ "$target" = "network" ] && { [ "$action" = "down" ] || [ "$action" = "refresh" ]; }; then
     assert_network_destroy_is_safe
+  fi
+  if [ "$target" != "network" ] && { [ "$action" = "up" ] || [ "$action" = "refresh" ] || [ "$action" = "scale" ]; }; then
+    assert_network_fixture_ready
   fi
 
   local fixture_dir
