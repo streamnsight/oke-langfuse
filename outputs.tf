@@ -72,6 +72,32 @@ output "integrated_app_name" {
   value = local.cluster_name_sanitized
 }
 
+output "test_metadata" {
+  description = "Additional non-sensitive metadata for local test tooling when test_mode is enabled."
+  value = var.test_mode ? {
+    cluster = {
+      id             = local.target_cluster_id
+      name           = local.target_cluster.name
+      compartment_id = local.effective_cluster_compartment_id
+      is_existing    = var.use_existing_cluster
+    }
+    network = {
+      vcn_id                        = local.effective_vcn_id
+      compartment_id                = local.effective_vcn_compartment_id
+      workload_subnet_id            = local.workload_subnet_id
+      kubernetes_endpoint_subnet_id = local.effective_cluster_endpoint_subnet_id
+    }
+    bastion = {
+      enabled = length(module.bastion) > 0
+      id      = try(module.bastion[0].id, null)
+    }
+    devops = {
+      project_id     = module.devops_setup.project_id
+      environment_id = module.devops_target_cluster_env.environment_id
+    }
+  } : null
+}
+
 # output "img" {
 #   value = module.recommended_image
 # }

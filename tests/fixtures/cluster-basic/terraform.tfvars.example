@@ -1,0 +1,18 @@
+# Basic cluster fixture example values.
+# Populate this file when implementing the cluster fixture Terraform config.
+
+region                 = "us-chicago-1"
+tenancy_ocid           = "ocid1.tenancy.oc1.."
+oci_profile            = "DEFAULT"
+cluster_compartment_id = "ocid1.compartment.oc1.."
+
+# This fixture is expected to consume shared network outputs:
+# vcn_id
+# kubernetes_endpoint_subnet_id
+# public_lb_subnet_id
+# node_pool_subnet_ids
+
+cluster_name        = "tests-basic-cluster"
+kubernetes_version  = "v1.34.1"
+is_endpoint_public  = false
+create_bastion      = true

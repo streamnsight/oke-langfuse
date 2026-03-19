@@ -1,0 +1,122 @@
+[0m[1mInitializing modules...[0m
+- available_shapes in modules/compute/shape_availability
+- bastion in modules/compute/bastion
+- build_langfuse_image in modules/apps/langfuse/build_image
+- build_langfuse_image.build_langfuse_image_shell_stage in modules/devops/deployment_stages/shell_stage
+- builder_instance in modules/compute/builder_instance
+- builder_instance.builder_policy in modules/iam/policy
+- builder_setup_shell_stage in modules/devops/deployment_stages/shell_stage
+- builder_terminate_shell_stage in modules/devops/deployment_stages/shell_stage
+- cert_manager_deployment_using_addon_manager in modules/oke/cluster_addons/cert-manager/deployment/enhanced_cluster_addon
+- cloud_init_script in modules/oke/cloud_init_script
+- cluster_autoscaler_deployment_with_addon_manager in modules/oke/cluster_addons/cluster_autoscaler/deployment/enhanced_cluster_addon
+- cluster_autoscaler_workload_identity_policy in modules/iam/workload_identity
+- devops_policies in modules/devops/policies
+- devops_setup in modules/devops/project
+- devops_target_cluster_env in modules/devops/environment
+- istio_deployment_using_addon_manager in modules/oke/cluster_addons/istio/deployment/enhanced_cluster_addon
+- istio_gateway_crds in modules/oke/istio_gateway_crds
+- kubernetes_version in modules/oke/kubernetes_version_utils
+- langfuse_chart in modules/apps/langfuse/helm_chart
+- langfuse_chart.langfuse_chart_devops_artifact in modules/devops/artifacts/helm_chart
+- langfuse_chart.langfuse_secrets_shell_stage in modules/devops/deployment_stages/shell_stage
+- langfuse_chart.langfuse_vault_secrets in modules/secrets/vault_secrets
+- langfuse_chart.push_langfuse_chart in modules/devops/ocir/push_helm_chart
+- langfuse_chart.push_langfuse_chart.create_repo in modules/devops/ocir/create_repo
+- langfuse_chart.secrets_cleanup in modules/secrets/secrets_cleanup
+- langfuse_gateway in modules/apps/langfuse/gateway
+- langfuse_gateway_routing in modules/apps/langfuse/gateway_routing
+- langfuse_idcs_app in modules/iam/idcs_app
+- langfuse_postgres in modules/database/postgres
+- langfuse_redis in modules/database/redis
+- metrics_server_deployment_with_addon_manager in modules/oke/cluster_addons/metrics_server/deployment/enhanced_cluster_addon
+- network_source_group in modules/iam/network_source
+- nsg_based_policies in modules/iam/nsg_policies
+- oci_genai_gateway in modules/apps/oci_genai_gateway
+- oci_genai_gateway.build_oci_genai_gateway_image_shell_stage in modules/devops/deployment_stages/shell_stage
+- oci_genai_gateway.oci_genai_gateway_vault_secrets in modules/secrets/vault_secrets
+- oci_genai_gateway.secrets_cleanup in modules/secrets/secrets_cleanup
+- policies_after_node_pool in modules/iam/policy
+- policies_before_node_pool in modules/iam/policy
+- recommended_image in modules/oke/recommended-compute-image
+[0m[1mInitializing provider plugins...[0m
+- Finding latest version of hashicorp/external...
+- Finding latest version of hashicorp/helm...
+- Finding latest version of hashicorp/tls...
+- Finding latest version of hashicorp/local...
+- Finding latest version of hashicorp/random...
+- Finding latest version of hashicorp/oci...
+- Finding latest version of hashicorp/kubernetes...
+- Finding latest version of hashicorp/null...
+[31m╷[0m[0m
+[31m│[0m [0m[1m[31mError: [0m[0m[1mFailed to query available provider packages[0m
+[31m│[0m [0m
+[31m│[0m [0m[0mCould not retrieve the list of available versions for provider
+[31m│[0m [0mhashicorp/external: could not connect to registry.terraform.io: failed to
+[31m│[0m [0mrequest discovery document: Get
+[31m│[0m [0m"https://registry.terraform.io/.well-known/terraform.json": dial tcp:
+[31m│[0m [0mlookup registry.terraform.io: no such host
+[31m╵[0m[0m
+[31m╷[0m[0m
+[31m│[0m [0m[1m[31mError: [0m[0m[1mFailed to query available provider packages[0m
+[31m│[0m [0m
+[31m│[0m [0m[0mCould not retrieve the list of available versions for provider
+[31m│[0m [0mhashicorp/helm: could not connect to registry.terraform.io: failed to
+[31m│[0m [0mrequest discovery document: Get
+[31m│[0m [0m"https://registry.terraform.io/.well-known/terraform.json": dial tcp:
+[31m│[0m [0mlookup registry.terraform.io: no such host
+[31m╵[0m[0m
+[31m╷[0m[0m
+[31m│[0m [0m[1m[31mError: [0m[0m[1mFailed to query available provider packages[0m
+[31m│[0m [0m
+[31m│[0m [0m[0mCould not retrieve the list of available versions for provider
+[31m│[0m [0mhashicorp/tls: could not connect to registry.terraform.io: failed to
+[31m│[0m [0mrequest discovery document: Get
+[31m│[0m [0m"https://registry.terraform.io/.well-known/terraform.json": dial tcp:
+[31m│[0m [0mlookup registry.terraform.io: no such host
+[31m╵[0m[0m
+[31m╷[0m[0m
+[31m│[0m [0m[1m[31mError: [0m[0m[1mFailed to query available provider packages[0m
+[31m│[0m [0m
+[31m│[0m [0m[0mCould not retrieve the list of available versions for provider
+[31m│[0m [0mhashicorp/local: could not connect to registry.terraform.io: failed to
+[31m│[0m [0mrequest discovery document: Get
+[31m│[0m [0m"https://registry.terraform.io/.well-known/terraform.json": dial tcp:
+[31m│[0m [0mlookup registry.terraform.io: no such host
+[31m╵[0m[0m
+[31m╷[0m[0m
+[31m│[0m [0m[1m[31mError: [0m[0m[1mFailed to query available provider packages[0m
+[31m│[0m [0m
+[31m│[0m [0m[0mCould not retrieve the list of available versions for provider
+[31m│[0m [0mhashicorp/random: could not connect to registry.terraform.io: failed to
+[31m│[0m [0mrequest discovery document: Get
+[31m│[0m [0m"https://registry.terraform.io/.well-known/terraform.json": dial tcp:
+[31m│[0m [0mlookup registry.terraform.io: no such host
+[31m╵[0m[0m
+[31m╷[0m[0m
+[31m│[0m [0m[1m[31mError: [0m[0m[1mFailed to query available provider packages[0m
+[31m│[0m [0m
+[31m│[0m [0m[0mCould not retrieve the list of available versions for provider
+[31m│[0m [0mhashicorp/oci: could not connect to registry.terraform.io: failed to
+[31m│[0m [0mrequest discovery document: Get
+[31m│[0m [0m"https://registry.terraform.io/.well-known/terraform.json": dial tcp:
+[31m│[0m [0mlookup registry.terraform.io: no such host
+[31m╵[0m[0m
+[31m╷[0m[0m
+[31m│[0m [0m[1m[31mError: [0m[0m[1mFailed to query available provider packages[0m
+[31m│[0m [0m
+[31m│[0m [0m[0mCould not retrieve the list of available versions for provider
+[31m│[0m [0mhashicorp/kubernetes: could not connect to registry.terraform.io: failed to
+[31m│[0m [0mrequest discovery document: Get
+[31m│[0m [0m"https://registry.terraform.io/.well-known/terraform.json": dial tcp:
+[31m│[0m [0mlookup registry.terraform.io: no such host
+[31m╵[0m[0m
+[31m╷[0m[0m
+[31m│[0m [0m[1m[31mError: [0m[0m[1mFailed to query available provider packages[0m
+[31m│[0m [0m
+[31m│[0m [0m[0mCould not retrieve the list of available versions for provider
+[31m│[0m [0mhashicorp/null: could not connect to registry.terraform.io: failed to
+[31m│[0m [0mrequest discovery document: Get
+[31m│[0m [0m"https://registry.terraform.io/.well-known/terraform.json": dial tcp:
+[31m│[0m [0mlookup registry.terraform.io: no such host
+[31m╵[0m[0m

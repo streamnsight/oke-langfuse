@@ -36,7 +36,7 @@ variable "cluster_ocid" {
 }
 
 variable "vcn_compartment_id" {
-  type = string
+  type    = string
   default = null
 }
 
@@ -410,7 +410,7 @@ variable "object_storage_namespace" {
 }
 
 variable "create_bastion" {
-  type = bool
+  type    = bool
   default = true
 }
 
@@ -510,3 +510,8 @@ variable "secrets_store_key_id" {
   type = string
 }
 
+variable "test_mode" {
+  type        = bool
+  default     = false
+  description = "Enable additional non-sensitive outputs for local test tooling."
+}
