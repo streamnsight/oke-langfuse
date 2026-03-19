@@ -29,6 +29,7 @@ Examples:
   ./tests/scripts/run.sh test SCENARIO=networking/valid_existing_vcn
   ./tests/scripts/run.sh fixture ACTION=status TARGET=network
   ./tests/scripts/run.sh fixture ACTION=scale TARGET=enhanced SIZE=3
+  ./tests/scripts/run.sh fixture ACTION=refresh TARGET=enhanced USE_CUSTOM_CLOUD_INIT=false
   ./tests/scripts/run.sh debug TARGET=enhanced
 EOF
 }

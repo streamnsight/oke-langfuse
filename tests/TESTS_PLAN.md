@@ -135,6 +135,11 @@ Next scenarios to add incrementally:
 - existing enhanced cluster with three nodes accepted
 - cross-compartment rejection
 
+Fixture-backed cloud-init coverage:
+
+- enhanced fixture with `USE_CUSTOM_CLOUD_INIT=false` should reproduce the unsuitable existing-cluster path
+- enhanced fixture with `USE_CUSTOM_CLOUD_INIT=true` and `SIZE=3` should satisfy the cloud-init preflight
+
 ## Assumptions
 
 - `./tests` is the dedicated home for the test harness

@@ -18,6 +18,10 @@ output "node_pool_size" {
   value = var.node_pool_size
 }
 
+output "use_custom_cloud_init" {
+  value = var.use_custom_cloud_init
+}
+
 output "node_pool_subnet_id" {
   value = data.terraform_remote_state.network.outputs.node_pool_subnet_ids_by_name["np1"]
 }

@@ -74,7 +74,7 @@ resource "oci_containerengine_node_pool" "primary" {
   node_shape         = var.node_shape
   ssh_public_key     = local.ssh_authorized_key
   defined_tags       = var.defined_tags
-  node_metadata      = module.cloud_init_script.content
+  node_metadata      = var.use_custom_cloud_init ? module.cloud_init_script.content : {}
 
   node_source_details {
     image_id                = module.recommended_image.recommended_image_id

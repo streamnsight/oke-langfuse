@@ -129,6 +129,7 @@ run_fixture_action() {
   local target="$1"
   local action="$2"
   local size="${3:-}"
+  local extra_vars=()
   require_non_empty "$target" "TARGET is required for fixture command"
   require_non_empty "$action" "ACTION is required for fixture command"
 
@@ -158,12 +159,18 @@ run_fixture_action() {
 
   case "$action" in
     status|up|down|refresh)
-      run_fixture_terraform "$fixture_dir" "$action" "$artifact_dir"
+      if [ "$target" = "enhanced" ] && [ -n "${USE_CUSTOM_CLOUD_INIT:-}" ]; then
+        extra_vars+=("-var=use_custom_cloud_init=$USE_CUSTOM_CLOUD_INIT")
+      fi
+      run_fixture_terraform "$fixture_dir" "$action" "$artifact_dir" "${extra_vars[@]}"
       ;;
     scale)
       [ "$target" = "enhanced" ] || die "Scale action is only supported for TARGET=enhanced"
       require_non_empty "$size" "SIZE is required for fixture scale action"
-      run_fixture_terraform "$fixture_dir" up "$artifact_dir" -var="node_pool_size=$size"
+      if [ -n "${USE_CUSTOM_CLOUD_INIT:-}" ]; then
+        extra_vars+=("-var=use_custom_cloud_init=$USE_CUSTOM_CLOUD_INIT")
+      fi
+      run_fixture_terraform "$fixture_dir" up "$artifact_dir" -var="node_pool_size=$size" "${extra_vars[@]}"
       ;;
     *)
       die "Unknown fixture action: $action"

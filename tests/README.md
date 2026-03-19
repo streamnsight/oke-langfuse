@@ -37,6 +37,7 @@ make test SCENARIO=networking/valid_existing_vcn
 make fixture ACTION=status TARGET=network
 make fixture ACTION=up TARGET=enhanced
 make fixture ACTION=scale TARGET=enhanced SIZE=3
+make fixture ACTION=refresh TARGET=enhanced USE_CUSTOM_CLOUD_INIT=false
 
 make debug TARGET=enhanced
 ```
@@ -47,6 +48,7 @@ Direct runner usage:
 ./tests/scripts/run.sh test
 ./tests/scripts/run.sh test SCENARIO=networking/invalid_ocid_format
 ./tests/scripts/run.sh fixture ACTION=status TARGET=basic
+./tests/scripts/run.sh fixture ACTION=refresh TARGET=enhanced USE_CUSTOM_CLOUD_INIT=false
 ./tests/scripts/run.sh debug TARGET=enhanced
 ```
 
@@ -54,5 +56,6 @@ Direct runner usage:
 
 - The fast suite intentionally uses scenario validation and not `terraform test`.
 - The fixture directories are now isolated under `tests/fixtures/`.
+- The enhanced fixture accepts `USE_CUSTOM_CLOUD_INIT=true|false` so we can test both the default OKE bootstrap and the stack's custom OCIR bootstrap.
 - When `test_mode = true`, the stack exposes extra non-sensitive metadata through `terraform output -json` for local inspection tooling.
 - `tests/.env` and `tests/.env.local` are ignored by git and are the right place for real local test values.

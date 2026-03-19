@@ -35,6 +35,11 @@ variable "create_bastion" {
   default = true
 }
 
+variable "use_custom_cloud_init" {
+  type    = bool
+  default = true
+}
+
 variable "node_pool_size" {
   type    = number
   default = 2
