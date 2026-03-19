@@ -138,6 +138,18 @@ terraform apply
 
 Refer to the detailed documentation [here](docs/howto.md).
 
+
+## Deploying on an existing cluster
+
+To deploy on an existing cluster, the nodes need to be able to pull images from OCI Container Registry.
+To do so, the nodes usually need a cloud-init script that periodically logs into the container registry
+and stores those credentials into the node docker config.
+
+The init script used in this stack, when deploying a new OKE cluster is in the root folder (`cloud-init.sh`)
+
+The stack DOES NOT attempt to modify an existing cluster cloud-init for obvious reasons, but it WILL FAIL if it does not have proper permission to pull images from OCIR.
+
+
 ## References
 
 [magic_button]: https://oci-resourcemanager-plugin.plugins.oci.oraclecloud.com/latest/deploy-to-oracle-cloud.svg
@@ -152,8 +164,10 @@ Refer to the detailed documentation [here](docs/howto.md).
 [X] Vault secret update
 [ ] support cross compartment deployments, policies for cross-compartment deployment (DevOps, cluster, VCN)
 [X] Support deployment on existing cluster
-[ ] look up available shell stages shapes and choose from those only.
+[X] look up available shell stages shapes and choose from those only.
 [ ] Cache users / ACLs to restrict cluster access
 [ ] use existing Cache cluster
 [ ] Postgres users ACLs
 [ ] validate deployment from local with profile
+[ ] container vulnerability scanning
+[ ] build worker image
