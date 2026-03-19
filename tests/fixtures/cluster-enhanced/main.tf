@@ -52,7 +52,7 @@ resource "oci_containerengine_cluster" "enhanced" {
   }
 
   endpoint_config {
-    is_public_ip_enabled = false
+    is_public_ip_enabled = var.is_public_endpoint
     subnet_id            = data.terraform_remote_state.network.outputs.kubernetes_endpoint_subnet_id
   }
 

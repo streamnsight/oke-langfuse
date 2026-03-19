@@ -9,6 +9,7 @@ cluster_name        = "tests-enhanced-cluster"
 kubernetes_version  = "v1.34.1"
 create_bastion      = true
 use_custom_cloud_init = true
+is_public_endpoint  = false
 node_pool_size      = 2
 node_shape          = "VM.Standard.E5.Flex"
 node_shape_ocpus    = 4

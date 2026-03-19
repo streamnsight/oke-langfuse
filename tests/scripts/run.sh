@@ -8,6 +8,8 @@ source "$SCRIPT_DIR/lib/common.sh"
 source "$SCRIPT_DIR/lib/terraform.sh"
 # shellcheck source=tests/scripts/lib/fixtures.sh
 source "$SCRIPT_DIR/lib/fixtures.sh"
+# shellcheck source=tests/scripts/lib/scenarios.sh
+source "$SCRIPT_DIR/lib/scenarios.sh"
 # shellcheck source=tests/scripts/lib/devops.sh
 source "$SCRIPT_DIR/lib/devops.sh"
 # shellcheck source=tests/scripts/lib/kube.sh

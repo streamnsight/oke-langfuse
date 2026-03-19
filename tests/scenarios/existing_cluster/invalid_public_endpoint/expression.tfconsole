@@ -1,0 +1,1 @@
+data.oci_containerengine_cluster.target.endpoint_config[0].is_public_ip_enabled

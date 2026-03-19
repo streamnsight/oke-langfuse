@@ -162,6 +162,9 @@ run_fixture_action() {
       if [ "$target" = "enhanced" ] && [ -n "${USE_CUSTOM_CLOUD_INIT:-}" ]; then
         extra_vars+=("-var=use_custom_cloud_init=$USE_CUSTOM_CLOUD_INIT")
       fi
+      if [ "$target" = "enhanced" ] && [ -n "${IS_PUBLIC_ENDPOINT:-}" ]; then
+        extra_vars+=("-var=is_public_endpoint=$IS_PUBLIC_ENDPOINT")
+      fi
       run_fixture_terraform "$fixture_dir" "$action" "$artifact_dir" "${extra_vars[@]}"
       ;;
     scale)
@@ -169,6 +172,9 @@ run_fixture_action() {
       require_non_empty "$size" "SIZE is required for fixture scale action"
       if [ -n "${USE_CUSTOM_CLOUD_INIT:-}" ]; then
         extra_vars+=("-var=use_custom_cloud_init=$USE_CUSTOM_CLOUD_INIT")
+      fi
+      if [ -n "${IS_PUBLIC_ENDPOINT:-}" ]; then
+        extra_vars+=("-var=is_public_endpoint=$IS_PUBLIC_ENDPOINT")
       fi
       run_fixture_terraform "$fixture_dir" up "$artifact_dir" -var="node_pool_size=$size" "${extra_vars[@]}"
       ;;

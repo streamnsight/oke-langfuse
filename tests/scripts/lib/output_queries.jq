@@ -1,3 +1,12 @@
+def output($name):
+  .[$name].value;
+
+def fixture_cluster_id:
+  output("cluster_id");
+
+def fixture_bastion_id:
+  output("bastion_id");
+
 def cluster_id:
   .test_metadata.value.cluster.id;
 

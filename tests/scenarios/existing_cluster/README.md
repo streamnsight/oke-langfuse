@@ -6,10 +6,10 @@ Current coverage:
 
 - `invalid_missing_cluster_ocid`
 - `invalid_empty_cluster_ocid`
+- `invalid_basic_cluster_rejected`
+- `invalid_public_endpoint`
+- `invalid_two_node_pool`
+- `invalid_default_cloud_init`
+- `valid_enhanced_three_nodes`
 
-Later fixture-backed coverage will extend this area with:
-
-- basic cluster rejection
-- public endpoint rejection
-- minimum node count rejection
-- supported enhanced cluster acceptance
+The fixture-backed scenarios use the shared `basic` and `enhanced` fixtures to validate existing-cluster compatibility checks against real OCI infrastructure.

@@ -40,6 +40,11 @@ variable "use_custom_cloud_init" {
   default = true
 }
 
+variable "is_public_endpoint" {
+  type    = bool
+  default = false
+}
+
 variable "node_pool_size" {
   type    = number
   default = 2

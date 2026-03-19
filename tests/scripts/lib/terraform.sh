@@ -17,15 +17,16 @@ scenario_expectation() {
 
 resolve_scenarios() {
   local selector="${1:-}"
+  local scenario_roots_cmd=(find "$TESTS_DIR/scenarios" -type f \( -name terraform.tfvars -o -name prepare.sh \) -print)
   if [ -z "$selector" ]; then
-    find "$TESTS_DIR/scenarios" -type f -name terraform.tfvars -print | sort | xargs -n1 dirname
+    "${scenario_roots_cmd[@]}" | sort | xargs -n1 dirname | awk '!seen[$0]++'
     return
   fi
 
   local matches=()
   while IFS= read -r path; do
     matches+=("$path")
-  done < <(find "$TESTS_DIR/scenarios" -type f -name terraform.tfvars -print | xargs -n1 dirname | sort | grep -E "/${selector}$|/${selector}/|/${selector}$" || true)
+  done < <("${scenario_roots_cmd[@]}" | sort | xargs -n1 dirname | awk '!seen[$0]++' | grep -E "/${selector}$|/${selector}/|/${selector}$" || true)
 
   if [ "${#matches[@]}" -eq 0 ]; then
     die "No scenario matched selector: $selector"
@@ -45,6 +46,8 @@ copy_repo_for_scenario() {
     --exclude ".terraform" \
     --exclude "terraform.tfvars" \
     --exclude "terraform.tfvars.json" \
+    --exclude "tests/.env" \
+    --exclude "tests/.env.local" \
     --exclude "tests/artifacts" \
     "$ROOT_DIR/" "$destination/" >/dev/null
 }
@@ -66,23 +69,86 @@ terraform_provider_runtime_hint() {
   fi
 }
 
+scenario_mode() {
+  local scenario_dir="$1"
+  if [ -f "$scenario_dir/mode.txt" ]; then
+    tr -d '[:space:]' <"$scenario_dir/mode.txt"
+  else
+    printf 'console\n'
+  fi
+}
+
+scenario_console_expression() {
+  local scenario_dir="$1"
+  if [ -f "$scenario_dir/expression.tfconsole" ]; then
+    cat "$scenario_dir/expression.tfconsole"
+  else
+    printf 'true\n'
+  fi
+}
+
+scenario_expected_error() {
+  local scenario_dir="$1"
+  if [ -f "$scenario_dir/expected_error.txt" ]; then
+    cat "$scenario_dir/expected_error.txt"
+  fi
+}
+
+scenario_plan_targets() {
+  local scenario_dir="$1"
+  if [ -f "$scenario_dir/plan_targets.txt" ]; then
+    sed '/^[[:space:]]*$/d' "$scenario_dir/plan_targets.txt"
+  fi
+}
+
+prepare_fixture_for_scenario() {
+  local scenario_dir="$1"
+  [ -f "$scenario_dir/fixture.env" ] || return 0
+
+  (
+    unset TARGET ACTION SIZE USE_CUSTOM_CLOUD_INIT IS_PUBLIC_ENDPOINT
+    # shellcheck disable=SC1090
+    source "$scenario_dir/fixture.env"
+    require_non_empty "${TARGET:-}" "TARGET is required in $scenario_dir/fixture.env"
+    require_non_empty "${ACTION:-}" "ACTION is required in $scenario_dir/fixture.env"
+    run_fixture_action "${TARGET:-}" "${ACTION:-}" "${SIZE:-}"
+  )
+}
+
+prepare_scenario_workdir() {
+  local scenario_dir="$1"
+  local scenario_name="$2"
+  local work_dir="$3"
+
+  if [ -f "$scenario_dir/prepare.sh" ]; then
+    bash "$work_dir/tests/scenarios/$scenario_name/prepare.sh" "$work_dir"
+  else
+    cp "$scenario_dir/terraform.tfvars" "$work_dir/terraform.tfvars"
+  fi
+}
+
 run_single_scenario() {
   local scenario_dir="$1"
   local scenario_name="${scenario_dir#"$TESTS_DIR/scenarios/"}"
   local expectation
   expectation="$(scenario_expectation "$scenario_dir")"
+  local mode
+  mode="$(scenario_mode "$scenario_dir")"
+  local expected_error
+  expected_error="$(scenario_expected_error "$scenario_dir")"
   local artifact_dir
   artifact_dir="$(create_artifact_dir "test/$(slugify "$scenario_name")")"
   local work_dir
   work_dir="$(mktemp -d)"
   local init_log="$artifact_dir/terraform-init.log"
-  local console_log="$artifact_dir/terraform-console.log"
+  local run_log="$artifact_dir/terraform-$mode.log"
   local outputs_before="$artifact_dir/outputs-before.json"
   local outputs_after="$artifact_dir/outputs-after.json"
 
-  log "Running scenario $scenario_name (expect: $expectation)"
+  log "Running scenario $scenario_name (expect: $expectation, mode: $mode)"
+  prepare_fixture_for_scenario "$scenario_dir"
   copy_repo_for_scenario "$work_dir"
-  cp "$scenario_dir/terraform.tfvars" "$work_dir/terraform.tfvars"
+  prepare_scenario_workdir "$scenario_dir" "$scenario_name" "$work_dir"
 
   capture_terraform_outputs "$work_dir" "$outputs_before"
 
@@ -96,20 +162,53 @@ run_single_scenario() {
     die "terraform init failed for scenario: $scenario_name (see $init_log)"
   fi
 
-  local console_output
-  console_output="$(terraform -chdir="$work_dir" console -var-file="terraform.tfvars" <<<"true" 2>&1 || true)"
-  printf '%s\n' "$console_output" >"$console_log"
+  local command_output=""
+  local has_error="false"
+
+  case "$mode" in
+    console)
+      local expression
+      expression="$(scenario_console_expression "$scenario_dir")"
+      command_output="$(terraform -chdir="$work_dir" console -var-file="terraform.tfvars" <<<"$expression" 2>&1 || true)"
+      printf '%s\n' "$command_output" >"$run_log"
+      if printf '%s\n' "$command_output" | grep -q "Error:"; then
+        has_error="true"
+      fi
+      ;;
+    plan)
+      local plan_args=(-input=false -lock=false -no-color -var-file="terraform.tfvars")
+      while IFS= read -r target; do
+        [ -n "$target" ] || continue
+        plan_args+=("-target=$target")
+      done < <(scenario_plan_targets "$scenario_dir")
+
+      if terraform -chdir="$work_dir" plan "${plan_args[@]}" >"$run_log" 2>&1; then
+        has_error="false"
+      else
+        has_error="true"
+      fi
+      command_output="$(cat "$run_log")"
+      ;;
+    *)
+      rm -rf "$work_dir"
+      die "Unsupported scenario mode '$mode' for $scenario_name"
+      ;;
+  esac
+
   capture_terraform_outputs "$work_dir" "$outputs_after"
 
-  local has_error="false"
-  if printf '%s\n' "$console_output" | grep -q "Error:"; then
-    has_error="true"
+  if [ -n "$expected_error" ] && [ "$has_error" = "true" ]; then
+    if ! printf '%s\n' "$command_output" | grep -Fq -- "$expected_error"; then
+      cat "$run_log" >&2
+      rm -rf "$work_dir"
+      die "Scenario failed, but not with the expected error text: $scenario_name"
+    fi
   fi
 
   if [ "$expectation" = "pass" ] && [ "$has_error" = "true" ]; then
-    cat "$console_log" >&2
+    cat "$run_log" >&2
     rm -rf "$work_dir"
-    die "Scenario was expected to pass but failed: $scenario_name.$(terraform_provider_runtime_hint "$console_log")"
+    die "Scenario was expected to pass but failed: $scenario_name.$(terraform_provider_runtime_hint "$run_log")"
   fi
 
   if [ "$expectation" = "fail" ] && [ "$has_error" = "false" ]; then
