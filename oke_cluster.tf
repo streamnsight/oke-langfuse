@@ -2,6 +2,7 @@
 ## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
 
 module "kubernetes_version" {
+  count = var.use_existing_cluster ? 0 : 1
   # selects closest supported k8s version, or latest version if not defined
   source             = "./modules/oke/kubernetes_version_utils"
   kubernetes_version = var.kubernetes_version
@@ -72,6 +73,13 @@ locals {
   target_cluster_id = var.use_existing_cluster ? var.cluster_ocid : oci_containerengine_cluster.oci_oke_cluster[0].id
 }
 
+check "existing_cluster_requires_cluster_ocid" {
+  assert {
+    condition     = !var.use_existing_cluster || (var.cluster_ocid != null && var.cluster_ocid != "")
+    error_message = "When use_existing_cluster is true, cluster_ocid must be provided and non-empty."
+  }
+}
+
 data "oci_containerengine_cluster" "target" {
   cluster_id = local.target_cluster_id
 
@@ -97,18 +105,18 @@ data "oci_containerengine_node_pools" "target" {
         for node_pool in self.node_pools :
         try(node_pool.node_config_details[0].size, 0) >= 3
       ])
-      error_message = "When use_existing_cluster is true, the target cluster must contain at least one existing node pool with 3 or more nodes."
+      error_message = "When use_existing_cluster is true, the target cluster must contain at least one existing node pool with 3 or more nodes to support distributed DB resources."
     }
     postcondition {
       condition = !var.use_existing_cluster || anytrue([
         for node_pool in self.node_pools :
-        try(node_pool.node_config_details[0].size, 0) >= 3 && (
-          length(try(node_pool.node_config_details[0].placement_configs, [])) > 0 ||
-          length(try(node_pool.subnet_ids, [])) > 0 ||
-          length(try(node_pool.nodes, [])) > 0
+        (
+          length(try(node_pool.node_config_details[0].placement_configs[0].subnet_id, [])) > 0 ||
+          length(try(node_pool.node_config_details[0].subnet_id, [])) > 0 ||
+          length(try(node_pool.node_config_details[0].node_pool_pod_network_option_details.pod_subnet_ids, [])) > 0
         )
       ])
-      error_message = "When use_existing_cluster is true, at least one existing node pool with 3+ nodes must expose subnet metadata (placement_configs, subnet_ids, or node subnet_id)."
+      error_message = "When use_existing_cluster is true, at least one existing node pool must expose subnet metadata (placement_configs, subnet_ids, or node subnet_id)."
     }
   }
 }
@@ -116,6 +124,11 @@ data "oci_containerengine_node_pools" "target" {
 data "oci_containerengine_addons" "target" {
   cluster_id = local.target_cluster_id
 }
+
+
+# output add_ons {
+#   value = data.oci_containerengine_addons.target
+# }
 
 locals {
   target_cluster = {

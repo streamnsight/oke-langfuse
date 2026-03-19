@@ -277,7 +277,9 @@ variables:
     type: boolean
     default: false
     title: Use an Existing OKE Cluster
-    description: Reuse an existing enhanced OKE cluster (private endpoint required) instead of creating a new one.
+    description: |
+      Use an existing OKE cluster (must be an enhanced cluster, with private endpoint) instead of creating a new one.
+      By using this option, you are responsible for setting up networking and security lists for proper cluster communication.
     required: true
 
   cluster_ocid:
@@ -402,8 +404,8 @@ variables:
 
   cluster_compartment_id:
     type: oci:identity:compartment:id
-    title: Compartment for the Cluster Deployment
-    description: Compartment where the Kubernetes cluster will be deployed.
+    title: OKE Cluster Compartment
+    description: Compartment where the Kubernetes cluster is or will be located.
     visible: true
     default: compartment_ocid
     required: true

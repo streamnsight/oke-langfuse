@@ -13,7 +13,6 @@ locals {
 }
 
 module "cert_manager_deployment_using_addon_manager" {
-  count                = (var.use_existing_cluster ? (local.enable_cert_manager && local.use_addon_manager && !contains(local.existing_addons, "CertManager")) : (local.enable_cert_manager && var.is_enhanced_cluster)) ? 1 : 0
   source               = "./modules/oke/cluster_addons/cert-manager/deployment/enhanced_cluster_addon"
   cluster_id           = local.target_cluster_id
   cert_manager_version = null # for auto-update

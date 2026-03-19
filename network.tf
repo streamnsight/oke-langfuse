@@ -2,6 +2,9 @@
 ## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
 
 locals {
+  manage_network                  = !var.use_existing_cluster
+  use_existing_network            = local.manage_network && var.use_existing_vcn
+  create_network                  = local.manage_network && !var.use_existing_vcn
   subnet_cidrs                    = cidrsubnets(var.vcn_cidr, 12, 8, 4, 4, 4) # API + 1 LB + 3 node pools
   created_api_subnet_cidr         = element(local.subnet_cidrs, 0)
   created_lb_subnet_cidr          = element(local.subnet_cidrs, 1)
@@ -11,21 +14,21 @@ locals {
 
 data "oci_core_vcn" "existing_vcn" {
   #data resource to fetch existing VCN's attributes if used.
-  count  = var.use_existing_vcn ? 1 : 0
+  count  = local.use_existing_network ? 1 : 0
   vcn_id = var.vcn_id
 }
 
 data "oci_core_subnets" "subnets" {
-  count          = var.use_existing_vcn ? 1 : 0
+  count          = local.use_existing_network ? 1 : 0
   compartment_id = data.oci_core_vcn.existing_vcn[0].compartment_id
   vcn_id         = data.oci_core_vcn.existing_vcn[0].id
 }
 
 locals {
-  existing_subnet_cidrs_map = var.use_existing_vcn ? { for s in data.oci_core_subnets.subnets[0].subnets[*] : s.id => s.cidr_block } : {}
-  api_subnet_cidr           = var.use_existing_vcn ? local.existing_subnet_cidrs_map[var.kubernetes_endpoint_subnet] : local.created_api_subnet_cidr
-  lb_subnet_cidr            = var.use_existing_vcn ? local.existing_subnet_cidrs_map[var.public_lb_subnet] : local.created_lb_subnet_cidr
-  node_pool_subnets_cidrs = var.use_existing_vcn ? [
+  existing_subnet_cidrs_map = local.use_existing_network ? { for s in data.oci_core_subnets.subnets[0].subnets[*] : s.id => s.cidr_block } : {}
+  api_subnet_cidr           = local.use_existing_network ? local.existing_subnet_cidrs_map[var.kubernetes_endpoint_subnet] : local.created_api_subnet_cidr
+  lb_subnet_cidr            = local.use_existing_network ? local.existing_subnet_cidrs_map[var.public_lb_subnet] : local.created_lb_subnet_cidr
+  node_pool_subnets_cidrs = local.use_existing_network ? [
     for s in [var.np1_subnet, var.np2_subnet, var.np3_subnet] :
     local.existing_subnet_cidrs_map[s]
     if s != null
@@ -33,7 +36,7 @@ locals {
 }
 
 resource "oci_core_vcn" "oke_vcn" {
-  count          = var.use_existing_vcn ? 0 : 1
+  count          = local.create_network ? 1 : 0
   cidr_blocks    = [var.vcn_cidr]
   compartment_id = var.vcn_compartment_id
   dns_label      = "vcn${random_string.deploy_id.result}"
@@ -42,7 +45,7 @@ resource "oci_core_vcn" "oke_vcn" {
 }
 
 resource "oci_core_service_gateway" "oke_sg" {
-  count          = var.use_existing_vcn ? 0 : 1
+  count          = local.create_network ? 1 : 0
   compartment_id = var.vcn_compartment_id
   display_name   = "Service Gateway for vcn${random_string.deploy_id.result}"
   vcn_id         = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id
@@ -53,7 +56,7 @@ resource "oci_core_service_gateway" "oke_sg" {
 }
 
 resource "oci_core_nat_gateway" "oke_natgw" {
-  count          = var.use_existing_vcn ? 0 : 1
+  count          = local.create_network ? 1 : 0
   compartment_id = var.vcn_compartment_id
   display_name   = "NAT Gateway for vcn${random_string.deploy_id.result}"
   vcn_id         = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id
@@ -61,7 +64,7 @@ resource "oci_core_nat_gateway" "oke_natgw" {
 }
 
 resource "oci_core_route_table" "oke_rt_via_natgw_and_sg" {
-  count          = var.use_existing_vcn ? 0 : 1
+  count          = local.create_network ? 1 : 0
   compartment_id = var.vcn_compartment_id
   vcn_id         = oci_core_vcn.oke_vcn[0].id
   display_name   = "via NAT & Service Gateway"
@@ -81,7 +84,7 @@ resource "oci_core_route_table" "oke_rt_via_natgw_and_sg" {
 }
 
 resource "oci_core_internet_gateway" "oke_igw" {
-  count          = var.use_existing_vcn ? 0 : 1
+  count          = local.create_network ? 1 : 0
   compartment_id = var.vcn_compartment_id
   display_name   = "Internet Gateway for vcn${random_string.deploy_id.result}"
   vcn_id         = oci_core_vcn.oke_vcn[0].id
@@ -89,7 +92,7 @@ resource "oci_core_internet_gateway" "oke_igw" {
 }
 
 resource "oci_core_route_table" "oke_rt_via_igw" {
-  count          = var.use_existing_vcn ? 0 : 1
+  count          = local.create_network ? 1 : 0
   compartment_id = var.vcn_compartment_id
   vcn_id         = oci_core_vcn.oke_vcn[0].id
   display_name   = "via Internet Gateway"
@@ -105,7 +108,7 @@ resource "oci_core_route_table" "oke_rt_via_igw" {
 ### Security Lists
 
 resource "oci_core_security_list" "oke_api_endpoint_external_sec_list" {
-  count          = 1
+  count          = local.manage_network ? 1 : 0
   compartment_id = var.vcn_compartment_id
   display_name   = "API Endpoint External Comm"
   vcn_id         = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id
@@ -166,7 +169,7 @@ resource "oci_core_security_list" "oke_api_endpoint_external_sec_list" {
 }
 
 resource "oci_core_security_list" "oke_api_endpoint_nodes_sec_list" {
-  count          = var.use_existing_vcn ? length(local.node_pool_subnets_cidrs) : length([for x in [true, var.np2_create_new_subnet, var.np3_create_new_subnet] : x if x])
+  count          = local.manage_network ? (local.use_existing_network ? length(local.node_pool_subnets_cidrs) : length([for x in [true, var.np2_create_new_subnet, var.np3_create_new_subnet] : x if x])) : 0
   compartment_id = var.vcn_compartment_id
   display_name   = "API Endpoint - Node Pool ${count.index + 1} Comm"
   vcn_id         = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id
@@ -262,7 +265,7 @@ resource "oci_core_security_list" "oke_api_endpoint_nodes_sec_list" {
 }
 
 resource "oci_core_security_list" "oke_nodepool_sec_list" {
-  count          = 1
+  count          = local.manage_network ? 1 : 0
   compartment_id = var.vcn_compartment_id
   display_name   = "Nodepool - Internal Comm"
   vcn_id         = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id
@@ -431,7 +434,7 @@ resource "oci_core_security_list" "oke_nodepool_sec_list" {
 }
 
 resource "oci_core_security_list" "oke_lb_sec_list" {
-  count          = 1
+  count          = local.manage_network ? 1 : 0
   compartment_id = var.vcn_compartment_id
   display_name   = "Internet - Load Balancer Comm"
   vcn_id         = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id
@@ -501,7 +504,7 @@ resource "oci_core_security_list" "oke_lb_sec_list" {
 }
 
 resource "oci_core_subnet" "oke_api_endpoint_subnet" {
-  count          = var.use_existing_vcn ? 0 : 1
+  count          = local.create_network ? 1 : 0
   cidr_block     = local.api_subnet_cidr
   compartment_id = var.vcn_compartment_id
   vcn_id         = oci_core_vcn.oke_vcn[0].id
@@ -518,7 +521,7 @@ resource "oci_core_subnet" "oke_api_endpoint_subnet" {
 }
 
 resource "oci_core_subnet" "oke_lb_subnet" {
-  count               = (var.use_existing_vcn) ? 0 : 1
+  count               = local.create_network ? 1 : 0
   cidr_block          = local.lb_subnet_cidr
   compartment_id      = var.vcn_compartment_id
   availability_domain = null
@@ -534,7 +537,7 @@ resource "oci_core_subnet" "oke_lb_subnet" {
 }
 
 resource "oci_core_subnet" "oke_nodepool_subnet" {
-  count          = (var.use_existing_vcn || var.node_pool_count == 0) ? 0 : length([for x in [true, var.np2_create_new_subnet, var.np3_create_new_subnet] : x if x])
+  count          = (!local.create_network || var.node_pool_count == 0) ? 0 : length([for x in [true, var.np2_create_new_subnet, var.np3_create_new_subnet] : x if x])
   cidr_block     = local.node_pool_subnets_cidrs[count.index]
   compartment_id = var.vcn_compartment_id
   vcn_id         = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id
@@ -555,7 +558,7 @@ resource "oci_core_subnet" "oke_nodepool_subnet" {
 
 # Associations for existing VCNs to ensure security lists are set on existing subnets
 locals {
-  existing_nodepool_subnet_ids = var.use_existing_vcn ? compact([var.np1_subnet, var.np2_subnet, var.np3_subnet]) : []
+  existing_nodepool_subnet_ids = local.use_existing_network ? compact([var.np1_subnet, var.np2_subnet, var.np3_subnet]) : []
 }
 
 /*
@@ -706,7 +709,7 @@ resource "null_resource" "detach_nodepool_subnet_sls" {
 */
 
 resource "null_resource" "update_api_subnet_sls" {
-  count = var.use_existing_vcn ? 1 : 0
+  count = local.use_existing_network ? 1 : 0
 
   triggers = {
     subnet_id = var.kubernetes_endpoint_subnet
@@ -736,7 +739,7 @@ resource "null_resource" "update_api_subnet_sls" {
 }
 
 resource "null_resource" "update_lb_subnet_sls" {
-  count = var.use_existing_vcn ? 1 : 0
+  count = local.use_existing_network ? 1 : 0
 
   triggers = {
     subnet_id = var.public_lb_subnet
@@ -762,7 +765,7 @@ resource "null_resource" "update_lb_subnet_sls" {
 }
 
 resource "null_resource" "update_nodepool_subnet_sls" {
-  for_each = var.use_existing_vcn ? toset(local.existing_nodepool_subnet_ids) : []
+  for_each = local.use_existing_network ? toset(local.existing_nodepool_subnet_ids) : []
 
   triggers = {
     subnet_id = each.value

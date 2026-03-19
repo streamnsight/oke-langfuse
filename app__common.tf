@@ -70,7 +70,7 @@ module "builder_instance" {
     secrets_store_vault_id             = var.secrets_store_vault_id
     secrets_store_key_id               = var.secrets_store_key_id
   }
-  ssh_authorized_keys = "${var.ssh_public_key}\n${data.external.builder_ssh_key_to_vault.result.public_key}"
+  ssh_authorized_keys = var.ssh_public_key != null ? "${var.ssh_public_key}\n${data.external.builder_ssh_key_to_vault.result.public_key}" : "${data.external.builder_ssh_key_to_vault.result.public_key}"
   policies = [
     "manage repos",           # to push images
     "manage instance-family", # to shut down when done

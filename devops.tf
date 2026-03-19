@@ -12,7 +12,7 @@ locals {
 locals {
   any_addon_enabled = local.enable_cert_manager || local.enable_cluster_autoscaler || local.enable_metrics_server
   # enhanced clusters use add-on manager
-  use_addon_manager = var.use_existing_cluster ? data.oci_containerengine_cluster.target.type == "ENHANCED_CLUSTER" : var.is_enhanced_cluster
+  use_addon_manager = var.use_existing_cluster ? true : var.is_enhanced_cluster
 
   object_storage_namespace = var.object_storage_namespace == null ? data.oci_objectstorage_namespace.ns.namespace : var.object_storage_namespace
 }
@@ -38,7 +38,7 @@ module "devops_target_cluster_env" {
 module "devops_policies" {
   source                             = "./modules/devops/policies"
   devops_compartment_id              = var.devops_compartment_id
-  vcn_compartment_id                 = var.vcn_compartment_id
+  vcn_compartment_id                 = local.effective_vcn_compartment_id
   cluster_compartment_id             = var.cluster_compartment_id
   secrets_store_vault_compartment_id = var.secrets_store_vault_compartment_id
   cluster_name                       = local.cluster_name_sanitized

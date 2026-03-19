@@ -12,7 +12,7 @@ module "network_source_group" {
   source        = "./modules/iam/network_source"
   nsg_name      = local.nsg_name
   tenancy_ocid  = var.tenancy_ocid
-  vcn_id        = var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id
+  vcn_id        = local.effective_vcn_id
   subnets_cidrs = local.node_pool_subnets_cidrs
   providers = {
     oci = oci.home_region
