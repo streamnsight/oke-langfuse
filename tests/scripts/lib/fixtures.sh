@@ -52,7 +52,12 @@ run_fixture_terraform() {
   require_command terraform
   assert_fixture_config_exists "$fixture_dir"
 
-  terraform -chdir="$fixture_dir" init -input=false >"$artifact_dir/terraform-init.log" 2>&1
+  local init_args=()
+  while IFS= read -r arg; do
+    [ -n "$arg" ] && init_args+=("$arg")
+  done < <(terraform_init_args)
+
+  terraform -chdir="$fixture_dir" init "${init_args[@]}" >"$artifact_dir/terraform-init.log" 2>&1
 
   case "$action" in
     status)

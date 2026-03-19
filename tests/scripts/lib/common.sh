@@ -4,6 +4,7 @@ TESTS_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TESTS_DIR="$(cd "$TESTS_LIB_DIR/../.." && pwd)"
 ROOT_DIR="$(cd "$TESTS_DIR/.." && pwd)"
 ARTIFACTS_DIR="$TESTS_DIR/artifacts"
+TF_PLUGIN_DIR="$ROOT_DIR/.terraform/providers"
 
 log() {
   printf '[tests] %s\n' "$*"
@@ -41,4 +42,12 @@ create_artifact_dir() {
 
 ensure_artifacts_dir() {
   mkdir -p "$ARTIFACTS_DIR"
+}
+
+terraform_init_args() {
+  local args=(-backend=false -input=false)
+  if [ -d "$TF_PLUGIN_DIR" ]; then
+    args+=("-plugin-dir=$TF_PLUGIN_DIR")
+  fi
+  printf '%s\n' "${args[@]}"
 }

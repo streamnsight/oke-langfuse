@@ -59,6 +59,13 @@ capture_terraform_outputs() {
   fi
 }
 
+terraform_provider_runtime_hint() {
+  local log_file="$1"
+  if grep -q "Unrecognized remote plugin message" "$log_file" 2>/dev/null; then
+    printf ' Terraform provider startup failed; this usually means the current environment cannot execute provider plugins even though init succeeded.\n'
+  fi
+}
+
 run_single_scenario() {
   local scenario_dir="$1"
   local scenario_name="${scenario_dir#"$TESTS_DIR/scenarios/"}"
@@ -79,7 +86,12 @@ run_single_scenario() {
 
   capture_terraform_outputs "$work_dir" "$outputs_before"
 
-  if ! terraform -chdir="$work_dir" init -backend=false -input=false >"$init_log" 2>&1; then
+  local init_args=()
+  while IFS= read -r arg; do
+    [ -n "$arg" ] && init_args+=("$arg")
+  done < <(terraform_init_args)
+
+  if ! terraform -chdir="$work_dir" init "${init_args[@]}" >"$init_log" 2>&1; then
     rm -rf "$work_dir"
     die "terraform init failed for scenario: $scenario_name (see $init_log)"
   fi
@@ -97,7 +109,7 @@ run_single_scenario() {
   if [ "$expectation" = "pass" ] && [ "$has_error" = "true" ]; then
     cat "$console_log" >&2
     rm -rf "$work_dir"
-    die "Scenario was expected to pass but failed: $scenario_name"
+    die "Scenario was expected to pass but failed: $scenario_name.$(terraform_provider_runtime_hint "$console_log")"
   fi
 
   if [ "$expectation" = "fail" ] && [ "$has_error" = "false" ]; then
