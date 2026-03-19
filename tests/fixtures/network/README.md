@@ -1,12 +1,14 @@
 # Shared Network Fixture
 
-This directory is reserved for the reusable VCN fixture used by the cluster fixture stacks.
+This directory contains the reusable VCN fixture used by the cluster fixture stacks.
 
-Expected purpose:
+Current behavior:
 
-- create the shared VCN
-- create the API, load balancer, and node pool subnets
-- expose subnet IDs through `terraform output -json`
+- creates one shared VCN
+- creates API, load balancer, and 3 node pool subnets
+- creates NAT, Internet, and Service gateways
+- creates route tables and OKE-oriented security lists
+- exposes subnet IDs through `terraform output -json`
 
 The fixture lifecycle interface is already wired through:
 
@@ -16,4 +18,4 @@ make fixture ACTION=up TARGET=network
 make fixture ACTION=down TARGET=network
 ```
 
-Populate this workspace with Terraform files as the network fixture implementation is added.
+Real values should be injected through `tests/.env` plus an optional local `terraform.tfvars`.
