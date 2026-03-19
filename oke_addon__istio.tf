@@ -1,9 +1,9 @@
 ## Copyright © 2022-2026, Oracle and/or its affiliates.
 ## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
 
-locals {
-  istio_needs_install = var.use_existing_cluster ? (contains(local.existing_addons, "Istio") ? 0 : 1) : 1
-}
+# locals {
+#   istio_needs_install = var.use_existing_cluster ? (contains(local.existing_addons, "Istio") ? 0 : 1) : 1
+# }
 
 module "istio_deployment_using_addon_manager" {
   source      = "./modules/oke/cluster_addons/istio/deployment/enhanced_cluster_addon"

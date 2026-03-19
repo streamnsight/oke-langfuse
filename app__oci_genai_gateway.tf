@@ -5,7 +5,7 @@
 # needed to use evaluation features of LangFuse.
 module "oci_genai_gateway" {
   source                                   = "./modules/apps/oci_genai_gateway"
-  compartment_id                           = var.cluster_compartment_id
+  compartment_id                           = local.effective_cluster_compartment_id
   tenancy_ocid                             = var.tenancy_ocid
   tenancy_namespace                        = data.oci_objectstorage_namespace.ns.namespace
   deploy_id                                = local.deploy_id

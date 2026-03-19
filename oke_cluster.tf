@@ -137,6 +137,8 @@ locals {
     endpoint_config = data.oci_containerengine_cluster.target.endpoint_config
   }
 
+  effective_cluster_endpoint_subnet_id = local.target_cluster.endpoint_config[0].subnet_id
+
   existing_cluster_sized_node_pools = [
     for node_pool in data.oci_containerengine_node_pools.target.node_pools : node_pool
     if try(node_pool.node_config_details[0].size, 0) >= 3

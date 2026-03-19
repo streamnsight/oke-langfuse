@@ -30,21 +30,16 @@ steps:
       # copy script to builder
       scp -i "$OUT_FILE" -o StrictHostKeyChecking=no \
         ./build_langfuse_image.sh opc@${BUILDER_INSTANCE_IP}:~/build_langfuse_image.sh
-
       # run everything remote in ONE ssh session (avoids command-spec truncation issues)
       ssh -i "$OUT_FILE" -o StrictHostKeyChecking=no opc@${BUILDER_INSTANCE_IP} <<'REMOTE_EOF'
       set -euxo pipefail
-
       echo "Remote: running on $(hostname) as $(whoami) in $PWD"
       ls -la ~/
-
       chmod +x ~/build_langfuse_image.sh
-      
       # run the script without -e / pipefail influencing it
       set +e +o pipefail
       ~/build_langfuse_image.sh
       rc=$?
       set -euo pipefail
-
       exit $rc
       REMOTE_EOF

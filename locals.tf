@@ -12,6 +12,8 @@ locals {
     null
   ) : null
 
+  effective_cluster_compartment_id = data.oci_containerengine_cluster.target.compartment_id
+
   workload_subnet_id = var.use_existing_cluster ? local.existing_cluster_worker_subnet_id : (var.use_existing_vcn ? local.node_pools[0]["subnet"] : oci_core_subnet.oke_nodepool_subnet[0].id)
 
   effective_vcn_id = var.use_existing_cluster ? data.oci_core_subnet.existing_cluster_worker_subnet[0].vcn_id : (var.use_existing_vcn ? var.vcn_id : oci_core_vcn.oke_vcn[0].id)

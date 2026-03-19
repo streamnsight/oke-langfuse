@@ -39,7 +39,7 @@ module "devops_policies" {
   source                             = "./modules/devops/policies"
   devops_compartment_id              = var.devops_compartment_id
   vcn_compartment_id                 = local.effective_vcn_compartment_id
-  cluster_compartment_id             = var.cluster_compartment_id
+  cluster_compartment_id             = local.effective_cluster_compartment_id
   secrets_store_vault_compartment_id = var.secrets_store_vault_compartment_id
   cluster_name                       = local.cluster_name_sanitized
   providers = {

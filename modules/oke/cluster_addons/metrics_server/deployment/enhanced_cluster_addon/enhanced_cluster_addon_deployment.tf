@@ -25,4 +25,5 @@ resource "oci_containerengine_addon" "metrics_server_addon" {
     }
   }
   version = null # null == auto update
+  override_existing = false
 }

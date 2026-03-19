@@ -22,4 +22,5 @@ resource "oci_containerengine_addon" "cert_manager_addon" {
     }
   }
   version = var.cert_manager_version
+  override_existing = false
 }

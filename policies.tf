@@ -20,10 +20,10 @@ module "network_source_group" {
 }
 
 locals {
-  cluster_nodes = "ALL { request.principal.type = 'instance' , request.principal.compartment.id = '${var.cluster_compartment_id}' }"
+  cluster_nodes = "ALL { request.principal.type = 'instance' , request.principal.compartment.id = '${local.effective_cluster_compartment_id}' }"
   worker_nodes_policy_statements = var.use_network_source ? [] : compact([
     "allow any-user to read repos in compartment id ${var.devops_compartment_id} where ${local.cluster_nodes}",
-    "allow any-user to manage generative-ai-family in compartment id ${var.cluster_compartment_id} where ${local.cluster_nodes}",
+    "allow any-user to manage generative-ai-family in compartment id ${local.effective_cluster_compartment_id} where ${local.cluster_nodes}",
   ])
 }
 
@@ -48,7 +48,7 @@ module "nsg_based_policies" {
   count          = var.use_network_source ? 1 : 0
   source         = "./modules/iam/nsg_policies"
   nsg_name       = local.nsg_name
-  compartment_id = var.cluster_compartment_id
+  compartment_id = local.effective_cluster_compartment_id
   permissions    = local.cluster_node_permissions
   providers = {
     oci = oci.home_region
@@ -58,7 +58,7 @@ module "nsg_based_policies" {
 
 module "policies_before_node_pool" {
   source         = "./modules/iam/policy"
-  compartment_id = var.cluster_compartment_id
+  compartment_id = local.effective_cluster_compartment_id
   description    = "Policies for ${local.cluster_name} nodes"
   policy_statements = flatten(compact(concat(
     coalesce(local.worker_nodes_policy_statements, []),
@@ -72,10 +72,9 @@ module "policies_before_node_pool" {
 module "policies_after_node_pool" {
   count          = local.cluster_autoscaler_enabled ? 1 : 0
   source         = "./modules/iam/policy"
-  compartment_id = var.cluster_compartment_id
+  compartment_id = local.effective_cluster_compartment_id
   description    = "Policies for ${local.cluster_name} add-ons"
   policy_statements = module.cluster_autoscaler_workload_identity_policy[0].policy_statements
-
   providers = {
     oci = oci.home_region
   }

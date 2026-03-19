@@ -33,7 +33,7 @@ locals {
 module "cluster_autoscaler_workload_identity_policy" {
   count                = local.cluster_autoscaler_enabled ? 1 : 0
   source               = "./modules/iam/workload_identity"
-  compartment_id       = var.cluster_compartment_id
+  compartment_id       = local.effective_cluster_compartment_id
   workload_name        = "cluster-autoscaler"
   service_account_name = "cluster-autoscaler"
   namespace            = "kube-system"

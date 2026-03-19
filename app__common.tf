@@ -53,7 +53,7 @@ resource "oci_generic_artifacts_content_artifact_by_path" "builder_setup_artifac
 
 module "builder_instance" {
   source              = "./modules/compute/builder_instance"
-  compartment_id      = var.cluster_compartment_id
+  compartment_id      = local.effective_cluster_compartment_id
   availability_domain = local.ADs[0]
   subnet_id           = local.workload_subnet_id
   display_name        = "${local.cluster_name_sanitized}-builder"
@@ -65,7 +65,7 @@ module "builder_instance" {
     langfuse_helm_chart_version        = var.langfuse_helm_chart_version
     lb_subnet_id                       = var.use_existing_cluster ? data.oci_containerengine_cluster.target.endpoint_config[0].subnet_id : (var.use_existing_vcn ? var.public_lb_subnet : oci_core_subnet.oke_lb_subnet[0].id)
     oci_profile                        = var.oci_profile
-    cluster_compartment_id             = var.cluster_compartment_id
+    cluster_compartment_id             = local.effective_cluster_compartment_id
     secrets_store_vault_compartment_id = var.secrets_store_vault_compartment_id
     secrets_store_vault_id             = var.secrets_store_vault_id
     secrets_store_key_id               = var.secrets_store_key_id
@@ -100,7 +100,7 @@ data "external" "builder_ssh_key_to_vault" {
 module "builder_setup_shell_stage" {
   source                = "./modules/devops/deployment_stages/shell_stage"
   compartment_id        = var.devops_compartment_id
-  subnet_id             = local.workload_subnet_id
+  subnet_id             = local.workload_subnet_id # shell stage needs to reach to the cluster endpoint
   stage_name            = "builder_setup"
   shape_name            = local.ci_shape_selected
   devops_project_id     = module.devops_setup.project_id
