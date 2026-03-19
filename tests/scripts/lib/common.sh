@@ -69,6 +69,14 @@ load_env_file() {
 load_tests_env() {
   load_env_file "$TESTS_ENV_FILE"
   load_env_file "$TESTS_ENV_LOCAL_FILE"
+
+  if [ -z "${TF_VAR_compartment_id:-}" ] && [ -n "${TF_VAR_vcn_compartment_id:-}" ]; then
+    export TF_VAR_compartment_id="$TF_VAR_vcn_compartment_id"
+  fi
+
+  if [ -z "${TF_VAR_fixture_node_image_id:-}" ] && [ -n "${TF_VAR_np1_image_id:-}" ]; then
+    export TF_VAR_fixture_node_image_id="$TF_VAR_np1_image_id"
+  fi
 }
 
 root_stack_outputs_json() {

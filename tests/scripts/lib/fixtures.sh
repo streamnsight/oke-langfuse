@@ -51,6 +51,42 @@ fixture_has_config() {
   find "$fixture_dir" -maxdepth 1 -type f -name '*.tf' | grep -q .
 }
 
+fixture_required_env_vars() {
+  case "$1" in
+    network)
+      printf '%s\n' OCI_PROFILE TF_VAR_region TF_VAR_tenancy_ocid TF_VAR_compartment_id
+      ;;
+    basic)
+      printf '%s\n' OCI_PROFILE TF_VAR_region TF_VAR_tenancy_ocid TF_VAR_cluster_compartment_id
+      ;;
+    enhanced)
+      printf '%s\n' OCI_PROFILE TF_VAR_region TF_VAR_tenancy_ocid TF_VAR_cluster_compartment_id TF_VAR_fixture_node_image_id
+      ;;
+    *)
+      die "Unknown fixture target: $1"
+      ;;
+  esac
+}
+
+assert_fixture_env_ready() {
+  local target="$1"
+  local missing=()
+  local name
+
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    if [ -z "${!name:-}" ]; then
+      missing+=("$name")
+    fi
+  done < <(fixture_required_env_vars "$target")
+
+  if [ "${#missing[@]}" -gt 0 ]; then
+    printf '[tests] Missing required environment variables for fixture target %s:\n' "$target" >&2
+    printf '  - %s\n' "${missing[@]}" >&2
+    die "Populate tests/.env or export the required variables before running fixture actions."
+  fi
+}
+
 run_fixture_terraform() {
   local fixture_dir="$1"
   local action="$2"
@@ -95,6 +131,8 @@ run_fixture_action() {
   local size="${3:-}"
   require_non_empty "$target" "TARGET is required for fixture command"
   require_non_empty "$action" "ACTION is required for fixture command"
+
+  assert_fixture_env_ready "$target"
 
   if [ "$target" = "network" ] && { [ "$action" = "down" ] || [ "$action" = "refresh" ]; }; then
     assert_network_destroy_is_safe
