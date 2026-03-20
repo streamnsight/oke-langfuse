@@ -201,6 +201,7 @@ run_logged_command() {
 run_single_scenario() {
   local scenario_dir="$1"
   local scenario_name="${scenario_dir#"$TESTS_DIR/scenarios/"}"
+  TESTS_LAST_SCENARIO_RESULT=""
   local expectation
   expectation="$(scenario_expectation "$scenario_dir")"
   local mode
@@ -242,7 +243,7 @@ run_single_scenario() {
     rm -rf "$work_dir"
     printf '%s\n' "$failure_message" >"$artifact_dir/failure.txt"
     log "Scenario failed: $scenario_name"
-    printf '%s|%s\n' "$scenario_name" "$failure_message"
+    TESTS_LAST_SCENARIO_RESULT="$scenario_name|$failure_message"
     return 1
   fi
   end_log_group
@@ -400,7 +401,7 @@ run_single_scenario() {
       rm -rf "$work_dir"
       printf '%s\n' "$failure_message" >"$artifact_dir/failure.txt"
       log "Scenario failed: $scenario_name"
-      printf '%s|%s\n' "$scenario_name" "$failure_message"
+      TESTS_LAST_SCENARIO_RESULT="$scenario_name|$failure_message"
       return 1
     fi
   fi
@@ -415,7 +416,7 @@ run_single_scenario() {
       rm -rf "$work_dir"
       printf '%s\n' "$failure_message" >"$artifact_dir/failure.txt"
       log "Scenario failed: $scenario_name"
-      printf '%s|%s\n' "$scenario_name" "$failure_message"
+      TESTS_LAST_SCENARIO_RESULT="$scenario_name|$failure_message"
       return 1
     fi
   fi
@@ -426,7 +427,7 @@ run_single_scenario() {
     rm -rf "$work_dir"
     printf '%s\n' "$failure_message" >"$artifact_dir/failure.txt"
     log "Scenario failed: $scenario_name"
-    printf '%s|%s\n' "$scenario_name" "$failure_message"
+    TESTS_LAST_SCENARIO_RESULT="$scenario_name|$failure_message"
     return 1
   fi
 
@@ -435,7 +436,7 @@ run_single_scenario() {
     rm -rf "$work_dir"
     printf '%s\n' "$failure_message" >"$artifact_dir/failure.txt"
     log "Scenario failed: $scenario_name"
-    printf '%s|%s\n' "$scenario_name" "$failure_message"
+    TESTS_LAST_SCENARIO_RESULT="$scenario_name|$failure_message"
     return 1
   fi
 
@@ -453,12 +454,12 @@ run_scenario_suite() {
   local selector="${1:-}"
   local ran_any="false"
   local failures=()
-  local scenario_dir scenario_result
+  local scenario_dir
   while IFS= read -r scenario_dir; do
     [ -n "$scenario_dir" ] || continue
     ran_any="true"
-    if ! scenario_result="$(run_single_scenario "$scenario_dir")"; then
-      failures+=("$scenario_result")
+    if ! run_single_scenario "$scenario_dir"; then
+      failures+=("${TESTS_LAST_SCENARIO_RESULT:-${scenario_dir#"$TESTS_DIR/scenarios/"}|unknown failure}")
     fi
   done < <(resolve_scenarios "$selector")
 
