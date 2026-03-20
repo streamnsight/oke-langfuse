@@ -1,0 +1,1 @@
+vcn_compartment_id must be null or a valid OCID.

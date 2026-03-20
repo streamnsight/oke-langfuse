@@ -5,9 +5,9 @@ cluster_compartment_id = "ocid1.compartment.oc1..aaaa"
 use_existing_vcn       = true
 vcn_id                 = "ocid1.vcn.oc1..aaaa"
 # Explicitly empty to override any terraform.tfvars values and trigger validation failures
-kubernetes_endpoint_subnet         = ""
-public_lb_subnet                   = ""
-np1_subnet                         = ""
+kubernetes_endpoint_subnet         = null
+public_lb_subnet                   = null
+np1_subnet                         = null
 node_pool_count                    = 1
 create_bastion                     = false
 langfuse_s3_access_key             = "fake-access"

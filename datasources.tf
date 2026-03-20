@@ -58,6 +58,18 @@ check "input_compartments_supported" {
   }
 }
 
+check "existing_vcn_requires_core_inputs" {
+  assert {
+    condition = !var.use_existing_vcn || (
+      var.vcn_id != null && var.vcn_id != "" &&
+      var.kubernetes_endpoint_subnet != null && var.kubernetes_endpoint_subnet != "" &&
+      var.public_lb_subnet != null && var.public_lb_subnet != "" &&
+      var.np1_subnet != null && var.np1_subnet != ""
+    )
+    error_message = "When use_existing_vcn is true, vcn_id, kubernetes_endpoint_subnet, public_lb_subnet, and np1_subnet must all be provided."
+  }
+}
+
 data "oci_identity_compartments" "test_compartments" {
   #Required
   compartment_id = var.cluster_compartment_id
