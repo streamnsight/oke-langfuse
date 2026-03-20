@@ -54,6 +54,7 @@ collect_cluster_debug() {
 
   require_command jq
   require_command kubectl
+  ensure_obc_root_dir
 
   local kube_dir="$debug_dir/kube"
   mkdir -p "$kube_dir/describes" "$kube_dir/logs"
@@ -85,13 +86,15 @@ collect_cluster_debug() {
     --arg namespace "$namespace" \
     --arg cluster_id "$cluster_id" \
     --arg cluster_name "$cluster_name" \
-    --arg bastion_id "$bastion_id" '
+    --arg bastion_id "$bastion_id" \
+    --arg obc_root_dir "${OBC_ROOT_DIR:-}" '
       {
         target: $target,
         namespace: $namespace,
         cluster_id: $cluster_id,
         cluster_name: $cluster_name,
-        bastion_id: $bastion_id
+        bastion_id: $bastion_id,
+        obc_root_dir: $obc_root_dir
       }
     ' >"$kube_dir/request.json"
 

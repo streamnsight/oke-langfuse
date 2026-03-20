@@ -66,6 +66,7 @@ Everything test-specific should live under `./tests`:
 - `obc` and `kubectl` debug tooling
 - generated test artifacts and summaries
 - test documentation
+- persistent local `obc` state under `tests/.obc`
 
 The stack itself only exposes non-sensitive metadata when `test_mode = true`.
 Real deployment values should be injected from `tests/.env` or environment variables rather than committed tfvars.
@@ -120,6 +121,7 @@ The debug tooling under `tests/scripts/` can:
 - register clusters through `obc`
 - switch `kubectl` context
 - collect namespace, pod, workload, describe, event, and log diagnostics
+- keep a stable `OBC_ROOT_DIR` rooted under `tests/.obc` unless explicitly overridden
 
 All debug artifacts are written under `tests/artifacts/debug/...`.
 

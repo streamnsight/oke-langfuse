@@ -10,6 +10,7 @@ TESTS_ENV_LOCAL_FILE="${TESTS_ENV_LOCAL_FILE:-$TESTS_DIR/.env.local}"
 ROOT_TERRAFORM_STATE_FILE="${ROOT_TERRAFORM_STATE_FILE:-$ROOT_DIR/terraform.tfstate}"
 TESTS_KEEP_SUCCESS_ARTIFACTS="${TESTS_KEEP_SUCCESS_ARTIFACTS:-false}"
 TESTS_STREAM_LOGS="${TESTS_STREAM_LOGS:-${GITHUB_ACTIONS:-false}}"
+TESTS_DEFAULT_OBC_ROOT_DIR="$TESTS_DIR/.obc"
 
 log() {
   printf '[tests] %s\n' "$*"
@@ -100,6 +101,13 @@ oci_cli_global_args() {
   printf '%s\n' "${args[@]}"
 }
 
+ensure_obc_root_dir() {
+  if [ -z "${OBC_ROOT_DIR:-}" ]; then
+    export OBC_ROOT_DIR="$TESTS_DEFAULT_OBC_ROOT_DIR"
+  fi
+  mkdir -p "$OBC_ROOT_DIR"
+}
+
 load_env_file() {
   local env_file="$1"
   if [ -f "$env_file" ]; then
@@ -129,6 +137,8 @@ load_tests_env() {
   if [ -z "${TF_VAR_fixture_node_image_id:-}" ] && [ -n "${TF_VAR_np1_image_id:-}" ]; then
     export TF_VAR_fixture_node_image_id="$TF_VAR_np1_image_id"
   fi
+
+  ensure_obc_root_dir
 }
 
 root_stack_outputs_json() {

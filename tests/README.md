@@ -71,4 +71,5 @@ Direct runner usage:
 - `SUITE=fast` is the CI-safe subset used on pull requests and includes only scenarios explicitly tagged in `suites.txt` that fail before live OCI access is needed.
 - `SUITE=live` is the local OCI-backed subset for fixture-based existing-cluster compatibility checks.
 - `tests/.env` and `tests/.env.local` are ignored by git and are the right place for real local test values.
+- The harness defaults `OBC_ROOT_DIR` to `tests/.obc` so `obc registry oke add`, `kubectl`, and later `obc kube-exec` subprocesses share the same persistent local state. Export `OBC_ROOT_DIR` yourself if you want a different location.
 - `make debug TARGET=...` resolves DevOps runtime IDs from `terraform output -json` first and only uses `PROJECT_ID`, `PIPELINE_ID`, or `DEPLOYMENT_ID` as optional manual overrides.
