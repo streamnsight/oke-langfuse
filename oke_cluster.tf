@@ -67,20 +67,11 @@ resource "oci_containerengine_cluster" "oci_oke_cluster" {
   }
   type         = var.is_enhanced_cluster ? "ENHANCED_CLUSTER" : "BASIC_CLUSTER"
   defined_tags = var.cluster_tags
+
 }
 
 locals {
   target_cluster_id = var.use_existing_cluster ? var.cluster_ocid : oci_containerengine_cluster.oci_oke_cluster[0].id
-  existing_cluster_cloud_init_matching_node_pools = [
-    for node_pool_id, node_pool in data.oci_containerengine_node_pool.target : node_pool_id
-    if alltrue([
-      for marker in var.existing_cluster_cloud_init_required_markers :
-      strcontains(
-        try(base64decode(lookup(try(node_pool.node_metadata, {}), "user_data", "")), ""),
-        marker
-      )
-    ])
-  ]
 }
 
 check "existing_cluster_requires_cluster_ocid" {
@@ -108,6 +99,23 @@ data "oci_containerengine_cluster" "target" {
     postcondition {
       condition     = !var.use_existing_cluster || self.endpoint_config[0].is_public_ip_enabled == false
       error_message = "When use_existing_cluster is true, the target cluster must expose a private endpoint (is_public_ip_enabled must be false)."
+    }
+  }
+}
+
+resource "terraform_data" "managed_cluster_version_guard" {
+  count = var.use_existing_cluster ? 0 : 1
+  input = local.target_cluster_id
+
+  lifecycle {
+    precondition {
+      condition     = local.managed_cluster_live_version_normalized == null || local.managed_cluster_version_is_pinned
+      error_message = "This stack already manages an OKE cluster, so kubernetes_version must be explicitly pinned in terraform.tfvars before re-running. Leaving kubernetes_version unset would make the stack follow the moving latest supported version and can create false drift. Set kubernetes_version to the live cluster version (${data.oci_containerengine_cluster.target.kubernetes_version}) or to an intentional upgrade target."
+    }
+
+    precondition {
+      condition     = local.managed_cluster_live_version_normalized == null || local.managed_cluster_live_version_normalized == local.expected_managed_cluster_version_normalized
+      error_message = "The stack-managed OKE cluster is running Kubernetes version ${data.oci_containerengine_cluster.target.kubernetes_version}, but Terraform is configured for ${local.kubernetes_version}. This usually means the cluster was upgraded outside Terraform. Update kubernetes_version in terraform.tfvars to ${data.oci_containerengine_cluster.target.kubernetes_version} before re-running, or intentionally set a different supported target version if you want Terraform to manage another upgrade."
     }
   }
 }
@@ -156,6 +164,10 @@ data "oci_containerengine_addons" "target" {
 # }
 
 locals {
+  managed_cluster_version_is_pinned            = var.use_existing_cluster ? true : (var.kubernetes_version != null && trimspace(var.kubernetes_version) != "")
+  requested_managed_cluster_version_normalized = var.use_existing_cluster || !local.managed_cluster_version_is_pinned ? null : replace(var.kubernetes_version, "v", "")
+  expected_managed_cluster_version_normalized  = var.use_existing_cluster ? null : replace(local.kubernetes_version, "v", "")
+  managed_cluster_live_version_normalized      = var.use_existing_cluster ? null : try(replace(data.oci_containerengine_cluster.target.kubernetes_version, "v", ""), null)
   target_cluster = {
     id              = data.oci_containerengine_cluster.target.id
     name            = data.oci_containerengine_cluster.target.name
@@ -170,6 +182,16 @@ locals {
   ]
 
   existing_cluster_primary_node_pool = length(local.existing_cluster_sized_node_pools) > 0 ? local.existing_cluster_sized_node_pools[0] : null
+  existing_cluster_cloud_init_matching_node_pools = [
+    for node_pool_id, node_pool in data.oci_containerengine_node_pool.target : node_pool_id
+    if alltrue([
+      for marker in var.existing_cluster_cloud_init_required_markers :
+      strcontains(
+        try(base64decode(lookup(try(node_pool.node_metadata, {}), "user_data", "")), ""),
+        marker
+      )
+    ])
+  ]
 
   effective_builder_shape    = var.use_existing_cluster ? try(local.existing_cluster_primary_node_pool.node_shape, var.np1_node_shape) : local.node_pools[0].node_shape
   effective_builder_image_id = var.use_existing_cluster ? try(local.existing_cluster_primary_node_pool.node_source_details[0].image_id, var.np1_image_id) : local.node_pools[0].image_id

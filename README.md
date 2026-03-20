@@ -185,3 +185,5 @@ By default the preflight looks for the stack's docker login and docker credentia
 [ ] validate deployment from local with profile
 [ ] container vulnerability scanning
 [ ] build worker image
+[ ] auto add group and user to IDCS app
+[ ] 

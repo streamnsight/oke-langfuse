@@ -70,6 +70,7 @@ Direct runner usage:
 - Successful `test` and `fixture` runs clean up their timestamped artifact directories by default. Set `TESTS_KEEP_SUCCESS_ARTIFACTS=true` if you want to retain successful logs locally.
 - `SUITE=fast` is the CI-safe subset used on pull requests and includes only scenarios explicitly tagged in `suites.txt` that fail before live OCI access is needed.
 - `SUITE=live` is the local OCI-backed subset for fixture-based existing-cluster compatibility checks.
+- `SUITE=live` also includes multi-step managed-cluster drift scenarios that use the shared network fixture plus OCI CLI to perform an out-of-band cluster upgrade.
 - `tests/.env` and `tests/.env.local` are ignored by git and are the right place for real local test values.
 - The harness defaults `OBC_ROOT_DIR` to `tests/.obc` so `obc registry oke add`, `kubectl`, and later `obc kube-exec` subprocesses share the same persistent local state. Export `OBC_ROOT_DIR` yourself if you want a different location.
 - `make debug TARGET=...` resolves DevOps runtime IDs from `terraform output -json` first and only uses `PROJECT_ID`, `PIPELINE_ID`, or `DEPLOYMENT_ID` as optional manual overrides.

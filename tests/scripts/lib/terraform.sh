@@ -1,7 +1,63 @@
 #!/usr/bin/env bash
 
+scenario_manifest_path() {
+  local scenario_dir="$1"
+  printf '%s/scenario.json\n' "$scenario_dir"
+}
+
+scenario_has_manifest() {
+  local scenario_dir="$1"
+  [ -f "$(scenario_manifest_path "$scenario_dir")" ]
+}
+
+scenario_json_get_raw() {
+  local scenario_dir="$1"
+  local jq_filter="$2"
+  jq -r "$jq_filter" "$(scenario_manifest_path "$scenario_dir")"
+}
+
+scenario_json_get_string() {
+  local scenario_dir="$1"
+  local jq_filter="$2"
+  local value
+  value="$(scenario_json_get_raw "$scenario_dir" "$jq_filter // empty")"
+  if [ "$value" = "null" ]; then
+    return 1
+  fi
+  printf '%s\n' "$value"
+}
+
+scenario_json_get_bool() {
+  local scenario_dir="$1"
+  local jq_filter="$2"
+  local value
+  value="$(scenario_json_get_raw "$scenario_dir" "$jq_filter // false")"
+  case "$value" in
+    true|false)
+      printf '%s\n' "$value"
+      ;;
+    *)
+      die "Expected boolean from scenario manifest for $scenario_dir: $jq_filter"
+      ;;
+  esac
+}
+
+scenario_json_get_array_lines() {
+  local scenario_dir="$1"
+  local jq_filter="$2"
+  scenario_json_get_raw "$scenario_dir" "$jq_filter // [] | .[]"
+}
+
 scenario_expectation() {
   local scenario_name="$1"
+  if scenario_has_manifest "$scenario_name"; then
+    local manifest_expectation
+    manifest_expectation="$(scenario_json_get_string "$scenario_name" '.expectation')" || manifest_expectation=""
+    if [ -n "$manifest_expectation" ]; then
+      printf '%s\n' "$manifest_expectation"
+      return
+    fi
+  fi
   if [ -f "$scenario_name/expectation.txt" ]; then
     tr -d '[:space:]' <"$scenario_name/expectation.txt"
     return
@@ -21,7 +77,7 @@ scenario_expectation() {
 
 resolve_scenarios() {
   local selector="${1:-}"
-  local scenario_roots_cmd=(find "$TESTS_DIR/scenarios" -type f \( -name terraform.tfvars -o -name prepare.sh \) -print)
+  local scenario_roots_cmd=(find "$TESTS_DIR/scenarios" -type f \( -name terraform.tfvars -o -name prepare.sh -o -name run.sh -o -name scenario.json \) -print)
   local all_scenarios_cmd=("${scenario_roots_cmd[@]}")
   local scenario_dirs
   scenario_dirs="$("${all_scenarios_cmd[@]}" | sort | xargs -n1 dirname | awk '!seen[$0]++')"
@@ -58,6 +114,16 @@ resolve_scenarios() {
 scenario_has_suite_tag() {
   local scenario_dir="$1"
   local suite="$2"
+  if scenario_has_manifest "$scenario_dir"; then
+    local manifest_suite
+    while IFS= read -r manifest_suite; do
+      [ -n "$manifest_suite" ] || continue
+      if [ "$manifest_suite" = "$suite" ]; then
+        return 0
+      fi
+    done < <(scenario_json_get_array_lines "$scenario_dir" '.suites')
+    return 1
+  fi
   local suites_file="$scenario_dir/suites.txt"
   [ -f "$suites_file" ] || return 1
   grep -Eq "(^|[[:space:]])${suite}($|[[:space:]])" "$suites_file"
@@ -129,6 +195,14 @@ normalize_whitespace() {
 
 scenario_mode() {
   local scenario_dir="$1"
+  if scenario_has_manifest "$scenario_dir"; then
+    local manifest_mode
+    manifest_mode="$(scenario_json_get_string "$scenario_dir" '.mode')" || manifest_mode=""
+    if [ -n "$manifest_mode" ]; then
+      printf '%s\n' "$manifest_mode"
+      return
+    fi
+  fi
   if [ -f "$scenario_dir/mode.txt" ]; then
     tr -d '[:space:]' <"$scenario_dir/mode.txt"
   else
@@ -147,6 +221,10 @@ scenario_console_expression() {
 
 scenario_expected_error() {
   local scenario_dir="$1"
+  if scenario_has_manifest "$scenario_dir"; then
+    scenario_json_get_string "$scenario_dir" '.expected_error' || true
+    return
+  fi
   if [ -f "$scenario_dir/expected_error.txt" ]; then
     cat "$scenario_dir/expected_error.txt"
   fi
@@ -154,6 +232,10 @@ scenario_expected_error() {
 
 scenario_expected_output() {
   local scenario_dir="$1"
+  if scenario_has_manifest "$scenario_dir"; then
+    scenario_json_get_string "$scenario_dir" '.expected_output' || true
+    return
+  fi
   if [ -f "$scenario_dir/expected_output.txt" ]; then
     cat "$scenario_dir/expected_output.txt"
   fi
@@ -161,6 +243,10 @@ scenario_expected_output() {
 
 scenario_targets() {
   local scenario_dir="$1"
+  if scenario_has_manifest "$scenario_dir"; then
+    scenario_json_get_array_lines "$scenario_dir" '.plan_targets'
+    return
+  fi
   if [ -f "$scenario_dir/plan_targets.txt" ]; then
     sed '/^[[:space:]]*$/d' "$scenario_dir/plan_targets.txt"
   fi
@@ -187,7 +273,7 @@ prepare_scenario_workdir() {
 
   if [ -f "$scenario_dir/prepare.sh" ]; then
     bash "$work_dir/tests/scenarios/$scenario_name/prepare.sh" "$work_dir"
-  else
+  elif [ -f "$scenario_dir/terraform.tfvars" ]; then
     cp "$scenario_dir/terraform.tfvars" "$work_dir/terraform.tfvars"
   fi
 }
@@ -249,7 +335,11 @@ run_single_scenario() {
   local mode raw_mode destroy_after_run
   raw_mode="$(scenario_mode "$scenario_dir")"
   mode="$raw_mode"
-  destroy_after_run="false"
+  if scenario_has_manifest "$scenario_dir"; then
+    destroy_after_run="$(scenario_json_get_bool "$scenario_dir" '.destroy_after_run')"
+  else
+    destroy_after_run="false"
+  fi
   if [[ "$mode" == *-destroy ]]; then
     destroy_after_run="true"
     mode="${mode%-destroy}"
@@ -433,6 +523,25 @@ run_single_scenario() {
       fi
       if [ -z "$command_output" ]; then
         command_output="$(cat "$run_log")"
+      fi
+      ;;
+    script)
+      begin_log_group "Scenario $scenario_name: custom script"
+      if should_stream_logs; then
+        set +e
+        bash "$work_dir/tests/scenarios/$scenario_name/run.sh" "$work_dir" 2>&1 | tee "$run_log"
+        local script_status=${PIPESTATUS[0]}
+        set -e
+      else
+        set +e
+        bash "$work_dir/tests/scenarios/$scenario_name/run.sh" "$work_dir" >"$run_log" 2>&1
+        local script_status=$?
+        set -e
+      fi
+      end_log_group
+      command_output="$(cat "$run_log")"
+      if [ "${script_status:-0}" -ne 0 ]; then
+        has_error="true"
       fi
       ;;
     *)

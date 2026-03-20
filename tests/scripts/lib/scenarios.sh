@@ -42,6 +42,7 @@ write_existing_cluster_tfvars() {
   local outfile="$1"
   local cluster_ocid="$2"
   shift 2
+  local include_test_identity_defaults="${STACK_TEST_INCLUDE_IDCS_PLACEHOLDERS:-true}"
 
   scenario_require_env_vars \
     TF_VAR_region \
@@ -54,7 +55,8 @@ write_existing_cluster_tfvars() {
     TF_VAR_secrets_store_key_id \
     TF_VAR_langfuse_s3_access_key \
     TF_VAR_langfuse_s3_secret_key \
-    TF_VAR_ssh_public_key
+    TF_VAR_ssh_public_key \
+    TF_VAR_np1_image_id
 
   {
     printf 'region = %s\n' "$(hcl_quote "$TF_VAR_region")"
@@ -72,13 +74,16 @@ write_existing_cluster_tfvars() {
     printf 'use_existing_cluster = true\n'
     printf 'cluster_ocid = %s\n' "$(hcl_quote "$cluster_ocid")"
     printf 'create_bastion = false\n'
-    printf 'create_idcs_app = false\n'
-    printf 'idcs_app_id = %s\n' "$(hcl_quote "${TF_VAR_idcs_app_id:-test-idcs-app}")"
-    printf 'idcs_client_id = %s\n' "$(hcl_quote "${TF_VAR_idcs_client_id:-test-idcs-client}")"
-    printf 'idcs_client_secret = %s\n' "$(hcl_quote "${TF_VAR_idcs_client_secret:-test-idcs-secret}")"
-    printf 'idcs_domain_url = %s\n' "$(hcl_quote "${TF_VAR_idcs_domain_url:-https://example.invalid}")"
     printf 'enable_oci_genai_gateway = false\n'
     printf 'test_mode = true\n'
+
+    if [ "$include_test_identity_defaults" = "true" ]; then
+      printf 'create_idcs_app = false\n'
+      printf 'idcs_app_id = %s\n' "$(hcl_quote "${TF_VAR_idcs_app_id:-test-idcs-app}")"
+      printf 'idcs_client_id = %s\n' "$(hcl_quote "${TF_VAR_idcs_client_id:-test-idcs-client}")"
+      printf 'idcs_client_secret = %s\n' "$(hcl_quote "${TF_VAR_idcs_client_secret:-test-idcs-secret}")"
+      printf 'idcs_domain_url = %s\n' "$(hcl_quote "${TF_VAR_idcs_domain_url:-https://example.invalid}")"
+    fi
 
     if [ -n "${TF_VAR_kubernetes_version:-}" ]; then
       printf 'kubernetes_version = %s\n' "$(hcl_quote "$TF_VAR_kubernetes_version")"
@@ -114,4 +119,92 @@ write_existing_cluster_with_network_tfvars() {
     "public_lb_subnet = $(hcl_quote "$public_lb_subnet")" \
     "np1_subnet = $(hcl_quote "$np1_subnet")" \
     "$@"
+}
+
+write_managed_cluster_with_network_tfvars() {
+  local outfile="$1"
+  shift
+
+  local vcn_id
+  local kubernetes_endpoint_subnet
+  local public_lb_subnet
+  local np1_subnet
+
+  vcn_id="$(fixture_output_value network vcn_id)"
+  kubernetes_endpoint_subnet="$(fixture_output_value network kubernetes_endpoint_subnet_id)"
+  public_lb_subnet="$(fixture_output_value network public_lb_subnet_id)"
+  np1_subnet="$(fixture_output_value network node_pool_subnet_ids_by_name | jq -r '.np1')"
+
+  scenario_require_env_vars \
+    TF_VAR_region \
+    TF_VAR_tenancy_ocid \
+    TF_VAR_vcn_compartment_id \
+    TF_VAR_cluster_compartment_id \
+    TF_VAR_devops_compartment_id \
+    TF_VAR_secrets_store_vault_compartment_id \
+    TF_VAR_secrets_store_vault_id \
+    TF_VAR_secrets_store_key_id \
+    TF_VAR_langfuse_s3_access_key \
+    TF_VAR_langfuse_s3_secret_key \
+    TF_VAR_ssh_public_key \
+    TF_VAR_np1_image_id
+
+  {
+    printf 'region = %s\n' "$(hcl_quote "$TF_VAR_region")"
+    printf 'tenancy_ocid = %s\n' "$(hcl_quote "$TF_VAR_tenancy_ocid")"
+    printf 'oci_profile = %s\n' "$(hcl_quote "${TF_VAR_oci_profile:-${OCI_PROFILE:-DEFAULT}}")"
+    printf 'vcn_compartment_id = %s\n' "$(hcl_quote "$TF_VAR_vcn_compartment_id")"
+    printf 'cluster_compartment_id = %s\n' "$(hcl_quote "$TF_VAR_cluster_compartment_id")"
+    printf 'devops_compartment_id = %s\n' "$(hcl_quote "$TF_VAR_devops_compartment_id")"
+    printf 'secrets_store_vault_compartment_id = %s\n' "$(hcl_quote "$TF_VAR_secrets_store_vault_compartment_id")"
+    printf 'secrets_store_vault_id = %s\n' "$(hcl_quote "$TF_VAR_secrets_store_vault_id")"
+    printf 'secrets_store_key_id = %s\n' "$(hcl_quote "$TF_VAR_secrets_store_key_id")"
+    printf 'langfuse_s3_access_key = %s\n' "$(hcl_quote "$TF_VAR_langfuse_s3_access_key")"
+    printf 'langfuse_s3_secret_key = %s\n' "$(hcl_quote "$TF_VAR_langfuse_s3_secret_key")"
+    printf 'ssh_public_key = %s\n' "$(hcl_quote "$TF_VAR_ssh_public_key")"
+    printf 'np1_image_id = %s\n' "$(hcl_quote "$TF_VAR_np1_image_id")"
+    printf 'use_existing_vcn = true\n'
+    printf 'vcn_id = %s\n' "$(hcl_quote "$vcn_id")"
+    printf 'kubernetes_endpoint_subnet = %s\n' "$(hcl_quote "$kubernetes_endpoint_subnet")"
+    printf 'public_lb_subnet = %s\n' "$(hcl_quote "$public_lb_subnet")"
+    printf 'np1_subnet = %s\n' "$(hcl_quote "$np1_subnet")"
+    printf 'create_bastion = false\n'
+    printf 'enable_oci_genai_gateway = false\n'
+    printf 'test_mode = true\n'
+    printf 'create_idcs_app = false\n'
+    printf 'idcs_app_id = %s\n' "$(hcl_quote "${TF_VAR_idcs_app_id:-test-idcs-app}")"
+    printf 'idcs_client_id = %s\n' "$(hcl_quote "${TF_VAR_idcs_client_id:-test-idcs-client}")"
+    printf 'idcs_client_secret = %s\n' "$(hcl_quote "${TF_VAR_idcs_client_secret:-test-idcs-secret}")"
+    printf 'idcs_domain_url = %s\n' "$(hcl_quote "${TF_VAR_idcs_domain_url:-https://example.invalid}")"
+
+    for line in "$@"; do
+      printf '%s\n' "$line"
+    done
+  } >"$outfile"
+}
+
+append_live_identity_tfvars() {
+  local outfile="$1"
+
+  if [ -n "${TF_VAR_identity_domain_id:-}" ]; then
+    {
+      printf 'create_idcs_app = true\n'
+      printf 'identity_domain_id = %s\n' "$(hcl_quote "$TF_VAR_identity_domain_id")"
+    } >>"$outfile"
+    return 0
+  fi
+
+  scenario_require_env_vars \
+    TF_VAR_idcs_app_id \
+    TF_VAR_idcs_client_id \
+    TF_VAR_idcs_client_secret \
+    TF_VAR_idcs_domain_url || die "Full live deployment requires TF_VAR_identity_domain_id or the full TF_VAR_idcs_* set."
+
+  {
+    printf 'create_idcs_app = false\n'
+    printf 'idcs_app_id = %s\n' "$(hcl_quote "$TF_VAR_idcs_app_id")"
+    printf 'idcs_client_id = %s\n' "$(hcl_quote "$TF_VAR_idcs_client_id")"
+    printf 'idcs_client_secret = %s\n' "$(hcl_quote "$TF_VAR_idcs_client_secret")"
+    printf 'idcs_domain_url = %s\n' "$(hcl_quote "$TF_VAR_idcs_domain_url")"
+  } >>"$outfile"
 }

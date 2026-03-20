@@ -1,0 +1,1 @@
+local.requested_managed_cluster_version_normalized == "1.34.2" && local.managed_cluster_version_is_pinned

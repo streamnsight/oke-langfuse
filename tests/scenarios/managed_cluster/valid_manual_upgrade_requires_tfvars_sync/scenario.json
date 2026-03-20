@@ -1,0 +1,7 @@
+{
+  "mode": "script",
+  "destroy_after_run": true,
+  "suites": [
+    "live"
+  ]
+}
