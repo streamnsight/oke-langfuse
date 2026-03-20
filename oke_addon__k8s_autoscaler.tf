@@ -9,7 +9,7 @@
 
 
 locals {
-  cluster_autoscaler_enabled = var.enable_cluster_autoscaler == null ? var.np1_enable_autoscaler || var.np2_enable_autoscaler || var.np3_enable_autoscaler : var.enable_cluster_autoscaler
+  cluster_autoscaler_enabled = !var.use_existing_cluster && (var.enable_cluster_autoscaler == null ? var.np1_enable_autoscaler || var.np2_enable_autoscaler || var.np3_enable_autoscaler : var.enable_cluster_autoscaler)
   cluster_autoscaler_permissions = [
     "manage cluster-node-pools",
     "manage instance-family",
@@ -31,14 +31,15 @@ locals {
 
 # define policies statements to use workload identity
 module "cluster_autoscaler_workload_identity_policy" {
+  count                = local.cluster_autoscaler_enabled ? 1 : 0
   source               = "./modules/iam/workload_identity"
-  compartment_id       = var.cluster_compartment_id
+  compartment_id       = local.effective_cluster_compartment_id
   workload_name        = "cluster-autoscaler"
   service_account_name = "cluster-autoscaler"
   namespace            = "kube-system"
   permissions          = local.cluster_autoscaler_permissions
   defined_tags         = var.defined_tags
-  cluster_id           = oci_containerengine_cluster.oci_oke_cluster.id
+  cluster_id           = local.target_cluster_id
   providers = {
     oci = oci.home_region
   }
@@ -68,9 +69,9 @@ module "cluster_autoscaler_workload_identity_policy" {
 # it is an enhanced cluster.
 # This method uses the cluster add-on resource for enhanced clusters
 module "cluster_autoscaler_deployment_with_addon_manager" {
-  count                                               = local.cluster_autoscaler_enabled ? (local.use_addon_manager ? 1 : 0) : 0
+  count                                               = (var.use_existing_cluster ? false : (local.cluster_autoscaler_enabled && var.is_enhanced_cluster)) ? 1 : 0
   source                                              = "./modules/oke/cluster_addons/cluster_autoscaler/deployment/enhanced_cluster_addon"
-  cluster_id                                          = oci_containerengine_cluster.oci_oke_cluster.id
+  cluster_id                                          = local.target_cluster_id
   autoscaler_pool_settings                            = local.node_pool_list
   cluster_autoscaler_use_workload_identity            = true #var.cluster_autoscaler_use_workload_identity
   cluster_autoscaler_max_node_provision_time          = var.cluster_autoscaler_max_node_provision_time
@@ -78,8 +79,5 @@ module "cluster_autoscaler_deployment_with_addon_manager" {
   cluster_autoscaler_scale_down_unneeded_time         = var.cluster_autoscaler_scale_down_unneeded_time
   cluster_autoscaler_unremovable_node_recheck_timeout = var.cluster_autoscaler_unremovable_node_recheck_timeout
   addon_version                                       = null # null sets auto-update
-  depends_on = [
-    data.oci_containerengine_cluster_kube_config.oke,
-    oci_containerengine_node_pool.oci_oke_node_pool
-  ]
+  depends_on                                          = [data.oci_containerengine_cluster_kube_config.oke]
 }

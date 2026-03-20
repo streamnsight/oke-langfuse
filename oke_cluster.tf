@@ -2,12 +2,14 @@
 ## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
 
 module "kubernetes_version" {
+  count = var.use_existing_cluster ? 0 : 1
   # selects closest supported k8s version, or latest version if not defined
   source             = "./modules/oke/kubernetes_version_utils"
   kubernetes_version = var.kubernetes_version
 }
 
 resource "oci_containerengine_cluster" "oci_oke_cluster" {
+  count = var.use_existing_cluster ? 0 : 1
   # depends_on = [oci_identity_policy.oke_key_access_policy]
 
   compartment_id = var.cluster_compartment_id
@@ -67,8 +69,94 @@ resource "oci_containerengine_cluster" "oci_oke_cluster" {
   defined_tags = var.cluster_tags
 }
 
+locals {
+  target_cluster_id = var.use_existing_cluster ? var.cluster_ocid : oci_containerengine_cluster.oci_oke_cluster[0].id
+}
+
+check "existing_cluster_requires_cluster_ocid" {
+  assert {
+    condition     = !var.use_existing_cluster || (var.cluster_ocid != null && var.cluster_ocid != "")
+    error_message = "When use_existing_cluster is true, cluster_ocid must be provided and non-empty."
+  }
+}
+
+data "oci_containerengine_cluster" "target" {
+  cluster_id = local.target_cluster_id
+
+  lifecycle {
+    postcondition {
+      condition     = !var.use_existing_cluster || self.type == "ENHANCED_CLUSTER"
+      error_message = "When use_existing_cluster is true, the target cluster must be an ENHANCED_CLUSTER."
+    }
+    postcondition {
+      condition     = !var.use_existing_cluster || self.endpoint_config[0].is_public_ip_enabled == false
+      error_message = "When use_existing_cluster is true, the target cluster must expose a private endpoint (is_public_ip_enabled must be false)."
+    }
+  }
+}
+
+data "oci_containerengine_node_pools" "target" {
+  cluster_id     = local.target_cluster_id
+  compartment_id = var.cluster_compartment_id
+
+  lifecycle {
+    postcondition {
+      condition = !var.use_existing_cluster || anytrue([
+        for node_pool in self.node_pools :
+        try(node_pool.node_config_details[0].size, 0) >= 3
+      ])
+      error_message = "When use_existing_cluster is true, the target cluster must contain at least one existing node pool with 3 or more nodes to support distributed DB resources."
+    }
+    postcondition {
+      condition = !var.use_existing_cluster || anytrue([
+        for node_pool in self.node_pools :
+        (
+          length(try(node_pool.node_config_details[0].placement_configs[0].subnet_id, [])) > 0 ||
+          length(try(node_pool.node_config_details[0].subnet_id, [])) > 0 ||
+          length(try(node_pool.node_config_details[0].node_pool_pod_network_option_details.pod_subnet_ids, [])) > 0
+        )
+      ])
+      error_message = "When use_existing_cluster is true, at least one existing node pool must expose subnet metadata (placement_configs, subnet_ids, or node subnet_id)."
+    }
+  }
+}
+
+data "oci_containerengine_addons" "target" {
+  cluster_id = local.target_cluster_id
+}
+
+
+# output add_ons {
+#   value = data.oci_containerengine_addons.target
+# }
+
+locals {
+  target_cluster = {
+    id              = data.oci_containerengine_cluster.target.id
+    name            = data.oci_containerengine_cluster.target.name
+    endpoint_config = data.oci_containerengine_cluster.target.endpoint_config
+  }
+
+  effective_cluster_endpoint_subnet_id = local.target_cluster.endpoint_config[0].subnet_id
+
+  existing_cluster_sized_node_pools = [
+    for node_pool in data.oci_containerengine_node_pools.target.node_pools : node_pool
+    if try(node_pool.node_config_details[0].size, 0) >= 3
+  ]
+
+  existing_cluster_primary_node_pool = length(local.existing_cluster_sized_node_pools) > 0 ? local.existing_cluster_sized_node_pools[0] : null
+
+  effective_builder_shape    = var.use_existing_cluster ? try(local.existing_cluster_primary_node_pool.node_shape, var.np1_node_shape) : local.node_pools[0].node_shape
+  effective_builder_image_id = var.use_existing_cluster ? try(local.existing_cluster_primary_node_pool.node_source_details[0].image_id, var.np1_image_id) : local.node_pools[0].image_id
+
+  existing_addons = toset([
+    for addon in data.oci_containerengine_addons.target.addons : addon.addon_name
+    if contains(["ACTIVE", "CREATING", "UPDATING"], addon.state)
+  ])
+}
+
 # Gets kubeconfig
 data "oci_containerengine_cluster_kube_config" "oke" {
-  depends_on = [oci_containerengine_cluster.oci_oke_cluster]
-  cluster_id = oci_containerengine_cluster.oci_oke_cluster.id
+  cluster_id = local.target_cluster_id
 }
+

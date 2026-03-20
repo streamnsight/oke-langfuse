@@ -20,8 +20,24 @@ variable "use_existing_vcn" {
   default = false
 }
 
+variable "use_existing_cluster" {
+  type    = bool
+  default = false
+}
+
+variable "cluster_ocid" {
+  type    = string
+  default = null
+
+  validation {
+    condition     = var.cluster_ocid == null || var.cluster_ocid != ""
+    error_message = "cluster_ocid must be null or a non-empty OCID string."
+  }
+}
+
 variable "vcn_compartment_id" {
   type = string
+  default = null
 }
 
 variable "vcn_cidr" {
@@ -395,6 +411,7 @@ variable "object_storage_namespace" {
 
 variable "create_bastion" {
   type = bool
+  default = true
 }
 
 variable "langfuse_s3_access_key" {

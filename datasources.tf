@@ -55,10 +55,15 @@ data "oci_identity_compartments" "test_compartments" {
   lifecycle {
     postcondition {
       # This condition checks the instance state after creation
-      condition     = var.cluster_compartment_id == var.devops_compartment_id && var.cluster_compartment_id == var.vcn_compartment_id && var.cluster_compartment_id == var.secrets_store_vault_compartment_id
+      condition     = var.cluster_compartment_id == var.devops_compartment_id && var.cluster_compartment_id == local.effective_vcn_compartment_id && var.cluster_compartment_id == var.secrets_store_vault_compartment_id
       error_message = "Cross compartment deployment is not suported at this time. VCN, Vautl, Cluster all need to be in the same compartment"
     }
   }
+}
+
+data "oci_core_subnet" "existing_cluster_worker_subnet" {
+  count     = var.use_existing_cluster ? 1 : 0
+  subnet_id = local.existing_cluster_worker_subnet_id
 }
 
 

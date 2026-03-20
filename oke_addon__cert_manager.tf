@@ -13,14 +13,11 @@ locals {
 }
 
 module "cert_manager_deployment_using_addon_manager" {
-  # count                = local.enable_cert_manager ? (local.use_addon_manager ? 1 : 0) : 0
   source               = "./modules/oke/cluster_addons/cert-manager/deployment/enhanced_cluster_addon"
-  cluster_id           = oci_containerengine_cluster.oci_oke_cluster.id
+  cluster_id           = local.target_cluster_id
   cert_manager_version = null # for auto-update
   nb_replicas          = var.cert_manager_nb_replicas
   depends_on = [
-    data.oci_containerengine_cluster_kube_config.oke,
-    oci_containerengine_cluster.oci_oke_cluster,
-    oci_containerengine_node_pool.oci_oke_node_pool,
+    data.oci_containerengine_cluster_kube_config.oke
   ]
 }
