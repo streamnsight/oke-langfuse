@@ -57,9 +57,9 @@ resolve_scenarios() {
 
 scenario_is_fast() {
   local scenario_dir="$1"
-  [ -f "$scenario_dir/terraform.tfvars" ] || return 1
-  [ ! -f "$scenario_dir/prepare.sh" ] || return 1
-  [ ! -f "$scenario_dir/fixture.env" ] || return 1
+  local suites_file="$scenario_dir/suites.txt"
+  [ -f "$suites_file" ] || return 1
+  grep -Eq '(^|[[:space:]])fast($|[[:space:]])' "$suites_file"
 }
 
 filter_scenarios_by_suite() {

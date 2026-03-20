@@ -15,9 +15,9 @@ Each scenario provides either a tracked `terraform.tfvars` file or a `prepare.sh
 ## Conventions
 - `valid_*` directories must validate successfully.
 - `invalid_*` directories are expected to fail validation.
-- Scenarios can optionally declare `fixture.env`, `expression.tfconsole`, `mode.txt`, `plan_targets.txt`, and `expected_error.txt`.
-- `SUITE=fast` runs only tracked-`terraform.tfvars` scenarios that do not depend on fixture preparation.
-- The fast suite intentionally avoids `terraform console` and uses targeted `plan` checks so PR validation never waits on interactive console behavior.
+- Scenarios can optionally declare `fixture.env`, `expression.tfconsole`, `mode.txt`, `plan_targets.txt`, `expected_error.txt`, and `suites.txt`.
+- `SUITE=fast` runs only scenarios explicitly tagged with `fast` in `suites.txt`.
+- The fast suite is intentionally limited to offline validation failures that happen before OCI provider authentication or live data lookups.
 - The script exits non-zero if any scenario behaves unexpectedly.
 
 ## Current scenario areas

@@ -75,7 +75,7 @@ Real deployment values should be injected from `tests/.env` or environment varia
 - Keep scenario-based validation and avoid `terraform test`
 - Preserve `tests/scenarios/...` as the source of fast validation inputs
 - Support `SCENARIO=<name>` for single-scenario execution
-- Support `SUITE=fast` for PR-safe validation that does not require fixtures or live OCI infrastructure
+- Support `SUITE=fast` for PR-safe validation that does not require fixtures or live OCI infrastructure, using explicit scenario tagging rather than implicit heuristics
 - Support full-suite execution when `SCENARIO` is omitted
 - Capture per-run logs under `tests/artifacts/test/...`
 - Clean up successful per-run artifacts by default to avoid unbounded local log growth, with an opt-out env var for debugging
