@@ -171,7 +171,7 @@ module "langfuse_chart" {
   oci_profile                              = var.oci_profile
   cluster_id                               = local.target_cluster_id
   artifact_repo_id                         = local.artifact_repo_id
-  subnet_id                                = local.workload_subnet_id  # shell stage needs to reach to the cluster endpoint
+  subnet_id                                = local.workload_subnet_id # shell stage needs to reach to the cluster endpoint
   builder_instance_private_ip              = module.builder_instance.details.private_ip
   builder_instance_private_key_secret_ocid = data.external.builder_ssh_key_to_vault.result.private_key_secret_ocid
   psql_endpoint                            = module.langfuse_postgres.details.endpoint

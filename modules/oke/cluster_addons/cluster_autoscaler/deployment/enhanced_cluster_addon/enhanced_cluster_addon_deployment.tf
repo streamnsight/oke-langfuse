@@ -52,6 +52,6 @@ resource "oci_containerengine_addon" "cluster_autoscaler_addon" {
       value = configurations.value
     }
   }
-  version = null # null == auto update
+  version           = null # null == auto update
   override_existing = false
 }
