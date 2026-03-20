@@ -1,0 +1,7 @@
+{
+  "mode": "apply",
+  "destroy_after_run": true,
+  "suites": [
+    "live"
+  ]
+}

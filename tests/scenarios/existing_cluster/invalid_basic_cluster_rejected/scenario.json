@@ -1,0 +1,11 @@
+{
+  "mode": "apply",
+  "expectation": "fail",
+  "suites": [
+    "live"
+  ],
+  "expected_error": "the target cluster must be an ENHANCED_CLUSTER",
+  "plan_targets": [
+    "data.oci_containerengine_cluster.target"
+  ]
+}

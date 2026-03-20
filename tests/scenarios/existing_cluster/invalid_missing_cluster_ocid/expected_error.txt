@@ -1,1 +1,0 @@
-cluster_ocid must be provided and non-empty

@@ -1,0 +1,8 @@
+{
+  "mode": "plan",
+  "expectation": "fail",
+  "expected_error": "Cross compartment deployment is not suported at this time. VCN, Vautl, Cluster all need to be in the same compartment",
+  "plan_targets": [
+    "data.oci_identity_compartments.test_compartments"
+  ]
+}

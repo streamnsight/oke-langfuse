@@ -1,0 +1,12 @@
+{
+  "mode": "apply",
+  "expectation": "fail",
+  "suites": [
+    "live"
+  ],
+  "expected_error": "the target cluster must contain at least one existing node pool with 3 or more nodes",
+  "plan_targets": [
+    "data.oci_containerengine_cluster.target",
+    "data.oci_containerengine_node_pools.target"
+  ]
+}

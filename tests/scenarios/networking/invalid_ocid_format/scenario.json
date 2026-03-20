@@ -1,0 +1,8 @@
+{
+  "mode": "plan",
+  "expectation": "fail",
+  "expected_error": "vcn_compartment_id must be null or a valid OCID.",
+  "plan_targets": [
+    "random_string.deploy_id"
+  ]
+}

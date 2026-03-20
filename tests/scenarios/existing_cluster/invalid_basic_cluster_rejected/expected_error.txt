@@ -1,1 +1,0 @@
-the target cluster must be an ENHANCED_CLUSTER

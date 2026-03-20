@@ -1,1 +1,0 @@
-cluster_ocid must be null or a valid non-empty OCID string.
