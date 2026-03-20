@@ -246,8 +246,14 @@ run_single_scenario() {
   TESTS_LAST_SCENARIO_RESULT=""
   local expectation
   expectation="$(scenario_expectation "$scenario_dir")"
-  local mode
-  mode="$(scenario_mode "$scenario_dir")"
+  local mode raw_mode destroy_after_run
+  raw_mode="$(scenario_mode "$scenario_dir")"
+  mode="$raw_mode"
+  destroy_after_run="false"
+  if [[ "$mode" == *-destroy ]]; then
+    destroy_after_run="true"
+    mode="${mode%-destroy}"
+  fi
   local expected_error
   expected_error="$(scenario_expected_error "$scenario_dir")"
   local expected_output
@@ -258,11 +264,15 @@ run_single_scenario() {
   work_dir="$(mktemp -d)"
   local init_log="$artifact_dir/terraform-init.log"
   local run_log="$artifact_dir/terraform-$mode.log"
+  local destroy_log="$artifact_dir/terraform-destroy.log"
   local outputs_before="$artifact_dir/outputs-before.json"
   local outputs_after="$artifact_dir/outputs-after.json"
   local failure_message=""
+  local cleanup_failed="false"
+  local cleanup_failure_message=""
+  local destroy_args=(-input=false -lock=false -no-color -var-file="terraform.tfvars")
 
-  log "Running scenario $scenario_name (expect: $expectation, mode: $mode)"
+  log "Running scenario $scenario_name (expect: $expectation, mode: $raw_mode)"
   prepare_fixture_for_scenario "$scenario_dir"
   copy_repo_for_scenario "$work_dir"
   prepare_scenario_workdir "$scenario_dir" "$scenario_name" "$work_dir"
@@ -433,6 +443,16 @@ run_single_scenario() {
 
   capture_terraform_outputs "$work_dir" "$outputs_after"
 
+  if [ "$destroy_after_run" = "true" ] && [ -f "$work_dir/terraform.tfstate" ]; then
+    begin_log_group "Scenario $scenario_name: terraform destroy"
+    if ! run_logged_command "$destroy_log" terraform -chdir="$work_dir" destroy "${destroy_args[@]}" -auto-approve; then
+      cleanup_failed="true"
+      cleanup_failure_message="terraform destroy failed after scenario execution"
+      [ -s "$destroy_log" ] && cat "$destroy_log" >&2
+    fi
+    end_log_group
+  fi
+
   if [ -n "$expected_output" ] && [ "$has_error" = "false" ]; then
     local normalized_output normalized_expected_output
     normalized_output="$(printf '%s\n' "$command_output" | normalize_whitespace)"
@@ -479,6 +499,14 @@ run_single_scenario() {
     printf '%s\n' "$failure_message" >"$artifact_dir/failure.txt"
     log "Scenario failed: $scenario_name"
     TESTS_LAST_SCENARIO_RESULT="$scenario_name|$failure_message"
+    return 1
+  fi
+
+  if [ "$cleanup_failed" = "true" ]; then
+    rm -rf "$work_dir"
+    printf '%s\n' "$cleanup_failure_message" >"$artifact_dir/failure.txt"
+    log "Scenario failed: $scenario_name"
+    TESTS_LAST_SCENARIO_RESULT="$scenario_name|$cleanup_failure_message"
     return 1
   fi
 

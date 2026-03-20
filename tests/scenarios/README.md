@@ -25,5 +25,6 @@ Each scenario provides either a tracked `terraform.tfvars` file or a `prepare.sh
 
 ## Current scenario areas
 
+- `deployment/`
 - `networking/`
 - `existing_cluster/`

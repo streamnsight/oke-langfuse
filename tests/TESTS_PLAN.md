@@ -137,11 +137,11 @@ Current live scenarios:
 - existing enhanced cluster with only two nodes rejected
 - existing enhanced cluster with default OKE cloud-init rejected by the optional preflight
 - existing enhanced cluster with three nodes accepted
+- full stack deployment on shared existing VCN + valid enhanced cluster
 
 Backlog scenarios to add incrementally:
 
 - missing `cluster_ocid` when `use_existing_cluster = true`
-- existing VCN happy path with a full valid stack deployment
 - additional networking validation cases that can be made suite-safe
 
 Fixture-backed cloud-init coverage:

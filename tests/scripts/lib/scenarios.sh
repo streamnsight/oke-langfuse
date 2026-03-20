@@ -89,3 +89,29 @@ write_existing_cluster_tfvars() {
     done
   } >"$outfile"
 }
+
+write_existing_cluster_with_network_tfvars() {
+  local outfile="$1"
+  local cluster_ocid="$2"
+  shift 2
+
+  local vcn_id
+  local kubernetes_endpoint_subnet
+  local public_lb_subnet
+  local np1_subnet
+
+  vcn_id="$(fixture_output_value network vcn_id)"
+  kubernetes_endpoint_subnet="$(fixture_output_value network kubernetes_endpoint_subnet_id)"
+  public_lb_subnet="$(fixture_output_value network public_lb_subnet_id)"
+  np1_subnet="$(fixture_output_value network node_pool_subnet_ids_by_name | jq -r '.np1')"
+
+  write_existing_cluster_tfvars \
+    "$outfile" \
+    "$cluster_ocid" \
+    "use_existing_vcn = true" \
+    "vcn_id = $(hcl_quote "$vcn_id")" \
+    "kubernetes_endpoint_subnet = $(hcl_quote "$kubernetes_endpoint_subnet")" \
+    "public_lb_subnet = $(hcl_quote "$public_lb_subnet")" \
+    "np1_subnet = $(hcl_quote "$np1_subnet")" \
+    "$@"
+}
