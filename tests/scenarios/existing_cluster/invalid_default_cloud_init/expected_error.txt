@@ -1,1 +1,0 @@
-must expose custom cloud-init metadata containing the expected OCIR bootstrap markers

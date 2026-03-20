@@ -13,3 +13,6 @@ Current coverage:
 - `valid_enhanced_three_nodes`
 
 The fixture-backed scenarios use the shared `basic` and `enhanced` fixtures to validate existing-cluster compatibility checks against real OCI infrastructure.
+
+- The basic, public-endpoint, and two-node scenarios assert Terraform failures.
+- The cloud-init scenarios assert the computed matching-node-pool count directly, because the top-level preflight `check` is not targetable in isolation.

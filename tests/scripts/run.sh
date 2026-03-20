@@ -37,6 +37,18 @@ EOF
 }
 
 COMMAND="${1:-help}"
+shift || true
+
+for arg in "$@"; do
+  case "$arg" in
+    *=*)
+      export "$arg"
+      ;;
+    *)
+      die "Unexpected argument: $arg"
+      ;;
+  esac
+done
 
 case "$COMMAND" in
   help|-h|--help)

@@ -42,6 +42,10 @@ resource "oci_containerengine_cluster" "basic" {
       services_cidr = var.services_cidr
     }
   }
+
+  lifecycle {
+    ignore_changes = [defined_tags]
+  }
 }
 
 module "bastion" {

@@ -72,7 +72,7 @@ resource "oci_containerengine_cluster" "oci_oke_cluster" {
 locals {
   target_cluster_id = var.use_existing_cluster ? var.cluster_ocid : oci_containerengine_cluster.oci_oke_cluster[0].id
   existing_cluster_cloud_init_matching_node_pools = [
-    for node_pool in data.oci_containerengine_node_pools.target.node_pools : node_pool.id
+    for node_pool_id, node_pool in data.oci_containerengine_node_pool.target : node_pool_id
     if alltrue([
       for marker in var.existing_cluster_cloud_init_required_markers :
       strcontains(
@@ -136,6 +136,14 @@ data "oci_containerengine_node_pools" "target" {
       error_message = "When use_existing_cluster is true, at least one existing node pool must expose subnet metadata (placement_configs, subnet_ids, or node subnet_id)."
     }
   }
+}
+
+data "oci_containerengine_node_pool" "target" {
+  for_each = var.use_existing_cluster ? {
+    for node_pool in data.oci_containerengine_node_pools.target.node_pools : node_pool.id => node_pool.id
+  } : {}
+
+  node_pool_id = each.value
 }
 
 data "oci_containerengine_addons" "target" {

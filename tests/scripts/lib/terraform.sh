@@ -2,6 +2,10 @@
 
 scenario_expectation() {
   local scenario_name="$1"
+  if [ -f "$scenario_name/expectation.txt" ]; then
+    tr -d '[:space:]' <"$scenario_name/expectation.txt"
+    return
+  fi
   case "$(basename "$scenario_name")" in
     valid_*)
       printf 'pass\n'
@@ -18,15 +22,20 @@ scenario_expectation() {
 resolve_scenarios() {
   local selector="${1:-}"
   local scenario_roots_cmd=(find "$TESTS_DIR/scenarios" -type f \( -name terraform.tfvars -o -name prepare.sh \) -print)
+  local all_scenarios_cmd=("${scenario_roots_cmd[@]}")
   if [ -z "$selector" ]; then
-    "${scenario_roots_cmd[@]}" | sort | xargs -n1 dirname | awk '!seen[$0]++'
+    "${all_scenarios_cmd[@]}" | sort | xargs -n1 dirname | awk '!seen[$0]++'
     return
   fi
 
   local matches=()
   while IFS= read -r path; do
-    matches+=("$path")
-  done < <("${scenario_roots_cmd[@]}" | sort | xargs -n1 dirname | awk '!seen[$0]++' | grep -E "/${selector}$|/${selector}/|/${selector}$" || true)
+    [ -n "$path" ] || continue
+    local relative_path="${path#"$TESTS_DIR/scenarios/"}"
+    if [ "$relative_path" = "$selector" ] || [ "$(basename "$relative_path")" = "$selector" ]; then
+      matches+=("$path")
+    fi
+  done < <("${all_scenarios_cmd[@]}" | sort | xargs -n1 dirname | awk '!seen[$0]++')
 
   if [ "${#matches[@]}" -eq 0 ]; then
     die "No scenario matched selector: $selector"
@@ -69,6 +78,10 @@ terraform_provider_runtime_hint() {
   fi
 }
 
+normalize_whitespace() {
+  tr '\n' ' ' | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//'
+}
+
 scenario_mode() {
   local scenario_dir="$1"
   if [ -f "$scenario_dir/mode.txt" ]; then
@@ -94,7 +107,14 @@ scenario_expected_error() {
   fi
 }
 
-scenario_plan_targets() {
+scenario_expected_output() {
+  local scenario_dir="$1"
+  if [ -f "$scenario_dir/expected_output.txt" ]; then
+    cat "$scenario_dir/expected_output.txt"
+  fi
+}
+
+scenario_targets() {
   local scenario_dir="$1"
   if [ -f "$scenario_dir/plan_targets.txt" ]; then
     sed '/^[[:space:]]*$/d' "$scenario_dir/plan_targets.txt"
@@ -136,6 +156,8 @@ run_single_scenario() {
   mode="$(scenario_mode "$scenario_dir")"
   local expected_error
   expected_error="$(scenario_expected_error "$scenario_dir")"
+  local expected_output
+  expected_output="$(scenario_expected_output "$scenario_dir")"
   local artifact_dir
   artifact_dir="$(create_artifact_dir "test/$(slugify "$scenario_name")")"
   local work_dir
@@ -175,19 +197,72 @@ run_single_scenario() {
         has_error="true"
       fi
       ;;
-    plan)
+    plan|apply|apply-console)
       local plan_args=(-input=false -lock=false -no-color -var-file="terraform.tfvars")
+      local target_args=()
+      local target
       while IFS= read -r target; do
         [ -n "$target" ] || continue
+        target_args+=("-target=$target")
         plan_args+=("-target=$target")
-      done < <(scenario_plan_targets "$scenario_dir")
+      done < <(scenario_targets "$scenario_dir")
 
-      if terraform -chdir="$work_dir" plan "${plan_args[@]}" >"$run_log" 2>&1; then
-        has_error="false"
+      if [ "$mode" = "plan" ]; then
+        if terraform -chdir="$work_dir" plan "${plan_args[@]}" >"$run_log" 2>&1; then
+          has_error="false"
+        else
+          has_error="true"
+        fi
+      elif [ "$mode" = "apply" ]; then
+        if terraform -chdir="$work_dir" apply "${plan_args[@]}" -auto-approve >"$run_log" 2>&1; then
+          has_error="false"
+        else
+          has_error="true"
+        fi
       else
-        has_error="true"
+        local singular_node_pool_target="-target=data.oci_containerengine_node_pool.target"
+        local needs_staged_apply="false"
+        local staged_target_args=()
+        local target_arg
+        for target_arg in "${target_args[@]}"; do
+          if [ "$target_arg" = "$singular_node_pool_target" ]; then
+            needs_staged_apply="true"
+            continue
+          fi
+          staged_target_args+=("$target_arg")
+        done
+
+        local apply_succeeded="false"
+        if [ "$needs_staged_apply" = "true" ]; then
+          {
+            printf '[tests] staged apply phase 1\n'
+            terraform -chdir="$work_dir" apply -input=false -lock=false -no-color -var-file="terraform.tfvars" "${staged_target_args[@]}" -auto-approve
+            printf '\n[tests] staged apply phase 2\n'
+            terraform -chdir="$work_dir" apply "${plan_args[@]}" -auto-approve
+          } >"$run_log" 2>&1 && apply_succeeded="true"
+        elif terraform -chdir="$work_dir" apply "${plan_args[@]}" -auto-approve >"$run_log" 2>&1; then
+          apply_succeeded="true"
+        fi
+
+        if [ "$apply_succeeded" = "true" ]; then
+          local expression
+          expression="$(scenario_console_expression "$scenario_dir")"
+          local console_output
+          console_output="$(terraform -chdir="$work_dir" console -var-file="terraform.tfvars" <<<"$expression" 2>&1 || true)"
+          printf '\n%s\n' "$console_output" >>"$run_log"
+          command_output="$console_output"
+          if printf '%s\n' "$console_output" | grep -q "Error:"; then
+            has_error="true"
+          else
+            has_error="false"
+          fi
+        else
+          has_error="true"
+        fi
       fi
-      command_output="$(cat "$run_log")"
+      if [ -z "$command_output" ]; then
+        command_output="$(cat "$run_log")"
+      fi
       ;;
     *)
       rm -rf "$work_dir"
@@ -197,8 +272,22 @@ run_single_scenario() {
 
   capture_terraform_outputs "$work_dir" "$outputs_after"
 
+  if [ -n "$expected_output" ] && [ "$has_error" = "false" ]; then
+    local normalized_output normalized_expected_output
+    normalized_output="$(printf '%s\n' "$command_output" | normalize_whitespace)"
+    normalized_expected_output="$(printf '%s\n' "$expected_output" | normalize_whitespace)"
+    if [[ "$normalized_output" != *"$normalized_expected_output"* ]]; then
+      cat "$run_log" >&2
+      rm -rf "$work_dir"
+      die "Scenario output did not contain the expected text: $scenario_name"
+    fi
+  fi
+
   if [ -n "$expected_error" ] && [ "$has_error" = "true" ]; then
-    if ! printf '%s\n' "$command_output" | grep -Fq -- "$expected_error"; then
+    local normalized_output normalized_expected
+    normalized_output="$(printf '%s\n' "$command_output" | normalize_whitespace)"
+    normalized_expected="$(printf '%s\n' "$expected_error" | normalize_whitespace)"
+    if [[ "$normalized_output" != *"$normalized_expected"* ]]; then
       cat "$run_log" >&2
       rm -rf "$work_dir"
       die "Scenario failed, but not with the expected error text: $scenario_name"

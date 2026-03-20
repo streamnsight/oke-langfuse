@@ -64,6 +64,10 @@ resource "oci_containerengine_cluster" "enhanced" {
       services_cidr = var.services_cidr
     }
   }
+
+  lifecycle {
+    ignore_changes = [defined_tags]
+  }
 }
 
 resource "oci_containerengine_node_pool" "primary" {
@@ -113,6 +117,10 @@ resource "oci_containerengine_node_pool" "primary" {
     is_node_cycling_enabled = true
     maximum_surge           = 1
     maximum_unavailable     = 1
+  }
+
+  lifecycle {
+    ignore_changes = [defined_tags]
   }
 }
 

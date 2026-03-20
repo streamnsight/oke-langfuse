@@ -159,6 +159,9 @@ run_fixture_action() {
 
   case "$action" in
     status|up|down|refresh)
+      if [ "$target" = "enhanced" ] && [ -n "$size" ]; then
+        extra_vars+=("-var=node_pool_size=$size")
+      fi
       if [ "$target" = "enhanced" ] && [ -n "${USE_CUSTOM_CLOUD_INIT:-}" ]; then
         extra_vars+=("-var=use_custom_cloud_init=$USE_CUSTOM_CLOUD_INIT")
       fi

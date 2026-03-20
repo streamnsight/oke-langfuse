@@ -9,7 +9,11 @@ fixture_outputs_json_for_target() {
   local target="$1"
   local fixture_dir
   fixture_dir="$(fixture_dir_for_target "$target")"
-  terraform -chdir="$fixture_dir" output -json
+  if [ -f "$fixture_dir/terraform.tfstate" ]; then
+    jq -c '.outputs' "$fixture_dir/terraform.tfstate"
+  else
+    return 1
+  fi
 }
 
 fixture_output_value() {
@@ -69,6 +73,10 @@ write_existing_cluster_tfvars() {
     printf 'cluster_ocid = %s\n' "$(hcl_quote "$cluster_ocid")"
     printf 'create_bastion = false\n'
     printf 'create_idcs_app = false\n'
+    printf 'idcs_app_id = %s\n' "$(hcl_quote "${TF_VAR_idcs_app_id:-test-idcs-app}")"
+    printf 'idcs_client_id = %s\n' "$(hcl_quote "${TF_VAR_idcs_client_id:-test-idcs-client}")"
+    printf 'idcs_client_secret = %s\n' "$(hcl_quote "${TF_VAR_idcs_client_secret:-test-idcs-secret}")"
+    printf 'idcs_domain_url = %s\n' "$(hcl_quote "${TF_VAR_idcs_domain_url:-https://example.invalid}")"
     printf 'enable_oci_genai_gateway = false\n'
     printf 'test_mode = true\n'
 
