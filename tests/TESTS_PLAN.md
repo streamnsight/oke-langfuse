@@ -79,6 +79,7 @@ Real deployment values should be injected from `tests/.env` or environment varia
 - Support full-suite execution when `SCENARIO` is omitted
 - Capture per-run logs under `tests/artifacts/test/...`
 - Clean up successful per-run artifacts by default to avoid unbounded local log growth, with an opt-out env var for debugging
+- Aggregate scenario failures across a suite run so a single execution shows the full set of broken tests that need fixing
 
 ### 2. Shared fixtures under `tests/fixtures/`
 

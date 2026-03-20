@@ -217,6 +217,7 @@ run_single_scenario() {
   local run_log="$artifact_dir/terraform-$mode.log"
   local outputs_before="$artifact_dir/outputs-before.json"
   local outputs_after="$artifact_dir/outputs-after.json"
+  local failure_message=""
 
   log "Running scenario $scenario_name (expect: $expectation, mode: $mode)"
   prepare_fixture_for_scenario "$scenario_dir"
@@ -237,8 +238,12 @@ run_single_scenario() {
     fi
     cat "$init_log" >&2
     end_log_group
+    failure_message="terraform init failed (see $init_log)"
     rm -rf "$work_dir"
-    die "terraform init failed for scenario: $scenario_name (see $init_log)"
+    printf '%s\n' "$failure_message" >"$artifact_dir/failure.txt"
+    log "Scenario failed: $scenario_name"
+    printf '%s|%s\n' "$scenario_name" "$failure_message"
+    return 1
   fi
   end_log_group
 
@@ -391,8 +396,12 @@ run_single_scenario() {
     normalized_expected_output="$(printf '%s\n' "$expected_output" | normalize_whitespace)"
     if [[ "$normalized_output" != *"$normalized_expected_output"* ]]; then
       cat "$run_log" >&2
+      failure_message="output did not contain expected text"
       rm -rf "$work_dir"
-      die "Scenario output did not contain the expected text: $scenario_name"
+      printf '%s\n' "$failure_message" >"$artifact_dir/failure.txt"
+      log "Scenario failed: $scenario_name"
+      printf '%s|%s\n' "$scenario_name" "$failure_message"
+      return 1
     fi
   fi
 
@@ -402,25 +411,38 @@ run_single_scenario() {
     normalized_expected="$(printf '%s\n' "$expected_error" | normalize_whitespace)"
     if [[ "$normalized_output" != *"$normalized_expected"* ]]; then
       cat "$run_log" >&2
+      failure_message="failed, but not with the expected error text"
       rm -rf "$work_dir"
-      die "Scenario failed, but not with the expected error text: $scenario_name"
+      printf '%s\n' "$failure_message" >"$artifact_dir/failure.txt"
+      log "Scenario failed: $scenario_name"
+      printf '%s|%s\n' "$scenario_name" "$failure_message"
+      return 1
     fi
   fi
 
   if [ "$expectation" = "pass" ] && [ "$has_error" = "true" ]; then
     cat "$run_log" >&2
+    failure_message="expected pass but failed.$(terraform_provider_runtime_hint "$run_log")"
     rm -rf "$work_dir"
-    die "Scenario was expected to pass but failed: $scenario_name.$(terraform_provider_runtime_hint "$run_log")"
+    printf '%s\n' "$failure_message" >"$artifact_dir/failure.txt"
+    log "Scenario failed: $scenario_name"
+    printf '%s|%s\n' "$scenario_name" "$failure_message"
+    return 1
   fi
 
   if [ "$expectation" = "fail" ] && [ "$has_error" = "false" ]; then
+    failure_message="expected fail but succeeded"
     rm -rf "$work_dir"
-    die "Scenario was expected to fail but succeeded: $scenario_name"
+    printf '%s\n' "$failure_message" >"$artifact_dir/failure.txt"
+    log "Scenario failed: $scenario_name"
+    printf '%s|%s\n' "$scenario_name" "$failure_message"
+    return 1
   fi
 
   log "Scenario completed: $scenario_name"
   cleanup_artifact_dir_on_success "$artifact_dir"
   rm -rf "$work_dir"
+  return 0
 }
 
 run_scenario_suite() {
@@ -430,14 +452,27 @@ run_scenario_suite() {
 
   local selector="${1:-}"
   local ran_any="false"
+  local failures=()
+  local scenario_dir scenario_result
   while IFS= read -r scenario_dir; do
     [ -n "$scenario_dir" ] || continue
     ran_any="true"
-    run_single_scenario "$scenario_dir"
+    if ! scenario_result="$(run_single_scenario "$scenario_dir")"; then
+      failures+=("$scenario_result")
+    fi
   done < <(resolve_scenarios "$selector")
 
   if [ "$ran_any" != "true" ]; then
     die "No scenarios were executed"
+  fi
+
+  if [ "${#failures[@]}" -gt 0 ]; then
+    printf '[tests] Scenario failures summary:\n' >&2
+    local failure
+    for failure in "${failures[@]}"; do
+      printf '[tests]   - %s\n' "$failure" >&2
+    done
+    exit 1
   fi
 
   log "Scenario suite completed."

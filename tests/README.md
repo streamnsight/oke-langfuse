@@ -57,6 +57,7 @@ Direct runner usage:
 ## Notes
 
 - The fast suite intentionally uses scenario validation and not `terraform test`.
+- `test` runs aggregate scenario failures and report a final summary instead of stopping on the first failing case.
 - The fixture directories are now isolated under `tests/fixtures/`.
 - The enhanced fixture accepts `USE_CUSTOM_CLOUD_INIT=true|false` so we can test both the default OKE bootstrap and the stack's custom OCIR bootstrap.
 - When `test_mode = true`, the stack exposes extra non-sensitive metadata through `terraform output -json` for local inspection tooling.
