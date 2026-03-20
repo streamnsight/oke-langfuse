@@ -89,6 +89,17 @@ terraform_init_args() {
   printf '%s\n' "${args[@]}"
 }
 
+oci_cli_global_args() {
+  local args=()
+  if [ -n "${OCI_PROFILE:-}" ]; then
+    args+=("--profile" "$OCI_PROFILE")
+  fi
+  if [ -n "${TF_VAR_region:-}" ]; then
+    args+=("--region" "$TF_VAR_region")
+  fi
+  printf '%s\n' "${args[@]}"
+}
+
 load_env_file() {
   local env_file="$1"
   if [ -f "$env_file" ]; then

@@ -22,14 +22,16 @@ Usage:
 
 Commands:
   help
-  test      Run scenario validation. Optional: SCENARIO=<name> SUITE=<all|fast>
+  test      Run preflight plus scenario validation. Optional: SCENARIO=<name> SUITE=<all|fast|live>
   fixture   Manage fixture workspace. Required: TARGET=<network|basic|enhanced> ACTION=<up|down|refresh|status|scale>
   debug     Collect OCI DevOps and Kubernetes diagnostics. Required: TARGET=<network|basic|enhanced>
 
 Examples:
   ./tests/scripts/run.sh test
   ./tests/scripts/run.sh test SUITE=fast
-  ./tests/scripts/run.sh test SCENARIO=networking/valid_existing_vcn
+  ./tests/scripts/run.sh test SUITE=live
+  ./tests/scripts/run.sh test SCENARIO=existing_cluster/invalid_empty_cluster_ocid
+  ./tests/scripts/run.sh test SUITE=all SCENARIO=networking/valid_existing_vcn
   ./tests/scripts/run.sh fixture ACTION=status TARGET=network
   ./tests/scripts/run.sh fixture ACTION=scale TARGET=enhanced SIZE=3
   ./tests/scripts/run.sh fixture ACTION=refresh TARGET=enhanced USE_CUSTOM_CLOUD_INIT=false
@@ -56,6 +58,7 @@ case "$COMMAND" in
     print_help
     ;;
   test)
+    export SUITE="${SUITE:-fast}"
     run_scenario_suite "${SCENARIO:-}"
     ;;
   fixture)

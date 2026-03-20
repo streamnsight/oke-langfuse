@@ -94,6 +94,22 @@ output "test_metadata" {
     devops = {
       project_id     = module.devops_setup.project_id
       environment_id = module.devops_target_cluster_env.environment_id
+      pipeline_ids = {
+        builder_setup        = module.builder_setup_shell_stage.pipeline_id
+        builder_terminate    = module.builder_terminate_shell_stage.pipeline_id
+        build_langfuse_image = module.build_langfuse_image.pipeline_id
+        langfuse_gateway     = module.langfuse_gateway.pipeline_id
+        langfuse_chart       = module.langfuse_chart.pipeline_id
+        oci_genai_gateway    = try(module.oci_genai_gateway.pipeline_id, null)
+      }
+      deployment_ids = {
+        builder_setup        = module.builder_setup_shell_stage.deployment_id
+        builder_terminate    = module.builder_terminate_shell_stage.deployment_id
+        build_langfuse_image = module.build_langfuse_image.deployment_id
+        langfuse_gateway     = module.langfuse_gateway.deployment_id
+        langfuse_chart       = module.langfuse_chart.deployment_id
+        oci_genai_gateway    = try(module.oci_genai_gateway.deployment_id, null)
+      }
     }
     existing_cluster_preflight = var.use_existing_cluster && var.enable_existing_cluster_cloud_init_preflight ? {
       compatible             = length(local.existing_cluster_cloud_init_matching_node_pools) > 0

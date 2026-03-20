@@ -30,3 +30,9 @@ def devops_project_id:
 
 def devops_environment_id:
   .test_metadata.value.devops.environment_id;
+
+def devops_pipeline_ids:
+  .test_metadata.value.devops.pipeline_ids;
+
+def devops_deployment_ids:
+  .test_metadata.value.devops.deployment_ids;

@@ -55,11 +55,12 @@ resolve_scenarios() {
   printf '%s\n' "${matches[0]}"
 }
 
-scenario_is_fast() {
+scenario_has_suite_tag() {
   local scenario_dir="$1"
+  local suite="$2"
   local suites_file="$scenario_dir/suites.txt"
   [ -f "$suites_file" ] || return 1
-  grep -Eq '(^|[[:space:]])fast($|[[:space:]])' "$suites_file"
+  grep -Eq "(^|[[:space:]])${suite}($|[[:space:]])" "$suites_file"
 }
 
 filter_scenarios_by_suite() {
@@ -73,7 +74,15 @@ filter_scenarios_by_suite() {
     fast)
       while IFS= read -r scenario_dir; do
         [ -n "$scenario_dir" ] || continue
-        if scenario_is_fast "$scenario_dir"; then
+        if scenario_has_suite_tag "$scenario_dir" fast; then
+          printf '%s\n' "$scenario_dir"
+        fi
+      done <<<"$scenario_dirs"
+      ;;
+    live)
+      while IFS= read -r scenario_dir; do
+        [ -n "$scenario_dir" ] || continue
+        if scenario_has_suite_tag "$scenario_dir" live; then
           printf '%s\n' "$scenario_dir"
         fi
       done <<<"$scenario_dirs"
@@ -196,6 +205,39 @@ run_logged_command() {
   fi
 
   "$@" >"$logfile" 2>&1
+}
+
+run_preflight_checks() {
+  local artifact_dir
+  artifact_dir="$(create_artifact_dir "preflight")"
+  local init_log="$artifact_dir/terraform-init.log"
+  local validate_log="$artifact_dir/terraform-validate.log"
+
+  local init_args=()
+  while IFS= read -r arg; do
+    [ -n "$arg" ] && init_args+=("$arg")
+  done < <(terraform_init_args)
+
+  log "Running preflight checks"
+
+  begin_log_group "Preflight: terraform init"
+  if ! run_logged_command "$init_log" terraform -chdir="$ROOT_DIR" init "${init_args[@]}"; then
+    [ -s "$init_log" ] && cat "$init_log" >&2
+    end_log_group
+    die "Preflight failed during terraform init (see $init_log)"
+  fi
+  end_log_group
+
+  begin_log_group "Preflight: terraform validate"
+  if ! run_logged_command "$validate_log" terraform -chdir="$ROOT_DIR" validate -no-color; then
+    [ -s "$validate_log" ] && cat "$validate_log" >&2
+    end_log_group
+    die "Preflight failed during terraform validate (see $validate_log)"
+  fi
+  end_log_group
+
+  log "Preflight completed."
+  cleanup_artifact_dir_on_success "$artifact_dir"
 }
 
 run_single_scenario() {
@@ -450,6 +492,8 @@ run_scenario_suite() {
   ensure_artifacts_dir
   require_command terraform
   require_command rsync
+
+  run_preflight_checks
 
   local selector="${1:-}"
   local ran_any="false"

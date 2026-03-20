@@ -9,7 +9,9 @@ Each scenario provides either a tracked `terraform.tfvars` file or a `prepare.sh
 ```bash
 ./tests/scripts/run.sh test
 ./tests/scripts/run.sh test SUITE=fast
-./tests/scripts/run.sh test SCENARIO=networking/valid_existing_vcn
+./tests/scripts/run.sh test SUITE=live
+./tests/scripts/run.sh test SCENARIO=existing_cluster/invalid_empty_cluster_ocid
+./tests/scripts/run.sh test SUITE=all SCENARIO=networking/valid_existing_vcn
 ```
 
 ## Conventions
@@ -17,6 +19,7 @@ Each scenario provides either a tracked `terraform.tfvars` file or a `prepare.sh
 - `invalid_*` directories are expected to fail validation.
 - Scenarios can optionally declare `fixture.env`, `expression.tfconsole`, `mode.txt`, `plan_targets.txt`, `expected_error.txt`, and `suites.txt`.
 - `SUITE=fast` runs only scenarios explicitly tagged with `fast` in `suites.txt`.
+- `SUITE=live` runs only scenarios explicitly tagged with `live` in `suites.txt`.
 - The fast suite is intentionally limited to offline validation failures that happen before OCI provider authentication or live data lookups.
 - The script exits non-zero if any scenario behaves unexpectedly.
 

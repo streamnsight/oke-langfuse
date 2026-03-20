@@ -25,3 +25,15 @@ output "ip_address" {
 output "load_balancer_ocid" {
   value = local.lb[0].id
 }
+
+output "pipeline_id" {
+  value = oci_devops_deploy_pipeline.langfuse_gateway.id
+}
+
+output "deployment_id" {
+  value = oci_devops_deployment.langfuse_gateway_deployment.id
+}
+
+output "stage_id" {
+  value = oci_devops_deploy_stage.langfuse_gateway.id
+}

@@ -41,14 +41,16 @@ Planned workspace shape:
 Preferred interface:
 
 - `tests/scripts/run.sh test SCENARIO=<name>`
-- `tests/scripts/run.sh test SUITE=<all|fast> [SCENARIO=<name>]`
+- `tests/scripts/run.sh test SUITE=<all|fast|live> [SCENARIO=<name>]`
 - `tests/scripts/run.sh fixture ACTION=<up|down|refresh|status|scale> TARGET=<network|basic|enhanced> [SIZE=2|3]`
 - `tests/scripts/run.sh debug TARGET=<network|basic|enhanced> [SCENARIO=<name>]`
 
 Thin root shortcuts:
 
+- `make test` defaults to `SUITE=fast`
 - `make test SCENARIO=...`
 - `make test SUITE=fast`
+- `make test SUITE=live`
 - `make fixture ACTION=... TARGET=...`
 - `make debug TARGET=...`
 
@@ -76,7 +78,9 @@ Real deployment values should be injected from `tests/.env` or environment varia
 - Preserve `tests/scenarios/...` as the source of fast validation inputs
 - Support `SCENARIO=<name>` for single-scenario execution
 - Support `SUITE=fast` for PR-safe validation that does not require fixtures or live OCI infrastructure, using explicit scenario tagging rather than implicit heuristics
+- Support `SUITE=live` for fixture-backed OCI validation using explicit scenario tagging
 - Support full-suite execution when `SCENARIO` is omitted
+- Run blocking root preflight checks (`terraform init -backend=false`, `terraform validate`) before every suite
 - Capture per-run logs under `tests/artifacts/test/...`
 - Clean up successful per-run artifacts by default to avoid unbounded local log growth, with an opt-out env var for debugging
 - Aggregate scenario failures across a suite run so a single execution shows the full set of broken tests that need fixing
@@ -115,29 +119,28 @@ The debug tooling under `tests/scripts/` can:
 - inspect per-stage state through OCI CLI
 - register clusters through `obc`
 - switch `kubectl` context
-- collect namespace, pod, event, and log diagnostics
+- collect namespace, pod, workload, describe, event, and log diagnostics
 
 All debug artifacts are written under `tests/artifacts/debug/...`.
 
 ## Scenario Inventory
 
-Fast validation scenarios to maintain first:
+Current fast validation scenarios:
 
-- `networking/valid_existing_vcn`
-- `networking/invalid_existing_vcn_missing_subnets`
-- `networking/invalid_ocid_format`
-- `networking/invalid_cross_compartment`
-- `existing_cluster/invalid_missing_cluster_ocid`
 - `existing_cluster/invalid_empty_cluster_ocid`
 
-Next scenarios to add incrementally:
+Current live scenarios:
 
-- missing `cluster_ocid` when `use_existing_cluster = true`
 - existing basic cluster rejected
 - existing enhanced cluster with only two nodes rejected
 - existing enhanced cluster with default OKE cloud-init rejected by the optional preflight
 - existing enhanced cluster with three nodes accepted
-- cross-compartment rejection
+
+Backlog scenarios to add incrementally:
+
+- missing `cluster_ocid` when `use_existing_cluster = true`
+- existing VCN happy path with a full valid stack deployment
+- additional networking validation cases that can be made suite-safe
 
 Fixture-backed cloud-init coverage:
 

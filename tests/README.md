@@ -33,7 +33,9 @@ From the repo root:
 ```bash
 make test
 make test SUITE=fast
-make test SCENARIO=networking/valid_existing_vcn
+make test SUITE=live
+make test SCENARIO=existing_cluster/invalid_empty_cluster_ocid
+make test SUITE=all SCENARIO=networking/valid_existing_vcn
 
 make fixture ACTION=status TARGET=network
 make fixture ACTION=up TARGET=enhanced
@@ -48,7 +50,9 @@ Direct runner usage:
 ```bash
 ./tests/scripts/run.sh test
 ./tests/scripts/run.sh test SUITE=fast
-./tests/scripts/run.sh test SCENARIO=networking/invalid_ocid_format
+./tests/scripts/run.sh test SUITE=live
+./tests/scripts/run.sh test SCENARIO=existing_cluster/invalid_empty_cluster_ocid
+./tests/scripts/run.sh test SUITE=all SCENARIO=networking/invalid_ocid_format
 ./tests/scripts/run.sh fixture ACTION=status TARGET=basic
 ./tests/scripts/run.sh fixture ACTION=refresh TARGET=enhanced USE_CUSTOM_CLOUD_INIT=false
 ./tests/scripts/run.sh debug TARGET=enhanced
@@ -56,6 +60,8 @@ Direct runner usage:
 
 ## Notes
 
+- `test` defaults to `SUITE=fast`, runs blocking root preflight checks first, and then runs the selected suite.
+- Blocking preflight currently includes `terraform init -backend=false -input=false` and `terraform validate`.
 - The fast suite intentionally uses scenario validation and not `terraform test`.
 - `test` runs aggregate scenario failures and report a final summary instead of stopping on the first failing case.
 - The fixture directories are now isolated under `tests/fixtures/`.
@@ -63,4 +69,6 @@ Direct runner usage:
 - When `test_mode = true`, the stack exposes extra non-sensitive metadata through `terraform output -json` for local inspection tooling.
 - Successful `test` and `fixture` runs clean up their timestamped artifact directories by default. Set `TESTS_KEEP_SUCCESS_ARTIFACTS=true` if you want to retain successful logs locally.
 - `SUITE=fast` is the CI-safe subset used on pull requests and includes only scenarios explicitly tagged in `suites.txt` that fail before live OCI access is needed.
+- `SUITE=live` is the local OCI-backed subset for fixture-based existing-cluster compatibility checks.
 - `tests/.env` and `tests/.env.local` are ignored by git and are the right place for real local test values.
+- `make debug TARGET=...` resolves DevOps runtime IDs from `terraform output -json` first and only uses `PROJECT_ID`, `PIPELINE_ID`, or `DEPLOYMENT_ID` as optional manual overrides.
