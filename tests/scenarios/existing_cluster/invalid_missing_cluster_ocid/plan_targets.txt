@@ -1,1 +1,1 @@
-random_string.deploy_id
+data.oci_containerengine_cluster.target
