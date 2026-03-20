@@ -306,6 +306,7 @@ run_single_scenario() {
   fi
 
   log "Scenario completed: $scenario_name"
+  cleanup_artifact_dir_on_success "$artifact_dir"
   rm -rf "$work_dir"
 }
 

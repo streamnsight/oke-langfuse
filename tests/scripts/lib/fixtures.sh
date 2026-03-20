@@ -186,5 +186,10 @@ run_fixture_action() {
       ;;
   esac
 
-  log "Fixture action completed. Artifacts: $artifact_dir"
+  cleanup_artifact_dir_on_success "$artifact_dir"
+  if should_keep_success_artifacts; then
+    log "Fixture action completed. Artifacts: $artifact_dir"
+  else
+    log "Fixture action completed. Successful artifacts cleaned."
+  fi
 }

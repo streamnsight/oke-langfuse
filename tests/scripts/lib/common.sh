@@ -8,6 +8,7 @@ TF_PLUGIN_DIR="$ROOT_DIR/.terraform/providers"
 TESTS_ENV_FILE="${TESTS_ENV_FILE:-$TESTS_DIR/.env}"
 TESTS_ENV_LOCAL_FILE="${TESTS_ENV_LOCAL_FILE:-$TESTS_DIR/.env.local}"
 ROOT_TERRAFORM_STATE_FILE="${ROOT_TERRAFORM_STATE_FILE:-$ROOT_DIR/terraform.tfstate}"
+TESTS_KEEP_SUCCESS_ARTIFACTS="${TESTS_KEEP_SUCCESS_ARTIFACTS:-false}"
 
 log() {
   printf '[tests] %s\n' "$*"
@@ -45,6 +46,19 @@ create_artifact_dir() {
 
 ensure_artifacts_dir() {
   mkdir -p "$ARTIFACTS_DIR"
+}
+
+should_keep_success_artifacts() {
+  [ "$TESTS_KEEP_SUCCESS_ARTIFACTS" = "true" ]
+}
+
+cleanup_artifact_dir_on_success() {
+  local dir="$1"
+  [ -d "$dir" ] || return 0
+  if should_keep_success_artifacts; then
+    return 0
+  fi
+  rm -rf "$dir"
 }
 
 terraform_init_args() {

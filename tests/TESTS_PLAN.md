@@ -75,6 +75,7 @@ Real deployment values should be injected from `tests/.env` or environment varia
 - Support `SCENARIO=<name>` for single-scenario execution
 - Support full-suite execution when `SCENARIO` is omitted
 - Capture per-run logs under `tests/artifacts/test/...`
+- Clean up successful per-run artifacts by default to avoid unbounded local log growth, with an opt-out env var for debugging
 
 ### 2. Shared fixtures under `tests/fixtures/`
 
@@ -129,7 +130,6 @@ Next scenarios to add incrementally:
 
 - missing `cluster_ocid` when `use_existing_cluster = true`
 - existing basic cluster rejected
-- existing enhanced cluster with public endpoint rejected
 - existing enhanced cluster with only two nodes rejected
 - existing enhanced cluster with default OKE cloud-init rejected by the optional preflight
 - existing enhanced cluster with three nodes accepted
@@ -139,6 +139,7 @@ Fixture-backed cloud-init coverage:
 
 - enhanced fixture with `USE_CUSTOM_CLOUD_INIT=false` should reproduce the unsuitable existing-cluster path
 - enhanced fixture with `USE_CUSTOM_CLOUD_INIT=true` and `SIZE=3` should satisfy the cloud-init preflight
+
 
 ## Assumptions
 
