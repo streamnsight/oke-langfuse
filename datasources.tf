@@ -44,6 +44,20 @@ data "oci_identity_availability_domains" "ADs" {
 #   value = data.oci_identity_availability_domains.ADs
 # }
 
+check "input_compartments_supported" {
+  assert {
+    condition = var.use_existing_cluster || (
+      var.cluster_compartment_id == var.devops_compartment_id &&
+      var.cluster_compartment_id == var.secrets_store_vault_compartment_id &&
+      (
+        var.vcn_compartment_id == null ||
+        var.cluster_compartment_id == var.vcn_compartment_id
+      )
+    )
+    error_message = "Cross compartment deployment is not suported at this time. VCN, Vautl, Cluster all need to be in the same compartment"
+  }
+}
+
 data "oci_identity_compartments" "test_compartments" {
   #Required
   compartment_id = var.cluster_compartment_id

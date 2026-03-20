@@ -8,6 +8,7 @@ Each scenario provides either a tracked `terraform.tfvars` file or a `prepare.sh
 
 ```bash
 ./tests/scripts/run.sh test
+./tests/scripts/run.sh test SUITE=fast
 ./tests/scripts/run.sh test SCENARIO=networking/valid_existing_vcn
 ```
 
@@ -15,6 +16,7 @@ Each scenario provides either a tracked `terraform.tfvars` file or a `prepare.sh
 - `valid_*` directories must validate successfully.
 - `invalid_*` directories are expected to fail validation.
 - Scenarios can optionally declare `fixture.env`, `expression.tfconsole`, `mode.txt`, `plan_targets.txt`, and `expected_error.txt`.
+- `SUITE=fast` runs only tracked-`terraform.tfvars` scenarios that do not depend on fixture preparation.
 - The script exits non-zero if any scenario behaves unexpectedly.
 
 ## Current scenario areas

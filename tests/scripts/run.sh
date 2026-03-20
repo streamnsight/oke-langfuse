@@ -22,12 +22,13 @@ Usage:
 
 Commands:
   help
-  test      Run fast scenario validation. Optional: SCENARIO=<name>
+  test      Run scenario validation. Optional: SCENARIO=<name> SUITE=<all|fast>
   fixture   Manage fixture workspace. Required: TARGET=<network|basic|enhanced> ACTION=<up|down|refresh|status|scale>
   debug     Collect OCI DevOps and Kubernetes diagnostics. Required: TARGET=<network|basic|enhanced>
 
 Examples:
   ./tests/scripts/run.sh test
+  ./tests/scripts/run.sh test SUITE=fast
   ./tests/scripts/run.sh test SCENARIO=networking/valid_existing_vcn
   ./tests/scripts/run.sh fixture ACTION=status TARGET=network
   ./tests/scripts/run.sh fixture ACTION=scale TARGET=enhanced SIZE=3

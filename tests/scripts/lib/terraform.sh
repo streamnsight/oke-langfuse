@@ -23,8 +23,15 @@ resolve_scenarios() {
   local selector="${1:-}"
   local scenario_roots_cmd=(find "$TESTS_DIR/scenarios" -type f \( -name terraform.tfvars -o -name prepare.sh \) -print)
   local all_scenarios_cmd=("${scenario_roots_cmd[@]}")
+  local scenario_dirs
+  scenario_dirs="$("${all_scenarios_cmd[@]}" | sort | xargs -n1 dirname | awk '!seen[$0]++')"
+
+  if [ -n "${SUITE:-}" ]; then
+    scenario_dirs="$(filter_scenarios_by_suite "$scenario_dirs" "${SUITE:-}")"
+  fi
+
   if [ -z "$selector" ]; then
-    "${all_scenarios_cmd[@]}" | sort | xargs -n1 dirname | awk '!seen[$0]++'
+    printf '%s\n' "$scenario_dirs"
     return
   fi
 
@@ -35,7 +42,7 @@ resolve_scenarios() {
     if [ "$relative_path" = "$selector" ] || [ "$(basename "$relative_path")" = "$selector" ]; then
       matches+=("$path")
     fi
-  done < <("${all_scenarios_cmd[@]}" | sort | xargs -n1 dirname | awk '!seen[$0]++')
+  done < <(printf '%s\n' "$scenario_dirs")
 
   if [ "${#matches[@]}" -eq 0 ]; then
     die "No scenario matched selector: $selector"
@@ -46,6 +53,35 @@ resolve_scenarios() {
   fi
 
   printf '%s\n' "${matches[0]}"
+}
+
+scenario_is_fast() {
+  local scenario_dir="$1"
+  [ -f "$scenario_dir/terraform.tfvars" ] || return 1
+  [ ! -f "$scenario_dir/prepare.sh" ] || return 1
+  [ ! -f "$scenario_dir/fixture.env" ] || return 1
+}
+
+filter_scenarios_by_suite() {
+  local scenario_dirs="$1"
+  local suite="$2"
+
+  case "$suite" in
+    all|"")
+      printf '%s\n' "$scenario_dirs"
+      ;;
+    fast)
+      while IFS= read -r scenario_dir; do
+        [ -n "$scenario_dir" ] || continue
+        if scenario_is_fast "$scenario_dir"; then
+          printf '%s\n' "$scenario_dir"
+        fi
+      done <<<"$scenario_dirs"
+      ;;
+    *)
+      die "Unknown scenario suite: $suite"
+      ;;
+  esac
 }
 
 copy_repo_for_scenario() {

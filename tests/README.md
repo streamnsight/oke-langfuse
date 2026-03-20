@@ -32,6 +32,7 @@ From the repo root:
 
 ```bash
 make test
+make test SUITE=fast
 make test SCENARIO=networking/valid_existing_vcn
 
 make fixture ACTION=status TARGET=network
@@ -46,6 +47,7 @@ Direct runner usage:
 
 ```bash
 ./tests/scripts/run.sh test
+./tests/scripts/run.sh test SUITE=fast
 ./tests/scripts/run.sh test SCENARIO=networking/invalid_ocid_format
 ./tests/scripts/run.sh fixture ACTION=status TARGET=basic
 ./tests/scripts/run.sh fixture ACTION=refresh TARGET=enhanced USE_CUSTOM_CLOUD_INIT=false
@@ -59,4 +61,5 @@ Direct runner usage:
 - The enhanced fixture accepts `USE_CUSTOM_CLOUD_INIT=true|false` so we can test both the default OKE bootstrap and the stack's custom OCIR bootstrap.
 - When `test_mode = true`, the stack exposes extra non-sensitive metadata through `terraform output -json` for local inspection tooling.
 - Successful `test` and `fixture` runs clean up their timestamped artifact directories by default. Set `TESTS_KEEP_SUCCESS_ARTIFACTS=true` if you want to retain successful logs locally.
+- `SUITE=fast` is the CI-safe subset used on pull requests and excludes any scenario that relies on fixtures or `prepare.sh`.
 - `tests/.env` and `tests/.env.local` are ignored by git and are the right place for real local test values.
