@@ -9,9 +9,25 @@ TESTS_ENV_FILE="${TESTS_ENV_FILE:-$TESTS_DIR/.env}"
 TESTS_ENV_LOCAL_FILE="${TESTS_ENV_LOCAL_FILE:-$TESTS_DIR/.env.local}"
 ROOT_TERRAFORM_STATE_FILE="${ROOT_TERRAFORM_STATE_FILE:-$ROOT_DIR/terraform.tfstate}"
 TESTS_KEEP_SUCCESS_ARTIFACTS="${TESTS_KEEP_SUCCESS_ARTIFACTS:-false}"
+TESTS_STREAM_LOGS="${TESTS_STREAM_LOGS:-${GITHUB_ACTIONS:-false}}"
 
 log() {
   printf '[tests] %s\n' "$*"
+}
+
+begin_log_group() {
+  local label="$1"
+  if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
+    printf '::group::%s\n' "$label"
+  else
+    log "$label"
+  fi
+}
+
+end_log_group() {
+  if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
+    printf '::endgroup::\n'
+  fi
 }
 
 die() {
@@ -52,6 +68,10 @@ should_keep_success_artifacts() {
   [ "$TESTS_KEEP_SUCCESS_ARTIFACTS" = "true" ]
 }
 
+should_stream_logs() {
+  [ "$TESTS_STREAM_LOGS" = "true" ]
+}
+
 cleanup_artifact_dir_on_success() {
   local dir="$1"
   [ -d "$dir" ] || return 0
@@ -83,6 +103,13 @@ load_env_file() {
 load_tests_env() {
   load_env_file "$TESTS_ENV_FILE"
   load_env_file "$TESTS_ENV_LOCAL_FILE"
+
+  if [ -z "${TF_PLUGIN_CACHE_DIR:-}" ]; then
+    export TF_PLUGIN_CACHE_DIR="$TESTS_DIR/.terraform.d/plugin-cache"
+  fi
+  if [ -n "${TF_PLUGIN_CACHE_DIR:-}" ]; then
+    mkdir -p "$TF_PLUGIN_CACHE_DIR"
+  fi
 
   if [ -z "${TF_VAR_compartment_id:-}" ] && [ -n "${TF_VAR_vcn_compartment_id:-}" ]; then
     export TF_VAR_compartment_id="$TF_VAR_vcn_compartment_id"

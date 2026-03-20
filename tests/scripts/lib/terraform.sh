@@ -183,6 +183,21 @@ prepare_scenario_workdir() {
   fi
 }
 
+run_logged_command() {
+  local logfile="$1"
+  shift
+
+  if should_stream_logs; then
+    set +e
+    "$@" 2>&1 | tee "$logfile"
+    local status=${PIPESTATUS[0]}
+    set -e
+    return "$status"
+  fi
+
+  "$@" >"$logfile" 2>&1
+}
+
 run_single_scenario() {
   local scenario_dir="$1"
   local scenario_name="${scenario_dir#"$TESTS_DIR/scenarios/"}"
@@ -215,10 +230,17 @@ run_single_scenario() {
     [ -n "$arg" ] && init_args+=("$arg")
   done < <(terraform_init_args)
 
-  if ! terraform -chdir="$work_dir" init "${init_args[@]}" >"$init_log" 2>&1; then
+  begin_log_group "Scenario $scenario_name: terraform init"
+  if ! run_logged_command "$init_log" terraform -chdir="$work_dir" init "${init_args[@]}"; then
+    if [ ! -s "$init_log" ]; then
+      printf '[tests] terraform init produced no captured output for %s\n' "$scenario_name" >&2
+    fi
+    cat "$init_log" >&2
+    end_log_group
     rm -rf "$work_dir"
     die "terraform init failed for scenario: $scenario_name (see $init_log)"
   fi
+  end_log_group
 
   local command_output=""
   local has_error="false"
@@ -227,9 +249,23 @@ run_single_scenario() {
     console)
       local expression
       expression="$(scenario_console_expression "$scenario_dir")"
-      command_output="$(terraform -chdir="$work_dir" console -var-file="terraform.tfvars" <<<"$expression" 2>&1 || true)"
-      printf '%s\n' "$command_output" >"$run_log"
+      begin_log_group "Scenario $scenario_name: terraform console"
+      if should_stream_logs; then
+        set +e
+        command_output="$(terraform -chdir="$work_dir" console -var-file="terraform.tfvars" <<<"$expression" 2>&1 | tee "$run_log")"
+        local console_status=${PIPESTATUS[0]}
+        set -e
+      else
+        set +e
+        command_output="$(terraform -chdir="$work_dir" console -var-file="terraform.tfvars" <<<"$expression" 2>&1)"
+        local console_status=$?
+        set -e
+        printf '%s\n' "$command_output" >"$run_log"
+      fi
+      end_log_group
       if printf '%s\n' "$command_output" | grep -q "Error:"; then
+        has_error="true"
+      elif [ "${console_status:-0}" -ne 0 ]; then
         has_error="true"
       fi
       ;;
@@ -244,22 +280,28 @@ run_single_scenario() {
       done < <(scenario_targets "$scenario_dir")
 
       if [ "$mode" = "plan" ]; then
-        if terraform -chdir="$work_dir" plan "${plan_args[@]}" >"$run_log" 2>&1; then
+        begin_log_group "Scenario $scenario_name: terraform plan"
+        if run_logged_command "$run_log" terraform -chdir="$work_dir" plan "${plan_args[@]}"; then
           has_error="false"
         else
           has_error="true"
         fi
+        end_log_group
       elif [ "$mode" = "apply" ]; then
-        if terraform -chdir="$work_dir" apply "${plan_args[@]}" -auto-approve >"$run_log" 2>&1; then
+        begin_log_group "Scenario $scenario_name: terraform apply"
+        if run_logged_command "$run_log" terraform -chdir="$work_dir" apply "${plan_args[@]}" -auto-approve; then
           has_error="false"
         else
           has_error="true"
         fi
+        end_log_group
       else
         local singular_node_pool_target="-target=data.oci_containerengine_node_pool.target"
         local needs_staged_apply="false"
         local staged_target_args=()
         local target_arg
+        local expression
+        expression="$(scenario_console_expression "$scenario_dir")"
         for target_arg in "${target_args[@]}"; do
           if [ "$target_arg" = "$singular_node_pool_target" ]; then
             needs_staged_apply="true"
@@ -270,24 +312,59 @@ run_single_scenario() {
 
         local apply_succeeded="false"
         if [ "$needs_staged_apply" = "true" ]; then
-          {
-            printf '[tests] staged apply phase 1\n'
-            terraform -chdir="$work_dir" apply -input=false -lock=false -no-color -var-file="terraform.tfvars" "${staged_target_args[@]}" -auto-approve
-            printf '\n[tests] staged apply phase 2\n'
-            terraform -chdir="$work_dir" apply "${plan_args[@]}" -auto-approve
-          } >"$run_log" 2>&1 && apply_succeeded="true"
-        elif terraform -chdir="$work_dir" apply "${plan_args[@]}" -auto-approve >"$run_log" 2>&1; then
-          apply_succeeded="true"
+          begin_log_group "Scenario $scenario_name: staged terraform apply"
+          if should_stream_logs; then
+            set +e
+            {
+              printf '[tests] staged apply phase 1\n'
+              terraform -chdir="$work_dir" apply -input=false -lock=false -no-color -var-file="terraform.tfvars" "${staged_target_args[@]}" -auto-approve
+              printf '\n[tests] staged apply phase 2\n'
+              terraform -chdir="$work_dir" apply "${plan_args[@]}" -auto-approve
+            } 2>&1 | tee "$run_log"
+            local apply_status=${PIPESTATUS[0]}
+            set -e
+          else
+            set +e
+            {
+              printf '[tests] staged apply phase 1\n'
+              terraform -chdir="$work_dir" apply -input=false -lock=false -no-color -var-file="terraform.tfvars" "${staged_target_args[@]}" -auto-approve
+              printf '\n[tests] staged apply phase 2\n'
+              terraform -chdir="$work_dir" apply "${plan_args[@]}" -auto-approve
+            } >"$run_log" 2>&1
+            local apply_status=$?
+            set -e
+          fi
+          end_log_group
+          [ "$apply_status" -eq 0 ] && apply_succeeded="true"
+        else
+          begin_log_group "Scenario $scenario_name: terraform apply"
+          if run_logged_command "$run_log" terraform -chdir="$work_dir" apply "${plan_args[@]}" -auto-approve; then
+            apply_succeeded="true"
+          fi
+          end_log_group
         fi
 
         if [ "$apply_succeeded" = "true" ]; then
-          local expression
-          expression="$(scenario_console_expression "$scenario_dir")"
-          local console_output
-          console_output="$(terraform -chdir="$work_dir" console -var-file="terraform.tfvars" <<<"$expression" 2>&1 || true)"
-          printf '\n%s\n' "$console_output" >>"$run_log"
+          begin_log_group "Scenario $scenario_name: terraform console"
+          if should_stream_logs; then
+            set +e
+            local console_output
+            console_output="$(terraform -chdir="$work_dir" console -var-file="terraform.tfvars" <<<"$expression" 2>&1 | tee -a "$run_log")"
+            local console_status=${PIPESTATUS[0]}
+            set -e
+          else
+            local console_output
+            set +e
+            console_output="$(terraform -chdir="$work_dir" console -var-file="terraform.tfvars" <<<"$expression" 2>&1)"
+            local console_status=$?
+            set -e
+            printf '\n%s\n' "$console_output" >>"$run_log"
+          fi
+          end_log_group
           command_output="$console_output"
           if printf '%s\n' "$console_output" | grep -q "Error:"; then
+            has_error="true"
+          elif [ "${console_status:-0}" -ne 0 ]; then
             has_error="true"
           else
             has_error="false"

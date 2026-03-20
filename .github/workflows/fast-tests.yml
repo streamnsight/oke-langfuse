@@ -15,6 +15,9 @@ jobs:
   fast-scenarios:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    env:
+      TF_PLUGIN_CACHE_DIR: tests/.terraform.d/plugin-cache
+      TESTS_STREAM_LOGS: true
 
     steps:
       - name: Checkout
@@ -25,5 +28,24 @@ jobs:
         with:
           terraform_version: 1.5.7
 
+      - name: Restore Terraform plugin cache
+        uses: actions/cache@v4
+        with:
+          path: tests/.terraform.d/plugin-cache
+          key: terraform-plugin-cache-${{ runner.os }}-${{ hashFiles('providers.tf', 'tests/fixtures/**/providers.tf') }}
+          restore-keys: |
+            terraform-plugin-cache-${{ runner.os }}-
+
+      - name: Prepare Terraform plugin cache directory
+        run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
+
       - name: Run fast scenario suite
         run: make test SUITE=fast
+
+      - name: Upload test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-test-artifacts
+          path: tests/artifacts
+          if-no-files-found: ignore

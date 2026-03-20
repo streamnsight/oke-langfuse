@@ -13,5 +13,6 @@ kubeconfig
 *.tfstate_
 tests/artifacts/*
 !tests/artifacts/README.md
+tests/.terraform.d/
 tests/.env
 tests/.env.local
