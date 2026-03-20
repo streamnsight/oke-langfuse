@@ -6,13 +6,15 @@
 
 rm -f oke-langfuse.zip
 zip -rxvf oke-langfuse.zip ./* \
-    -x **/*/.terraform/**/* \
-    -x .terraform/**/* \
-    -x .github/**/* \
+    -x '*/.terraform/*' \
+    -x '.terraform/*' \
+    -x '.github/*' \
+    -x '*/tests/*' \
+    -x 'tests/*' \
     -x *.tfvars \
-    -x */.DS_Store/* \
+    -x *.DS_Store \
     -x *.zip \
-    -x **/*.locl.hcl \
+    -x *.locl.hcl \
     -x *.tfstate* \
     -x *.tfstate.backup \
-    -x **/CaCertificate-langfuse.pub
+    -x *CaCertificate-langfuse.pub
