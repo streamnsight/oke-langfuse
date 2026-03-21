@@ -147,11 +147,9 @@ data "oci_containerengine_node_pools" "target" {
 }
 
 data "oci_containerengine_node_pool" "target" {
-  for_each = var.use_existing_cluster ? {
-    for node_pool in data.oci_containerengine_node_pools.target.node_pools : node_pool.id => node_pool.id
-  } : {}
+  count = var.use_existing_cluster && var.enable_existing_cluster_cloud_init_preflight ? 1 : 0
 
-  node_pool_id = each.value
+  node_pool_id = local.existing_cluster_primary_node_pool.id
 }
 
 data "oci_containerengine_addons" "target" {
@@ -182,16 +180,18 @@ locals {
   ]
 
   existing_cluster_primary_node_pool = length(local.existing_cluster_sized_node_pools) > 0 ? local.existing_cluster_sized_node_pools[0] : null
-  existing_cluster_cloud_init_matching_node_pools = [
-    for node_pool_id, node_pool in data.oci_containerengine_node_pool.target : node_pool_id
-    if alltrue([
+  existing_cluster_cloud_init_matching_node_pools = (
+    var.use_existing_cluster &&
+    var.enable_existing_cluster_cloud_init_preflight &&
+    length(data.oci_containerengine_node_pool.target) > 0 &&
+    alltrue([
       for marker in var.existing_cluster_cloud_init_required_markers :
       strcontains(
-        try(base64decode(lookup(try(node_pool.node_metadata, {}), "user_data", "")), ""),
+        try(base64decode(lookup(try(data.oci_containerengine_node_pool.target[0].node_metadata, {}), "user_data", "")), ""),
         marker
       )
     ])
-  ]
+  ) ? [data.oci_containerengine_node_pool.target[0].id] : []
 
   effective_builder_shape    = var.use_existing_cluster ? try(local.existing_cluster_primary_node_pool.node_shape, var.np1_node_shape) : local.node_pools[0].node_shape
   effective_builder_image_id = var.use_existing_cluster ? try(local.existing_cluster_primary_node_pool.node_source_details[0].image_id, var.np1_image_id) : local.node_pools[0].image_id
