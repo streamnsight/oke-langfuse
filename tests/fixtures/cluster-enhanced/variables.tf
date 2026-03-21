@@ -72,7 +72,23 @@ variable "node_boot_volume_size_gb" {
 
 variable "fixture_node_image_id" {
   type        = string
-  description = "Base compute image OCID used to derive the OKE-optimized node image."
+  description = "Optional explicit OKE-ready image OCID override for fixture recovery and debugging."
+  default     = null
+}
+
+variable "fixture_operating_system" {
+  type    = string
+  default = "Oracle Linux"
+}
+
+variable "fixture_operating_system_version" {
+  type    = string
+  default = "8"
+}
+
+variable "fixture_shape" {
+  type    = string
+  default = null
 }
 
 variable "fixture_availability_domain" {

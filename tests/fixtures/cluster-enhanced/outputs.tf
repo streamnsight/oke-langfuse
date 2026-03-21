@@ -18,6 +18,14 @@ output "node_pool_size" {
   value = var.node_pool_size
 }
 
+output "node_pool_image_id" {
+  value = module.node_image_selector.selected_image_id
+}
+
+output "node_image_selector" {
+  value = module.node_image_selector.selector
+}
+
 output "use_custom_cloud_init" {
   value = var.use_custom_cloud_init
 }

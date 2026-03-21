@@ -14,4 +14,8 @@ node_pool_size      = 2
 node_shape          = "VM.Standard.E5.Flex"
 node_shape_ocpus    = 4
 node_shape_memory_gb = 16
-fixture_node_image_id = "ocid1.image.oc1.us-chicago-1.example"
+fixture_operating_system = "Oracle Linux"
+fixture_operating_system_version = "8"
+
+# Optional escape hatch for manual recovery when OCI image metadata is inconsistent.
+# fixture_node_image_id = "ocid1.image.oc1.us-chicago-1.example"

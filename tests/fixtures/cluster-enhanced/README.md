@@ -7,9 +7,11 @@ Current behavior:
 - reads the shared network outputs from `../network/terraform.tfstate`
 - provisions an `ENHANCED_CLUSTER` that can be switched between private and public endpoint modes
 - provisions one node pool that can be scaled between 2 and 3 nodes
+- resolves an OKE-ready node image from Kubernetes version, OS, OS version, and shape by default
 - can switch between default OKE node metadata and the stack cloud-init helper
 - optionally provisions a bastion used by `obc`
-- exposes cluster and bastion IDs through `terraform output -json`
+- keeps `fixture_node_image_id` as an escape hatch when a manual image override is needed
+- exposes cluster, bastion, and image-selector details through `terraform output -json`
 
 The lifecycle interface is already wired through:
 

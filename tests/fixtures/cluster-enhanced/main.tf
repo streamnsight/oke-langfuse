@@ -26,17 +26,22 @@ module "cloud_init_script" {
   source = "../../../modules/oke/cloud_init_script"
 }
 
-module "recommended_image" {
-  source             = "../../../modules/oke/recommended-compute-image"
-  image_id           = var.fixture_node_image_id
-  kubernetes_version = var.kubernetes_version
-}
-
 locals {
   cluster_name        = "${var.cluster_name}-${random_string.suffix.result}"
   availability_domain = coalesce(var.fixture_availability_domain, data.oci_identity_availability_domains.ads.availability_domains[0].name)
+  fixture_shape       = coalesce(var.fixture_shape, var.node_shape)
   node_pool_subnet_id = data.terraform_remote_state.network.outputs.node_pool_subnet_ids_by_name["np1"]
   ssh_authorized_key  = var.ssh_public_key != null ? var.ssh_public_key : tls_private_key.generated[0].public_key_openssh
+}
+
+module "node_image_selector" {
+  source                   = "../../../modules/oke/node-image-selector"
+  compartment_id           = var.tenancy_ocid
+  kubernetes_version       = var.kubernetes_version
+  operating_system         = var.fixture_operating_system
+  operating_system_version = var.fixture_operating_system_version
+  shape                    = local.fixture_shape
+  image_id_override        = var.fixture_node_image_id
 }
 
 resource "oci_containerengine_cluster" "enhanced" {
@@ -81,7 +86,7 @@ resource "oci_containerengine_node_pool" "primary" {
   node_metadata      = var.use_custom_cloud_init ? module.cloud_init_script.content : {}
 
   node_source_details {
-    image_id                = module.recommended_image.recommended_image_id
+    image_id                = module.node_image_selector.selected_image_id
     source_type             = "IMAGE"
     boot_volume_size_in_gbs = var.node_boot_volume_size_gb
   }

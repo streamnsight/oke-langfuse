@@ -134,10 +134,6 @@ load_tests_env() {
     export TF_VAR_compartment_id="$TF_VAR_vcn_compartment_id"
   fi
 
-  if [ -z "${TF_VAR_fixture_node_image_id:-}" ] && [ -n "${TF_VAR_np1_image_id:-}" ]; then
-    export TF_VAR_fixture_node_image_id="$TF_VAR_np1_image_id"
-  fi
-
   if [ -z "${TF_VAR_np1_image_id:-}" ] && [ -n "${TF_VAR_fixture_node_image_id:-}" ]; then
     export TF_VAR_np1_image_id="$TF_VAR_fixture_node_image_id"
   fi
