@@ -37,9 +37,13 @@ fi
 initial_version="v$(printf '%s\n' "$available_versions" | tail -n 2 | head -n 1)"
 upgrade_version="v$(printf '%s\n' "$available_versions" | tail -n 1)"
 
+export STACK_TEST_INCLUDE_IDCS_PLACEHOLDERS=false
 write_managed_cluster_with_network_tfvars \
   "$WORK_DIR/terraform.tfvars" \
   "kubernetes_version = $(hcl_quote "$initial_version")"
+unset STACK_TEST_INCLUDE_IDCS_PLACEHOLDERS
+
+append_live_identity_tfvars "$WORK_DIR/terraform.tfvars"
 
 target_args=(
   "-target=oci_containerengine_cluster.oci_oke_cluster[0]"
@@ -47,7 +51,22 @@ target_args=(
   "-target=oci_containerengine_node_pool.oci_oke_node_pool[0]"
 )
 
-terraform -chdir="$WORK_DIR" apply -input=false -lock=false -no-color -var-file="terraform.tfvars" "${target_args[@]}" -auto-approve >/dev/null
+set +e
+apply_output="$(
+  terraform -chdir="$WORK_DIR" apply -input=false -lock=false -no-color -var-file="terraform.tfvars" "${target_args[@]}" -auto-approve 2>&1
+)"
+apply_status=$?
+set -e
+
+printf '%s\n' "$apply_output"
+
+if [ "$apply_status" -ne 0 ]; then
+  if [[ "$apply_output" == *"LimitExceeded"* && "$apply_output" == *"cluster limit for this tenancy has been exceeded"* ]]; then
+    printf '[tests] managed-cluster drift scenario skipped: tenancy has no free OKE cluster quota for a temporary managed cluster.\n'
+    exit 0
+  fi
+  exit "$apply_status"
+fi
 
 cluster_id="$(
   terraform -chdir="$WORK_DIR" show -json |

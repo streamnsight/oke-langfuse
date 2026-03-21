@@ -124,6 +124,7 @@ write_existing_cluster_with_network_tfvars() {
 write_managed_cluster_with_network_tfvars() {
   local outfile="$1"
   shift
+  local include_test_identity_defaults="${STACK_TEST_INCLUDE_IDCS_PLACEHOLDERS:-true}"
 
   local vcn_id
   local kubernetes_endpoint_subnet
@@ -171,11 +172,14 @@ write_managed_cluster_with_network_tfvars() {
     printf 'create_bastion = false\n'
     printf 'enable_oci_genai_gateway = false\n'
     printf 'test_mode = true\n'
-    printf 'create_idcs_app = false\n'
-    printf 'idcs_app_id = %s\n' "$(hcl_quote "${TF_VAR_idcs_app_id:-test-idcs-app}")"
-    printf 'idcs_client_id = %s\n' "$(hcl_quote "${TF_VAR_idcs_client_id:-test-idcs-client}")"
-    printf 'idcs_client_secret = %s\n' "$(hcl_quote "${TF_VAR_idcs_client_secret:-test-idcs-secret}")"
-    printf 'idcs_domain_url = %s\n' "$(hcl_quote "${TF_VAR_idcs_domain_url:-https://example.invalid}")"
+
+    if [ "$include_test_identity_defaults" = "true" ]; then
+      printf 'create_idcs_app = false\n'
+      printf 'idcs_app_id = %s\n' "$(hcl_quote "${TF_VAR_idcs_app_id:-test-idcs-app}")"
+      printf 'idcs_client_id = %s\n' "$(hcl_quote "${TF_VAR_idcs_client_id:-test-idcs-client}")"
+      printf 'idcs_client_secret = %s\n' "$(hcl_quote "${TF_VAR_idcs_client_secret:-test-idcs-secret}")"
+      printf 'idcs_domain_url = %s\n' "$(hcl_quote "${TF_VAR_idcs_domain_url:-https://example.invalid}")"
+    fi
 
     for line in "$@"; do
       printf '%s\n' "$line"
