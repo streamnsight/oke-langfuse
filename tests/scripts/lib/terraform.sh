@@ -240,6 +240,61 @@ normalize_whitespace() {
   tr '\n' ' ' | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//'
 }
 
+prefix_report_lines() {
+  sed 's/^/[tests]   /'
+}
+
+tail_text_lines() {
+  local text="${1:-}"
+  local max_lines="${2:-40}"
+  [ -n "$text" ] || return 0
+  printf '%s\n' "$text" | tail -n "$max_lines"
+}
+
+log_file_excerpt() {
+  local log_file="$1"
+  local max_lines="${2:-40}"
+  [ -s "$log_file" ] || return 0
+  tail -n "$max_lines" "$log_file"
+}
+
+print_failure_report_block() {
+  local label="$1"
+  local value="${2:-}"
+  [ -n "$value" ] || return 0
+  printf '[tests] %s:\n' "$label"
+  printf '%s\n' "$value" | prefix_report_lines
+}
+
+write_failure_report() {
+  local outfile="$1"
+  local scenario_name="$2"
+  local summary="$3"
+  local artifact_dir="$4"
+  local relevant_log="${5:-}"
+  local assertion_type="${6:-}"
+  local expected_label="${7:-}"
+  local expected_value="${8:-}"
+  local actual_label="${9:-}"
+  local actual_value="${10:-}"
+  local excerpt=""
+
+  excerpt="$(log_file_excerpt "$relevant_log" 40)"
+
+  {
+    printf '[tests] Scenario failed: %s\n' "$scenario_name"
+    printf '[tests] Summary: %s\n' "$summary"
+    printf '[tests] Artifacts: %s\n' "$artifact_dir"
+    if [ -n "$relevant_log" ]; then
+      printf '[tests] Relevant log: %s\n' "$relevant_log"
+    fi
+    print_failure_report_block "Assertion" "$assertion_type"
+    print_failure_report_block "$expected_label" "$expected_value"
+    print_failure_report_block "$actual_label" "$actual_value"
+    print_failure_report_block "Relevant log excerpt (last 40 lines)" "$excerpt"
+  } >"$outfile"
+}
+
 scenario_mode() {
   local scenario_dir="$1"
   if scenario_has_manifest "$scenario_dir"; then
@@ -400,9 +455,15 @@ run_single_scenario() {
   local destroy_log="$artifact_dir/terraform-destroy.log"
   local outputs_before="$artifact_dir/outputs-before.json"
   local outputs_after="$artifact_dir/outputs-after.json"
-  local failure_message=""
+  local failure_summary=""
+  local failure_assertion_type=""
+  local failure_expected_label=""
+  local failure_expected_value=""
+  local failure_actual_label=""
+  local failure_actual_value=""
+  local failure_log_path=""
+  local failure_report_file="$artifact_dir/failure.txt"
   local cleanup_failed="false"
-  local cleanup_failure_message=""
   local destroy_args=(-input=false -lock=false -no-color -var-file="terraform.tfvars")
 
   log "Running scenario $scenario_name (expect: $expectation, mode: $raw_mode, cleanup: $cleanup_policy)"
@@ -422,13 +483,25 @@ run_single_scenario() {
     if [ ! -s "$init_log" ]; then
       printf '[tests] terraform init produced no captured output for %s\n' "$scenario_name" >&2
     fi
-    cat "$init_log" >&2
     end_log_group
-    failure_message="terraform init failed (see $init_log)"
+    failure_summary="terraform init failed"
+    failure_log_path="$init_log"
+    failure_actual_label="Actual result"
+    failure_actual_value="Terraform init exited non-zero. See the relevant log excerpt below for the captured output."
     rm -rf "$work_dir"
-    printf '%s\n' "$failure_message" >"$artifact_dir/failure.txt"
-    log "Scenario failed: $scenario_name"
-    TESTS_LAST_SCENARIO_RESULT="$scenario_name|$failure_message"
+    write_failure_report \
+      "$failure_report_file" \
+      "$scenario_name" \
+      "$failure_summary" \
+      "$artifact_dir" \
+      "$failure_log_path" \
+      "" \
+      "" \
+      "" \
+      "$failure_actual_label" \
+      "$failure_actual_value"
+    cat "$failure_report_file" >&2
+    TESTS_LAST_SCENARIO_RESULT="$scenario_name|$failure_summary|$artifact_dir"
     return 1
   fi
   end_log_group
@@ -599,38 +672,58 @@ run_single_scenario() {
 
   capture_terraform_outputs "$work_dir" "$outputs_after"
 
-  local should_print_run_log="false"
   if [ -n "$expected_output" ] && [ "$has_error" = "false" ]; then
     local normalized_output normalized_expected_output
     normalized_output="$(printf '%s\n' "$command_output" | normalize_whitespace)"
     normalized_expected_output="$(printf '%s\n' "$expected_output" | normalize_whitespace)"
     if [[ "$normalized_output" != *"$normalized_expected_output"* ]]; then
-      failure_message="output did not contain expected text"
-      should_print_run_log="true"
+      failure_summary="output did not contain expected text"
+      failure_assertion_type="expected output substring"
+      failure_expected_label="Expected output"
+      failure_expected_value="$expected_output"
+      failure_actual_label="Actual output"
+      failure_actual_value="$command_output"
+      failure_log_path="$run_log"
     fi
   fi
 
-  if [ -z "$failure_message" ] && [ -n "$expected_error" ] && [ "$has_error" = "true" ]; then
+  if [ -z "$failure_summary" ] && [ -n "$expected_error" ] && [ "$has_error" = "true" ]; then
     local normalized_output normalized_expected
     normalized_output="$(printf '%s\n' "$command_output" | normalize_whitespace)"
     normalized_expected="$(printf '%s\n' "$expected_error" | normalize_whitespace)"
     if [[ "$normalized_output" != *"$normalized_expected"* ]]; then
-      failure_message="failed, but not with the expected error text"
-      should_print_run_log="true"
+      failure_summary="failed, but not with the expected error text"
+      failure_assertion_type="expected error substring"
+      failure_expected_label="Expected error"
+      failure_expected_value="$expected_error"
+      failure_actual_label="Actual output"
+      failure_actual_value="$(tail_text_lines "$command_output" 40)"
+      failure_log_path="$run_log"
     fi
   fi
 
-  if [ -z "$failure_message" ] && [ "$expectation" = "pass" ] && [ "$has_error" = "true" ]; then
-    failure_message="expected pass but failed.$(terraform_provider_runtime_hint "$run_log")"
-    should_print_run_log="true"
+  if [ -z "$failure_summary" ] && [ "$expectation" = "pass" ] && [ "$has_error" = "true" ]; then
+    failure_summary="expected pass but failed.$(terraform_provider_runtime_hint "$run_log")"
+    failure_assertion_type="scenario expectation"
+    failure_expected_label="Expected outcome"
+    failure_expected_value="pass"
+    failure_actual_label="Actual result"
+    failure_actual_value="$(printf 'Outcome: fail\nCaptured output (last 40 lines):\n%s\n' "$(tail_text_lines "$command_output" 40)")"
+    failure_log_path="$run_log"
   fi
 
-  if [ -z "$failure_message" ] && [ "$expectation" = "fail" ] && [ "$has_error" = "false" ]; then
-    failure_message="expected fail but succeeded"
+  if [ -z "$failure_summary" ] && [ "$expectation" = "fail" ] && [ "$has_error" = "false" ]; then
+    failure_summary="expected fail but succeeded"
+    failure_assertion_type="scenario expectation"
+    failure_expected_label="Expected outcome"
+    failure_expected_value="fail"
+    failure_actual_label="Actual result"
+    failure_actual_value="$(printf 'Outcome: pass\nCaptured output (last 40 lines):\n%s\n' "$(tail_text_lines "$command_output" 40)")"
+    failure_log_path="$run_log"
   fi
 
   local scenario_succeeded="true"
-  if [ -n "$failure_message" ]; then
+  if [ -n "$failure_summary" ]; then
     scenario_succeeded="false"
   fi
 
@@ -638,25 +731,36 @@ run_single_scenario() {
     begin_log_group "Scenario $scenario_name: terraform destroy"
     if ! run_logged_command "$destroy_log" terraform -chdir="$work_dir" destroy "${destroy_args[@]}" -auto-approve; then
       cleanup_failed="true"
-      cleanup_failure_message="terraform destroy failed after scenario execution"
-      [ -s "$destroy_log" ] && cat "$destroy_log" >&2
     fi
     end_log_group
   fi
 
   if [ "$cleanup_failed" = "true" ]; then
-    failure_message="$cleanup_failure_message"
+    failure_summary="terraform destroy failed after scenario execution"
+    failure_assertion_type=""
+    failure_expected_label=""
+    failure_expected_value=""
+    failure_actual_label="Actual result"
+    failure_actual_value="Terraform destroy exited non-zero during scenario cleanup. See the relevant log excerpt below for the captured output."
+    failure_log_path="$destroy_log"
     scenario_succeeded="false"
   fi
 
   if [ "$scenario_succeeded" != "true" ]; then
-    if [ "$should_print_run_log" = "true" ]; then
-      cat "$run_log" >&2
-    fi
+    write_failure_report \
+      "$failure_report_file" \
+      "$scenario_name" \
+      "$failure_summary" \
+      "$artifact_dir" \
+      "$failure_log_path" \
+      "$failure_assertion_type" \
+      "$failure_expected_label" \
+      "$failure_expected_value" \
+      "$failure_actual_label" \
+      "$failure_actual_value"
+    cat "$failure_report_file" >&2
     rm -rf "$work_dir"
-    printf '%s\n' "$failure_message" >"$artifact_dir/failure.txt"
-    log "Scenario failed: $scenario_name"
-    TESTS_LAST_SCENARIO_RESULT="$scenario_name|$failure_message"
+    TESTS_LAST_SCENARIO_RESULT="$scenario_name|$failure_summary|$artifact_dir"
     return 1
   fi
 
@@ -693,7 +797,12 @@ run_scenario_suite() {
     printf '[tests] Scenario failures summary:\n' >&2
     local failure
     for failure in "${failures[@]}"; do
-      printf '[tests]   - %s\n' "$failure" >&2
+      IFS='|' read -r failure_scenario failure_reason failure_artifact_dir <<<"$failure"
+      if [ -n "${failure_artifact_dir:-}" ]; then
+        printf '[tests]   - %s: %s (artifacts: %s)\n' "$failure_scenario" "$failure_reason" "$failure_artifact_dir" >&2
+      else
+        printf '[tests]   - %s\n' "$failure" >&2
+      fi
     done
     exit 1
   fi

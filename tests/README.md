@@ -71,6 +71,7 @@ Direct runner usage:
 - `make fixture-down-all` is the explicit manual cleanup step for live runs. It destroys `enhanced`, then `basic`, then `network`.
 - When `test_mode = true`, the stack exposes extra non-sensitive metadata through `terraform output -json` for local inspection tooling.
 - Successful `test` and `fixture` runs clean up their timestamped artifact directories by default. Set `TESTS_KEEP_SUCCESS_ARTIFACTS=true` if you want to retain successful logs locally.
+- Failed scenarios now print expected-vs-actual diagnostics when available and point to the saved Terraform logs under `tests/artifacts/` so you can jump straight to the relevant run output.
 - `SUITE=fast` is the CI-safe subset used on pull requests and includes only scenarios explicitly tagged in `suites.txt` that fail before live OCI access is needed.
 - `SUITE=live` is the local OCI-backed subset for fixture-based existing-cluster compatibility checks.
 - `SUITE=live` also includes multi-step managed-cluster drift scenarios that use the shared network fixture plus OCI CLI to perform an out-of-band cluster upgrade.

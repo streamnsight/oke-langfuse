@@ -22,4 +22,4 @@ enable_oci_genai_gateway           = false
 langfuse_s3_access_key             = "fake-access"
 langfuse_s3_secret_key             = "fake-secret"
 ssh_public_key                     = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDdummykey"
-kubernetes_version                 = "1.34.1"
+kubernetes_version                 = "1.34.2"
