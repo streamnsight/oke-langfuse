@@ -19,11 +19,15 @@ fixture_dir_for_target() {
 
 fixture_state_exists() {
   local fixture_dir="$1"
-  [ -f "$fixture_dir/terraform.tfstate" ] || [ -d "$fixture_dir/.terraform" ]
+  local state_file="$fixture_dir/terraform.tfstate"
+  [ -f "$state_file" ] || return 1
+
+  jq -e 'any(.resources[]?; .mode == "managed" and ((.instances // []) | length > 0))' "$state_file" >/dev/null 2>&1
 }
 
 assert_network_destroy_is_safe() {
   local basic_dir enhanced_dir
+  require_command jq
   basic_dir="$(fixture_dir_for_target basic)"
   enhanced_dir="$(fixture_dir_for_target enhanced)"
   if fixture_state_exists "$basic_dir" || fixture_state_exists "$enhanced_dir"; then
