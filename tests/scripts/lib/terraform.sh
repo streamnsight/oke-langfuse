@@ -48,6 +48,53 @@ scenario_json_get_array_lines() {
   scenario_json_get_raw "$scenario_dir" "$jq_filter // [] | .[]"
 }
 
+scenario_cleanup_policy() {
+  local scenario_dir="$1"
+  local cleanup_policy=""
+
+  if scenario_has_manifest "$scenario_dir"; then
+    cleanup_policy="$(scenario_json_get_string "$scenario_dir" '.cleanup_policy')" || cleanup_policy=""
+    if [ -n "$cleanup_policy" ]; then
+      case "$cleanup_policy" in
+        always|success|never)
+          printf '%s\n' "$cleanup_policy"
+          return
+          ;;
+        *)
+          die "Unsupported cleanup_policy '$cleanup_policy' for $scenario_dir"
+          ;;
+      esac
+    fi
+  fi
+
+  if scenario_has_manifest "$scenario_dir" && [ "$(scenario_json_get_bool "$scenario_dir" '.destroy_after_run')" = "true" ]; then
+    printf 'always\n'
+  else
+    printf 'never\n'
+  fi
+}
+
+cleanup_policy_requires_destroy() {
+  local cleanup_policy="$1"
+  local scenario_succeeded="$2"
+
+  case "$cleanup_policy" in
+    always)
+      return 0
+      ;;
+    success)
+      [ "$scenario_succeeded" = "true" ]
+      return
+      ;;
+    never)
+      return 1
+      ;;
+    *)
+      die "Unknown cleanup policy: $cleanup_policy"
+      ;;
+  esac
+}
+
 scenario_expectation() {
   local scenario_name="$1"
   if scenario_has_manifest "$scenario_name"; then
@@ -332,16 +379,12 @@ run_single_scenario() {
   TESTS_LAST_SCENARIO_RESULT=""
   local expectation
   expectation="$(scenario_expectation "$scenario_dir")"
-  local mode raw_mode destroy_after_run
+  local mode raw_mode cleanup_policy
   raw_mode="$(scenario_mode "$scenario_dir")"
   mode="$raw_mode"
-  if scenario_has_manifest "$scenario_dir"; then
-    destroy_after_run="$(scenario_json_get_bool "$scenario_dir" '.destroy_after_run')"
-  else
-    destroy_after_run="false"
-  fi
+  cleanup_policy="$(scenario_cleanup_policy "$scenario_dir")"
   if [[ "$mode" == *-destroy ]]; then
-    destroy_after_run="true"
+    cleanup_policy="always"
     mode="${mode%-destroy}"
   fi
   local expected_error
@@ -362,7 +405,7 @@ run_single_scenario() {
   local cleanup_failure_message=""
   local destroy_args=(-input=false -lock=false -no-color -var-file="terraform.tfvars")
 
-  log "Running scenario $scenario_name (expect: $expectation, mode: $raw_mode)"
+  log "Running scenario $scenario_name (expect: $expectation, mode: $raw_mode, cleanup: $cleanup_policy)"
   prepare_fixture_for_scenario "$scenario_dir"
   copy_repo_for_scenario "$work_dir"
   prepare_scenario_workdir "$scenario_dir" "$scenario_name" "$work_dir"
@@ -529,12 +572,16 @@ run_single_scenario() {
       begin_log_group "Scenario $scenario_name: custom script"
       if should_stream_logs; then
         set +e
-        bash "$work_dir/tests/scenarios/$scenario_name/run.sh" "$work_dir" 2>&1 | tee "$run_log"
+        TESTS_SCENARIO_ARTIFACT_DIR="$artifact_dir" \
+          TESTS_SCENARIO_NAME="$scenario_name" \
+          bash "$work_dir/tests/scenarios/$scenario_name/run.sh" "$work_dir" 2>&1 | tee "$run_log"
         local script_status=${PIPESTATUS[0]}
         set -e
       else
         set +e
-        bash "$work_dir/tests/scenarios/$scenario_name/run.sh" "$work_dir" >"$run_log" 2>&1
+        TESTS_SCENARIO_ARTIFACT_DIR="$artifact_dir" \
+          TESTS_SCENARIO_NAME="$scenario_name" \
+          bash "$work_dir/tests/scenarios/$scenario_name/run.sh" "$work_dir" >"$run_log" 2>&1
         local script_status=$?
         set -e
       fi
@@ -552,7 +599,42 @@ run_single_scenario() {
 
   capture_terraform_outputs "$work_dir" "$outputs_after"
 
-  if [ "$destroy_after_run" = "true" ] && [ -f "$work_dir/terraform.tfstate" ]; then
+  local should_print_run_log="false"
+  if [ -n "$expected_output" ] && [ "$has_error" = "false" ]; then
+    local normalized_output normalized_expected_output
+    normalized_output="$(printf '%s\n' "$command_output" | normalize_whitespace)"
+    normalized_expected_output="$(printf '%s\n' "$expected_output" | normalize_whitespace)"
+    if [[ "$normalized_output" != *"$normalized_expected_output"* ]]; then
+      failure_message="output did not contain expected text"
+      should_print_run_log="true"
+    fi
+  fi
+
+  if [ -z "$failure_message" ] && [ -n "$expected_error" ] && [ "$has_error" = "true" ]; then
+    local normalized_output normalized_expected
+    normalized_output="$(printf '%s\n' "$command_output" | normalize_whitespace)"
+    normalized_expected="$(printf '%s\n' "$expected_error" | normalize_whitespace)"
+    if [[ "$normalized_output" != *"$normalized_expected"* ]]; then
+      failure_message="failed, but not with the expected error text"
+      should_print_run_log="true"
+    fi
+  fi
+
+  if [ -z "$failure_message" ] && [ "$expectation" = "pass" ] && [ "$has_error" = "true" ]; then
+    failure_message="expected pass but failed.$(terraform_provider_runtime_hint "$run_log")"
+    should_print_run_log="true"
+  fi
+
+  if [ -z "$failure_message" ] && [ "$expectation" = "fail" ] && [ "$has_error" = "false" ]; then
+    failure_message="expected fail but succeeded"
+  fi
+
+  local scenario_succeeded="true"
+  if [ -n "$failure_message" ]; then
+    scenario_succeeded="false"
+  fi
+
+  if cleanup_policy_requires_destroy "$cleanup_policy" "$scenario_succeeded" && [ -f "$work_dir/terraform.tfstate" ]; then
     begin_log_group "Scenario $scenario_name: terraform destroy"
     if ! run_logged_command "$destroy_log" terraform -chdir="$work_dir" destroy "${destroy_args[@]}" -auto-approve; then
       cleanup_failed="true"
@@ -562,60 +644,19 @@ run_single_scenario() {
     end_log_group
   fi
 
-  if [ -n "$expected_output" ] && [ "$has_error" = "false" ]; then
-    local normalized_output normalized_expected_output
-    normalized_output="$(printf '%s\n' "$command_output" | normalize_whitespace)"
-    normalized_expected_output="$(printf '%s\n' "$expected_output" | normalize_whitespace)"
-    if [[ "$normalized_output" != *"$normalized_expected_output"* ]]; then
-      cat "$run_log" >&2
-      failure_message="output did not contain expected text"
-      rm -rf "$work_dir"
-      printf '%s\n' "$failure_message" >"$artifact_dir/failure.txt"
-      log "Scenario failed: $scenario_name"
-      TESTS_LAST_SCENARIO_RESULT="$scenario_name|$failure_message"
-      return 1
-    fi
-  fi
-
-  if [ -n "$expected_error" ] && [ "$has_error" = "true" ]; then
-    local normalized_output normalized_expected
-    normalized_output="$(printf '%s\n' "$command_output" | normalize_whitespace)"
-    normalized_expected="$(printf '%s\n' "$expected_error" | normalize_whitespace)"
-    if [[ "$normalized_output" != *"$normalized_expected"* ]]; then
-      cat "$run_log" >&2
-      failure_message="failed, but not with the expected error text"
-      rm -rf "$work_dir"
-      printf '%s\n' "$failure_message" >"$artifact_dir/failure.txt"
-      log "Scenario failed: $scenario_name"
-      TESTS_LAST_SCENARIO_RESULT="$scenario_name|$failure_message"
-      return 1
-    fi
-  fi
-
-  if [ "$expectation" = "pass" ] && [ "$has_error" = "true" ]; then
-    cat "$run_log" >&2
-    failure_message="expected pass but failed.$(terraform_provider_runtime_hint "$run_log")"
-    rm -rf "$work_dir"
-    printf '%s\n' "$failure_message" >"$artifact_dir/failure.txt"
-    log "Scenario failed: $scenario_name"
-    TESTS_LAST_SCENARIO_RESULT="$scenario_name|$failure_message"
-    return 1
-  fi
-
-  if [ "$expectation" = "fail" ] && [ "$has_error" = "false" ]; then
-    failure_message="expected fail but succeeded"
-    rm -rf "$work_dir"
-    printf '%s\n' "$failure_message" >"$artifact_dir/failure.txt"
-    log "Scenario failed: $scenario_name"
-    TESTS_LAST_SCENARIO_RESULT="$scenario_name|$failure_message"
-    return 1
-  fi
-
   if [ "$cleanup_failed" = "true" ]; then
+    failure_message="$cleanup_failure_message"
+    scenario_succeeded="false"
+  fi
+
+  if [ "$scenario_succeeded" != "true" ]; then
+    if [ "$should_print_run_log" = "true" ]; then
+      cat "$run_log" >&2
+    fi
     rm -rf "$work_dir"
-    printf '%s\n' "$cleanup_failure_message" >"$artifact_dir/failure.txt"
+    printf '%s\n' "$failure_message" >"$artifact_dir/failure.txt"
     log "Scenario failed: $scenario_name"
-    TESTS_LAST_SCENARIO_RESULT="$scenario_name|$cleanup_failure_message"
+    TESTS_LAST_SCENARIO_RESULT="$scenario_name|$failure_message"
     return 1
   fi
 

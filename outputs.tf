@@ -91,6 +91,15 @@ output "test_metadata" {
       enabled = length(module.bastion) > 0
       id      = try(module.bastion[0].id, null)
     }
+    deployment = {
+      deploy_id    = local.deploy_id
+      namespace    = "langfuse"
+      langfuse_url = "https://${local.langfuse_url}/langfuse"
+    }
+    gateway = {
+      load_balancer_id = module.langfuse_gateway.load_balancer_ocid
+      ip_address       = module.langfuse_gateway.ip_address
+    }
     devops = {
       project_id     = module.devops_setup.project_id
       environment_id = module.devops_target_cluster_env.environment_id
@@ -110,6 +119,23 @@ output "test_metadata" {
         langfuse_chart       = module.langfuse_chart.deployment_id
         oci_genai_gateway    = try(module.oci_genai_gateway.deployment_id, null)
       }
+    }
+    registry = {
+      compartment_id    = var.devops_compartment_id
+      region            = var.region
+      tenancy_namespace = data.oci_objectstorage_namespace.ns.namespace
+      repositories = {
+        langfuse          = "${local.deploy_id}/langfuse"
+        oci_genai_gateway = var.enable_oci_genai_gateway ? "${local.deploy_id}/oci-genai-gateway" : null
+      }
+    }
+    vulnerability_scanning = {
+      recipe_id    = module.vulnerability_scanning.container_scan_recipe_id
+      target_id    = module.vulnerability_scanning.container_scan_target_id
+      repositories = local.vulnerability_scanning_repos
+    }
+    features = {
+      oci_genai_gateway_enabled = var.enable_oci_genai_gateway
     }
     existing_cluster_preflight = var.use_existing_cluster && var.enable_existing_cluster_cloud_init_preflight ? {
       compatible             = length(local.existing_cluster_cloud_init_matching_node_pools) > 0

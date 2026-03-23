@@ -43,6 +43,7 @@ Preferred interface:
 - `tests/scripts/run.sh test SCENARIO=<name>`
 - `tests/scripts/run.sh test SUITE=<all|fast|live> [SCENARIO=<name>]`
 - `tests/scripts/run.sh fixture ACTION=<up|down|refresh|status|scale> TARGET=<network|basic|enhanced> [SIZE=2|3]`
+- `tests/scripts/run.sh fixture-down-all`
 - `tests/scripts/run.sh debug TARGET=<network|basic|enhanced> [SCENARIO=<name>]`
 
 Thin root shortcuts:
@@ -52,6 +53,7 @@ Thin root shortcuts:
 - `make test SUITE=fast`
 - `make test SUITE=live`
 - `make fixture ACTION=... TARGET=...`
+- `make fixture-down-all`
 - `make debug TARGET=...`
 
 ### 3. Self-contained test workspace

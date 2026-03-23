@@ -24,6 +24,7 @@ Commands:
   help
   test      Run preflight plus scenario validation. Optional: SCENARIO=<name> SUITE=<all|fast|live>
   fixture   Manage fixture workspace. Required: TARGET=<network|basic|enhanced> ACTION=<up|down|refresh|status|scale>
+  fixture-down-all  Destroy all fixture workspaces in dependency order. Manual cleanup only.
   debug     Collect OCI DevOps and Kubernetes diagnostics. Required: TARGET=<network|basic|enhanced>
 
 Examples:
@@ -35,6 +36,7 @@ Examples:
   ./tests/scripts/run.sh fixture ACTION=status TARGET=network
   ./tests/scripts/run.sh fixture ACTION=scale TARGET=enhanced SIZE=3
   ./tests/scripts/run.sh fixture ACTION=refresh TARGET=enhanced USE_CUSTOM_CLOUD_INIT=false
+  ./tests/scripts/run.sh fixture-down-all
   ./tests/scripts/run.sh debug TARGET=enhanced
 EOF
 }
@@ -63,6 +65,9 @@ case "$COMMAND" in
     ;;
   fixture)
     run_fixture_action "${TARGET:-}" "${ACTION:-}" "${SIZE:-}"
+    ;;
+  fixture-down-all)
+    destroy_all_fixtures
     ;;
   debug)
     TARGET="${TARGET:-}"

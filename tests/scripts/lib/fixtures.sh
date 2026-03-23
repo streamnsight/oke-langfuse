@@ -688,7 +688,11 @@ run_fixture_action() {
         extra_vars+=("-var=is_public_endpoint=$IS_PUBLIC_ENDPOINT")
       fi
       action="up"
-      extra_vars=("-var=node_pool_size=$size" "${extra_vars[@]}")
+      if [ "${#extra_vars[@]}" -gt 0 ]; then
+        extra_vars=("-var=node_pool_size=$size" "${extra_vars[@]}")
+      else
+        extra_vars=("-var=node_pool_size=$size")
+      fi
       ;;
     *)
       die "Unknown fixture action: $action"
@@ -701,7 +705,13 @@ run_fixture_action() {
     expected_public_endpoint="$(enhanced_fixture_expected_public_endpoint)"
   fi
 
-  if ! run_fixture_terraform "$fixture_dir" "$action" "$artifact_dir" "${extra_vars[@]}"; then
+  local fixture_status=0
+  if [ "${#extra_vars[@]}" -gt 0 ]; then
+    run_fixture_terraform "$fixture_dir" "$action" "$artifact_dir" "${extra_vars[@]}" || fixture_status=$?
+  else
+    run_fixture_terraform "$fixture_dir" "$action" "$artifact_dir" || fixture_status=$?
+  fi
+  if [ "$fixture_status" -ne 0 ]; then
     if fixture_requires_enhanced_health_checks "$target" "$action"; then
       enhanced_fixture_collect_diagnostics \
         "$fixture_dir" \
@@ -711,7 +721,7 @@ run_fixture_action() {
         "$expected_public_endpoint" \
         "$expected_cloud_init"
     fi
-    return 1
+    return "$fixture_status"
   fi
 
   if fixture_requires_enhanced_health_checks "$target" "$action"; then
@@ -731,4 +741,24 @@ run_fixture_action() {
   else
     log "Fixture action completed. Successful artifacts cleaned."
   fi
+}
+
+destroy_all_fixtures() {
+  local targets=(enhanced basic network)
+  local target
+  local failed=()
+
+  log "Destroying all fixture workspaces in dependency order: ${targets[*]}"
+
+  for target in "${targets[@]}"; do
+    if ! run_fixture_action "$target" down; then
+      failed+=("$target")
+    fi
+  done
+
+  if [ "${#failed[@]}" -gt 0 ]; then
+    die "Failed to destroy fixture targets: ${failed[*]}"
+  fi
+
+  log "All fixture workspaces destroyed."
 }
