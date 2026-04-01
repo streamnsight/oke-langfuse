@@ -186,4 +186,4 @@ By default the preflight looks for the stack's docker login and docker credentia
 [ ] container vulnerability scanning
 [ ] build worker image
 [ ] auto add group and user to IDCS app
-[ ] 
+[ ] ensure cloud-init provisions OCIR login script + cronjob

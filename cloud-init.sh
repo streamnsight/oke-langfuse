@@ -15,7 +15,7 @@ chmod +x /usr/local/bin/docker_login.sh
 echo "IyEvYmluL2Jhc2ggLXhlCiMjIENvcHlyaWdodCDCqSAyMDIyLTIwMjYsIE9yYWNsZSBhbmQvb3IgaXRzIGFmZmlsaWF0ZXMuIAojIyBBbGwgcmlnaHRzIHJlc2VydmVkLiBUaGUgVW5pdmVyc2FsIFBlcm1pc3NpdmUgTGljZW5zZSAoVVBMKSwgVmVyc2lvbiAxLjAgYXMgc2hvd24gYXQgaHR0cDovL29zcy5vcmFjbGUuY29tL2xpY2Vuc2VzL3VwbAoKc2V0IC1vIHBpcGVmYWlsCgppZiAhIHJwbSAtLXF1aWV0IC0tcXVlcnkgcHl0aG9uMzYtb2NpLWNsaTsgdGhlbgogICAgeXVtIGluc3RhbGwgLXkgcHl0aG9uMzYtb2NpLWNsaQpmaQoKbWtkaXIgLXAgL3Zhci9saWIva3ViZWxldApta2RpciAtcCAvcm9vdC8uZG9ja2VyCiMgRW5hYmxlIGJhc3Rpb24gc2VydmljZQojIGV4cG9ydCBJTlNUQU5DRV9PQ0lEPSQoY3VybCAtcyAtSCAiQXV0aG9yaXphdGlvbjogQmVhcmVyIE9yYWNsZSIgaHR0cDovLzE2OS4yNTQuMTY5LjI1NC9vcGMvdjIvaW5zdGFuY2UvIHwganEgLXIgIi5pZCIpCiMgb2NpIGNvbXB1dGUgaW5zdGFuY2UgdXBkYXRlIC0tYXV0aCBpbnN0YW5jZV9wcmluY2lwYWwgLS1pbnN0YW5jZS1pZCAiJElOU1RBTkNFX09DSUQiIC0tYWdlbnQtY29uZmlnIDwoY2F0IDw8RU9GCiMgewojICAgInBsdWdpbnNDb25maWciOiBbCiMgICAgIHsKIyAgICAgICAiZGVzaXJlZFN0YXRlIjogIkVOQUJMRUQiLAojICAgICAgICJuYW1lIjogIkJhc3Rpb24iCiMgICAgIH0KIyAgIF0KIyB9CiMgRU9GCiMgKQovdXNyL2xvY2FsL2Jpbi9kb2NrZXJfbG9naW4uc2ggfHwgeyBlY2hvIGRvY2tlciBsb2dpbiBmYWlsZWQgOyBleGl0IDE7IH0K" | base64 --decode > /usr/local/bin/docker-credential-helper-init.sh
 chmod +x /usr/local/bin/docker-credential-helper-init.sh
 
-(crontab -l 2>/dev/null; echo "*/20 * * * * root sleep \$(( \$RANDOM \% 1000 )); /usr/local/bin/docker_login.sh") | crontab -
+(crontab -l 2>/dev/null; echo "*/20 * * * * /bin/bash -lc \"sleep \$(( \$RANDOM \% 1000 )); /usr/local/bin/docker_login.sh\"") | crontab -
 (crontab -l 2>/dev/null; echo "@reboot /usr/local/bin/docker_login.sh") | crontab -
 
 bash /usr/local/bin/docker-credential-helper-init.sh
