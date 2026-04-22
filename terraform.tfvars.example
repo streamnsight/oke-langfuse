@@ -109,6 +109,13 @@ langfuse_s3_secret_key = "xxxxxxxx"
 
 postgresql_shape = "PostgreSQL.VM.Standard.E5.Flex"
 
+# Redis/Valkey sizing for Langfuse queues.
+# Increase this if worker/K8s metrics show:
+# {"error":"OOM command not allowed when used memory > 'maxmemory'."}
+# For production workloads, start at 16-32 GiB and scale up with ingestion volume.
+redis_node_count  = "1"
+redis_node_memory = "16"
+
 # if creating the IDCS app with this template
 create_idcs_app = true
 identity_domain_id = "ocid1.domain.oc1..."
