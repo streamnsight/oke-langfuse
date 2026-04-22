@@ -4,8 +4,9 @@
 
 set -o pipefail
 
-if ! rpm --quiet --query python36-oci-cli; then
-    yum install -y python36-oci-cli
+if ! oci -v; then
+    dnf -y install oraclelinux-developer-release-el9 || dnf -y install oraclelinux-developer-release-el8
+    dnf -y install python36-oci-cli
 fi
 
 mkdir -p /var/lib/kubelet

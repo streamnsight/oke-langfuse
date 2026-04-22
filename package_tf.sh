@@ -8,6 +8,8 @@ rm -f oke-langfuse.zip
 zip -rxvf oke-langfuse.zip ./* \
     -x '*/.terraform/*' \
     -x '.terraform/*' \
+    -x 'langfuse/*' \
+    -x '*.tgz' \
     -x '.github/*' \
     -x '*/tests/*' \
     -x 'tests/*' \

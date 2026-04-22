@@ -169,7 +169,7 @@ resource "oci_containerengine_node_pool" "oci_oke_node_pool" {
 }
 
 
-# output "cloudinit" {
-#   value = base64decode(module.cloud_init_script[0].content.user_data)
-# }
+output "cloudinit" {
+  value = base64decode(module.cloud_init_script[0].content.user_data)
+}
 
