@@ -414,7 +414,7 @@ variables:
     type: oci:kubernetes:versions:id
     title: "Kubernetes Version"
     required: true
-    default: "v1.34.2"
+    default: "v1.35.0"
     description: The Kubernetes version for the cluster.
     dependsOn:
       compartmentId: cluster_compartment_id
