@@ -171,3 +171,5 @@ The stack DOES NOT attempt to modify an existing cluster cloud-init for obvious 
 [ ] validate deployment from local with profile
 [ ] container vulnerability scanning
 [ ] build worker image
+[ ] auto add group and user to IDCS app
+[ ] ensure cloud-init provisions OCIR login script + cronjob
