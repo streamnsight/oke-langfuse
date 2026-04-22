@@ -23,4 +23,4 @@ mkdir -p /root/.docker
 # }
 # EOF
 # )
-/var/run/docker_login.sh || { echo docker login failed ; exit 1; }
+/usr/local/bin/docker_login.sh || { echo docker login failed ; exit 1; }

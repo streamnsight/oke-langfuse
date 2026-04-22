@@ -9,15 +9,15 @@ fi
 echo $oke_init_script | base64 --decode > /var/run/oke-init.sh
 bash /var/run/oke-init.sh
 
-echo "${docker_login_script}" | base64 --decode > /var/run/docker_login.sh
-chmod +x /var/run/docker_login.sh
+echo "${docker_login_script}" | base64 --decode > /usr/local/bin/docker_login.sh
+chmod +x /usr/local/bin/docker_login.sh
 
-echo "${docker_credential_helper_script}" | base64 --decode > /var/run/docker-credential-helper-init.sh
-chmod +x /var/run/docker-credential-helper-init.sh
+echo "${docker_credential_helper_script}" | base64 --decode > /usr/local/bin/docker-credential-helper-init.sh
+chmod +x /usr/local/bin/docker-credential-helper-init.sh
 
-(crontab -l 2>/dev/null; echo "*/20 * * * * root sleep \$(( \$RANDOM \% 1000 )); /var/run/docker_login.sh") | crontab -
-(crontab -l 2>/dev/null; echo "@reboot /var/run/docker_login.sh") | crontab -
+(crontab -l 2>/dev/null; echo "*/20 * * * * /bin/bash -lc \"sleep \$(( \$RANDOM \% 1000 )); /usr/local/bin/docker_login.sh\"") | crontab -
+(crontab -l 2>/dev/null; echo "@reboot /usr/local/bin/docker_login.sh") | crontab -
 
-bash /var/run/docker-credential-helper-init.sh
+bash /usr/local/bin/docker-credential-helper-init.sh
 systemctl restart kubelet
 systemctl daemon-reload
