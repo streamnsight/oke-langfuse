@@ -78,4 +78,5 @@ module "policies_after_node_pool" {
   providers = {
     oci = oci.home_region
   }
+  depends_on = [ oci_containerengine_node_pool.oci_oke_node_pool ]
 }

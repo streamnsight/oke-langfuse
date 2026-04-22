@@ -45,7 +45,10 @@ Before you start, you will need:
 - The Identity Domain OCID **or** details for an existing app (Domain URL, App ID, Client ID, Client Secret)
   - If you do not control the app, an admin must update the redirect URL after deployment
 
-For node images, we recommend `Oracle-Linux 8-10 2025-09-16` (latest OKE-optimized image). Other images work but are slower to boot/scale because Kubernetes binaries are not preinstalled.
+For node images, for Kubernetes v1.32.x to 1.34.x select Oracle-Linux-8.10-2026.02.28-0
+For Kubernetes v1.35.0 select Oracle-Linux-8.10-2026.01.29-0
+
+Other images *may* work but if they do, they will be slower to boot/scale because Kubernetes binaries are not preinstalled.
 
 ⚠️ **Important:** After deployment, assign users (or groups) to the IDCS application to allow access. If you cannot create the app, ask your Identity Domain admin to do this.
 

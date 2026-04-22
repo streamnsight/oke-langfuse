@@ -414,7 +414,7 @@ variables:
     type: oci:kubernetes:versions:id
     title: "Kubernetes Version"
     required: true
-    default: "v1.34.2"
+    default: "v1.35.0"
     description: The Kubernetes version for the cluster.
     dependsOn:
       compartmentId: cluster_compartment_id
@@ -674,7 +674,9 @@ variables:
     title: Image Id
     description: |
       Image to use for this Node Pool. 
-      Some applications may require specific versions of Linux. OL7.9 is preferred.
+      Some applications may require specific versions of Linux. OL8.10 is preferred.
+      For Kubernetes v1.32.x to 1.34.x select Oracle-Linux-8.10-2026.02.28-0
+      For Kubernetes v1.35.0 select Oracle-Linux-8.10-2026.01.29-0
     dependsOn:
       compartmentId: cluster_compartment_id
       shape: np1_node_shape
@@ -1483,6 +1485,12 @@ variables:
     visible: false
 
   defined_tags:
+    visible: false
+
+  existing_cluster_cloud_init_required_markers:
+    visible: false
+
+  test_mode:
     visible: false
 
 
