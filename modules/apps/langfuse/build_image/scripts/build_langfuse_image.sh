@@ -27,14 +27,6 @@ export PLATFORM=$(podman system info --format json | jq .version.OsArch)
 export ARCH=$(podman system info --format json | jq -r .host.arch)
 
 
-# cache all build layers (faster if running multiple times, for debugging for example)
-export BUILDAH_LAYERS=true
-# Pull, patch and build Langfuse project
-rm -rf langfuse
-git clone https://github.com/langfuse/langfuse --quiet
-
-pushd langfuse
-
 # get latest version tag for the repo
 # export LANGFUSE_VERSION=$(git tag --sort=v:refname | tail -1)
 # get app version from chart version
@@ -55,61 +47,109 @@ podman manifest inspect ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/lang
     --is-public false \
 || echo "already exists"
 
+podman manifest inspect ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse-worker \
+|| oci --auth instance_principal artifacts container repository create \
+    --compartment-id ${CLUSTER_COMPARTMENT_ID} \
+    --display-name ${DEPLOY_ID}/langfuse-worker \
+    --is-public false \
+|| echo "already exists"
+
+BUILD_LANGFUSE_IMAGE=1
 if podman pull ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse:${VERSION} > /dev/null 2>&1; then
-    echo "Image found in the remote repository. Exiting script..."
-    exit 0 # Exit with 0 as requested by user if true
+    echo "langfuse Image found in the remote repository. "
+    BUILD_LANGFUSE_IMAGE=0
 else
-    echo "Image not found, building image..."
+    echo "langfuse Image not found, building image..."
 fi
+
+BUILD_LANGFUSE_WORKER_IMAGE=1
+if podman pull ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse-worker:${VERSION} > /dev/null 2>&1; then
+    echo "langfuse-worker Image found in the remote repository. "
+    BUILD_LANGFUSE_WORKER_IMAGE=0
+else
+    echo "langfuse-worker Image not found, building image..."
+fi
+
+if [ "$BUILD_LANGFUSE_IMAGE" -eq 0 && "$BUILD_LANGFUSE_WORKER_IMAGE" -eq 0 ]; then
+    echo "Both images found, skipping build"
+    exit 0
+fi
+
+# cache all build layers (faster if running multiple times, for debugging for example)
+export BUILDAH_LAYERS=true
+# Pull, patch and build Langfuse project
+rm -rf langfuse
+git clone https://github.com/langfuse/langfuse --quiet
+
+pushd langfuse
+
 
 # checkout latest tag branch
 git checkout "v${LANGFUSE_VERSION}"
 
 
-## patch Langfuse for IDCS. That requires installing the JS dependencies, patching and updating the lock file
+if [ "$BUILD_LANGFUSE_IMAGE" -eq 1 ]; then
+    ## patch Langfuse for IDCS. That requires installing the JS dependencies, patching and updating the lock file
 
-# add override of the openid-client package (which is a 3rd party dependency of NextJs Auth)
-cat package.json | jq '.pnpm.overrides += {"openid-client": "5.6.5"}' > package.new.json
-mv package.new.json package.json
-jq '.devDependencies."release-it" = "^19.0.5"' package.json > package.new.json
-mv package.new.json package.json
+    # add override of the openid-client package (which is a 3rd party dependency of NextJs Auth)
+    cat package.json | jq '.pnpm.overrides += {"openid-client": "5.6.5"}' > package.new.json
+    mv package.new.json package.json
+    jq '.devDependencies."release-it" = "^19.0.5"' package.json > package.new.json
+    mv package.new.json package.json
 
-# add follow-redirects package
-pnpm add follow-redirects@^1.15.11 -w
+    # add follow-redirects package
+    pnpm add follow-redirects@^1.15.11 -w
 
-cat package.json
+    cat package.json
 
-# install node modules locally so we can patch openid-client and update the package json to build the container image from lock file
-pnpm install --no-frozen-lockfile --loglevel=warn
+    # install node modules locally so we can patch openid-client and update the package json to build the container image from lock file
+    pnpm install --no-frozen-lockfile --loglevel=warn
 
 
-# get the location of the temporary openid-client module
-export TMP_FOLDER=$(pnpm patch openid-client@5.6.5 | grep "pnpm patch-commit" | awk -F" " '{print $3}' | tr -d "'")
+    # get the location of the temporary openid-client module
+    export TMP_FOLDER=$(pnpm patch openid-client@5.6.5 | grep "pnpm patch-commit" | awk -F" " '{print $3}' | tr -d "'")
 
-# patch the code of the openid-client to allow for 302 redirects to work (used by IDCS)
-sed -i '/const http = /d' ${TMP_FOLDER}/lib/helpers/request.js
-sed -i '/const https = /d' ${TMP_FOLDER}/lib/helpers/request.js
-sed -i "5i\const { http, https } = require('follow-redirects');" ${TMP_FOLDER}/lib/helpers/request.js
+    # patch the code of the openid-client to allow for 302 redirects to work (used by IDCS)
+    sed -i '/const http = /d' ${TMP_FOLDER}/lib/helpers/request.js
+    sed -i '/const https = /d' ${TMP_FOLDER}/lib/helpers/request.js
+    sed -i "5i\const { http, https } = require('follow-redirects');" ${TMP_FOLDER}/lib/helpers/request.js
 
-# commit the openid-client patch
-pnpm patch-commit ${TMP_FOLDER}
+    # commit the openid-client patch
+    pnpm patch-commit ${TMP_FOLDER}
 
-## update the lock file
-pnpm update --loglevel=warn
+    ## update the lock file
+    pnpm update --loglevel=warn
 
-# clean up the node_modules
-rm -rf node_modules
+    # clean up the node_modules
+    rm -rf node_modules
 
-# build and publish the LangFuse container image
-podman build -q --ulimit=nofile=65535:65535 --platform=${PLATFORM} --shm-size=10G -t ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse:${VERSION} --build-arg NEXT_PUBLIC_BASE_PATH=/langfuse -f ./web/Dockerfile .
+    # build and publish the LangFuse container image
+    podman build -q --ulimit=nofile=65535:65535 --platform=${PLATFORM} --shm-size=10G -t ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse:${VERSION} --build-arg NEXT_PUBLIC_BASE_PATH=/langfuse -f ./web/Dockerfile .
 
-## push image to repo
-## Get registry repo token and docker login again to the repo as token may have expried by then
-oci --auth instance_principal raw-request --http-method GET --target-uri https://${REGION}.ocir.io/20180419/docker/token | jq -r .data.token | podman login ${REGION}.ocir.io -u BEARER_TOKEN --password-stdin
+    ## push image to repo
+    ## Get registry repo token and docker login again to the repo as token may have expried by then
+    oci --auth instance_principal raw-request --http-method GET --target-uri https://${REGION}.ocir.io/20180419/docker/token | jq -r .data.token | podman login ${REGION}.ocir.io -u BEARER_TOKEN --password-stdin
 
-podman push -q ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse:${VERSION}
+    podman push -q ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse:${VERSION}
 
-# get image by SHA
-export LANGFUSE_IMAGE=$(podman inspect --format='{{index .RepoDigests 0}}' ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse:${VERSION})
+    # get image by SHA
+    export LANGFUSE_IMAGE=$(podman inspect --format='{{index .RepoDigests 0}}' ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse:${VERSION})
+
+fi
+
+if [ "$BUILD_LANGFUSE_WORKER_IMAGE" -eq 1 ]; then
+
+    # build and publish the LangFuse worker container image
+    podman build -q --ulimit=nofile=65535:65535 --platform=${PLATFORM} --shm-size=10G -t ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse-worker:${VERSION} --build-arg NEXT_PUBLIC_BASE_PATH=/langfuse -f ./worker/Dockerfile .
+
+    ## push image to repo
+    ## Get registry repo token and docker login again to the repo as token may have expried by then
+    oci --auth instance_principal raw-request --http-method GET --target-uri https://${REGION}.ocir.io/20180419/docker/token | jq -r .data.token | podman login ${REGION}.ocir.io -u BEARER_TOKEN --password-stdin
+
+    podman push -q ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse-worker:${VERSION}
+
+    # get image by SHA
+    export LANGFUSE_IMAGE=$(podman inspect --format='{{index .RepoDigests 0}}' ${REGION}.ocir.io/${TENANCY_NAMESPACE}/${DEPLOY_ID}/langfuse-worker:${VERSION})
+fi
 
 popd
