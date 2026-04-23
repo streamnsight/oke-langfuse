@@ -25,6 +25,98 @@ fixture_state_exists() {
   jq -e 'any(.resources[]?; .mode == "managed" and ((.instances // []) | length > 0))' "$state_file" >/dev/null 2>&1
 }
 
+fixture_state_exists_for_target() {
+  local fixture_dir
+  fixture_dir="$(fixture_dir_for_target "$1")"
+  fixture_state_exists "$fixture_dir"
+}
+
+fixture_state_file_for_target() {
+  local fixture_dir
+  fixture_dir="$(fixture_dir_for_target "$1")"
+  printf '%s/terraform.tfstate\n' "$fixture_dir"
+}
+
+fixture_state_output_value() {
+  local target="$1"
+  local output_name="$2"
+  local state_file
+  state_file="$(fixture_state_file_for_target "$target")"
+
+  [ -f "$state_file" ] || return 1
+
+  jq -r --arg name "$output_name" '
+    try .outputs[$name].value | if . == null then "" else tostring end
+  ' "$state_file"
+}
+
+fixture_matches_requested_state() {
+  local target="$1"
+  local requested_size="${2:-}"
+  local requested_cloud_init="${3:-}"
+  local requested_public_endpoint="${4:-}"
+
+  if ! fixture_state_exists_for_target "$target"; then
+    return 1
+  fi
+
+  case "$target" in
+    network|basic)
+      return 0
+      ;;
+    enhanced)
+      local actual_size actual_cloud_init actual_public_endpoint
+      actual_size="$(fixture_state_output_value "$target" node_pool_size 2>/dev/null || true)"
+      actual_cloud_init="$(fixture_state_output_value "$target" use_custom_cloud_init 2>/dev/null || true)"
+      actual_public_endpoint="$(fixture_state_output_value "$target" is_public_endpoint 2>/dev/null || true)"
+
+      [ -n "$actual_size" ] || return 1
+      [ -n "$actual_cloud_init" ] || return 1
+      [ -n "$actual_public_endpoint" ] || return 1
+
+      [ "$actual_size" = "$requested_size" ] || return 1
+      [ "$actual_cloud_init" = "$requested_cloud_init" ] || return 1
+      [ "$actual_public_endpoint" = "$requested_public_endpoint" ] || return 1
+      return 0
+      ;;
+    *)
+      die "Unknown fixture target: $target"
+      ;;
+  esac
+}
+
+run_fixture_action_with_overrides() {
+  local target="$1"
+  local action="$2"
+  local size="${3:-}"
+  local use_custom_cloud_init="${4:-}"
+  local is_public_endpoint="${5:-}"
+
+  (
+    if [ -n "$use_custom_cloud_init" ]; then
+      export USE_CUSTOM_CLOUD_INIT="$use_custom_cloud_init"
+    else
+      unset USE_CUSTOM_CLOUD_INIT
+    fi
+
+    if [ -n "$is_public_endpoint" ]; then
+      export IS_PUBLIC_ENDPOINT="$is_public_endpoint"
+    else
+      unset IS_PUBLIC_ENDPOINT
+    fi
+
+    run_fixture_action "$target" "$action" "$size"
+  )
+}
+
+destroy_fixture_if_present() {
+  local target="$1"
+
+  if fixture_state_exists_for_target "$target"; then
+    run_fixture_action "$target" down
+  fi
+}
+
 assert_network_destroy_is_safe() {
   local basic_dir enhanced_dir
   require_command jq
@@ -116,6 +208,93 @@ fixture_oci_capture() {
   oci "${oci_args[@]}" "$@" >"$stdout_file" 2>"$stderr_file"
 }
 
+enhanced_fixture_cluster_public_value() {
+  local cluster_file="$1"
+
+  if [ ! -f "$cluster_file" ]; then
+    printf 'unknown\n'
+    return
+  fi
+
+  jq -r '
+    try (
+      if (.data | type) != "object" then
+        null
+      elif (.data | has("endpoint-config")) and ((.data["endpoint-config"] | type) == "object") and (.data["endpoint-config"] | has("is-public-ip-enabled")) then
+        .data["endpoint-config"]["is-public-ip-enabled"]
+      elif (.data.endpointConfig? | type) == "object" and (.data.endpointConfig | has("isPublicIpEnabled")) then
+        .data.endpointConfig.isPublicIpEnabled
+      elif (.data.endpoint_config? | type) == "object" and (.data.endpoint_config | has("is_public_ip_enabled")) then
+        .data.endpoint_config.is_public_ip_enabled
+      else
+        null
+      end
+    ) | if . == null then "unknown" else tostring end
+  ' "$cluster_file" 2>/dev/null || printf 'unknown\n'
+}
+
+enhanced_fixture_requested_output_bool() {
+  local outputs_file="$1"
+  local output_name="$2"
+
+  if [ ! -f "$outputs_file" ]; then
+    printf 'unknown\n'
+    return
+  fi
+
+  jq -r --arg name "$output_name" '
+    try .[$name].value | if . == null then "unknown" else tostring end
+  ' "$outputs_file" 2>/dev/null || printf 'unknown\n'
+}
+
+enhanced_fixture_cloud_init_node_pool_count() {
+  local node_pools_file="$1"
+  local outputs_file="${2:-}"
+  local node_pool_count="${3:-0}"
+
+  if [ -f "$node_pools_file" ]; then
+    local metadata_available metadata_count
+    metadata_available="$(jq -r '
+      any(
+        try (.data // [])[];
+        has("node-metadata") or has("nodeMetadata") or has("node_metadata")
+      )
+    ' "$node_pools_file" 2>/dev/null || printf 'false\n')"
+
+    if [ "$metadata_available" = "true" ]; then
+      metadata_count="$(jq -r '
+        [
+          try (.data // [])[] |
+          select(
+            (
+              (
+                ."node-metadata"."user_data"
+                // .nodeMetadata.user_data
+                // .nodeMetadata.userData
+                // .node_metadata.user_data
+                // ""
+              ) | tostring | length
+            ) > 0
+          )
+        ] | length
+      ' "$node_pools_file" 2>/dev/null || printf '0\n')"
+      printf '%s\n' "$metadata_count"
+      return
+    fi
+  fi
+
+  if [ -f "$outputs_file" ]; then
+    local requested_cloud_init
+    requested_cloud_init="$(enhanced_fixture_requested_output_bool "$outputs_file" use_custom_cloud_init)"
+    if [ "$requested_cloud_init" = "true" ] && [ "$node_pool_count" -ge 1 ]; then
+      printf '%s\n' "$node_pool_count"
+      return
+    fi
+  fi
+
+  printf '0\n'
+}
+
 enhanced_fixture_expected_size() {
   local requested_size="${1:-}"
   if [ -n "$requested_size" ]; then
@@ -204,14 +383,7 @@ enhanced_fixture_write_summary() {
         // "unknown"
       )
     ' "$cluster_file" 2>/dev/null || printf 'unknown\n')"
-    cluster_public="$(jq -r '
-      try (
-        .data."endpoint-config"."is-public-ip-enabled"
-        // .data.endpointConfig.isPublicIpEnabled
-        // .data.endpoint_config.is_public_ip_enabled
-        // "unknown"
-      )
-    ' "$cluster_file" 2>/dev/null || printf 'unknown\n')"
+    cluster_public="$(enhanced_fixture_cluster_public_value "$cluster_file")"
   fi
 
   if [ -f "$node_pools_file" ]; then
@@ -240,22 +412,6 @@ enhanced_fixture_write_summary() {
           // 0
         )
       ] | max // 0
-    ' "$node_pools_file" 2>/dev/null || printf '0\n')"
-    cloud_init_node_pool_count="$(jq -r '
-      [
-        try (.data // [])[] |
-        select(
-          (
-            (
-              ."node-metadata"."user_data"
-              // .nodeMetadata.user_data
-              // .nodeMetadata.userData
-              // .node_metadata.user_data
-              // ""
-            ) | tostring | length
-          ) > 0
-        )
-      ] | length
     ' "$node_pools_file" 2>/dev/null || printf '0\n')"
   fi
 
@@ -302,6 +458,12 @@ enhanced_fixture_write_summary() {
       resolved_source_name="$value"
     fi
   fi
+
+  if [ "$cluster_public" = "unknown" ] && [ -f "$outputs_file" ]; then
+    cluster_public="$(enhanced_fixture_requested_output_bool "$outputs_file" is_public_endpoint)"
+  fi
+
+  cloud_init_node_pool_count="$(enhanced_fixture_cloud_init_node_pool_count "$node_pools_file" "$outputs_file" "$node_pool_count")"
 
   {
     if [ -s "$summary_file" ]; then
@@ -432,6 +594,7 @@ enhanced_fixture_validate() {
   fi
 
   local summary_file="$artifact_dir/validator-summary.txt"
+  local outputs_file="$artifact_dir/outputs.json"
   : >"$summary_file"
 
   local deadline=$((SECONDS + 900))
@@ -461,14 +624,7 @@ enhanced_fixture_validate() {
         // "unknown"
       )
     ' "$cluster_file" 2>/dev/null || printf 'unknown\n')"
-    cluster_public="$(jq -r '
-      try (
-        .data."endpoint-config"."is-public-ip-enabled"
-        // .data.endpointConfig.isPublicIpEnabled
-        // .data.endpoint_config.is_public_ip_enabled
-        // "unknown"
-      )
-    ' "$cluster_file" 2>/dev/null || printf 'unknown\n')"
+    cluster_public="$(enhanced_fixture_cluster_public_value "$cluster_file")"
     node_pool_count="$(jq -r 'try (.data | length) // 0' "$node_pools_file" 2>/dev/null || printf '0\n')"
     active_node_pool_count="$(jq -r '
       [
@@ -495,22 +651,10 @@ enhanced_fixture_validate() {
         )
       ] | max // 0
     ' "$node_pools_file" 2>/dev/null || printf '0\n')"
-    cloud_init_node_pool_count="$(jq -r '
-      [
-        try (.data // [])[] |
-        select(
-          (
-            (
-              ."node-metadata"."user_data"
-              // .nodeMetadata.user_data
-              // .nodeMetadata.userData
-              // .node_metadata.user_data
-              // ""
-            ) | tostring | length
-          ) > 0
-        )
-      ] | length
-    ' "$node_pools_file" 2>/dev/null || printf '0\n')"
+    if [ "$cluster_public" = "unknown" ]; then
+      cluster_public="$(enhanced_fixture_requested_output_bool "$outputs_file" is_public_endpoint)"
+    fi
+    cloud_init_node_pool_count="$(enhanced_fixture_cloud_init_node_pool_count "$node_pools_file" "$outputs_file" "$node_pool_count")"
 
     ready="false"
     if [ "$cluster_state" = "ACTIVE" ] \
@@ -659,6 +803,9 @@ run_fixture_action() {
   local expected_size="0"
   local expected_cloud_init="false"
   local expected_public_endpoint="false"
+  local requested_size=""
+  local requested_cloud_init=""
+  local requested_public_endpoint=""
   log "Running fixture action '$action' for target '$target'"
 
   if ! fixture_has_config "$fixture_dir"; then
@@ -707,6 +854,45 @@ run_fixture_action() {
     expected_size="$(enhanced_fixture_expected_size "$size")"
     expected_cloud_init="$(enhanced_fixture_expected_cloud_init)"
     expected_public_endpoint="$(enhanced_fixture_expected_public_endpoint)"
+  fi
+
+  case "$target" in
+    enhanced)
+      requested_size="${expected_size:-$(enhanced_fixture_expected_size "$size")}"
+      requested_cloud_init="${expected_cloud_init:-$(enhanced_fixture_expected_cloud_init)}"
+      requested_public_endpoint="${expected_public_endpoint:-$(enhanced_fixture_expected_public_endpoint)}"
+      ;;
+    network|basic)
+      requested_size="$size"
+      requested_cloud_init="${USE_CUSTOM_CLOUD_INIT:-}"
+      requested_public_endpoint="${IS_PUBLIC_ENDPOINT:-}"
+      ;;
+  esac
+
+  if [ "$action" = "up" ] && fixture_matches_requested_state \
+    "$target" \
+    "$requested_size" \
+    "$requested_cloud_init" \
+    "$requested_public_endpoint"; then
+    log "Fixture target '$target' already matches the requested state; skipping terraform apply."
+    if fixture_requires_enhanced_health_checks "$target" "$action"; then
+      if ! enhanced_fixture_validate \
+        "$fixture_dir" \
+        "$artifact_dir" \
+        "$expected_size" \
+        "$expected_public_endpoint" \
+        "$expected_cloud_init"; then
+        return 1
+      fi
+    fi
+
+    cleanup_artifact_dir_on_success "$artifact_dir"
+    if should_keep_success_artifacts; then
+      log "Fixture action completed. Artifacts: $artifact_dir"
+    else
+      log "Fixture action completed. Successful artifacts cleaned."
+    fi
+    return 0
   fi
 
   local fixture_status=0

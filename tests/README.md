@@ -34,6 +34,7 @@ From the repo root:
 make test
 make test SUITE=fast
 make test SUITE=live
+make test SUITE=live LIVE_FIXTURE_FINAL_CLEANUP=success
 make test SCENARIO=existing_cluster/invalid_empty_cluster_ocid
 make test SUITE=all SCENARIO=networking/valid_existing_vcn
 
@@ -52,6 +53,7 @@ Direct runner usage:
 ./tests/scripts/run.sh test
 ./tests/scripts/run.sh test SUITE=fast
 ./tests/scripts/run.sh test SUITE=live
+./tests/scripts/run.sh test SUITE=live LIVE_FIXTURE_FINAL_CLEANUP=success
 ./tests/scripts/run.sh test SCENARIO=existing_cluster/invalid_empty_cluster_ocid
 ./tests/scripts/run.sh test SUITE=all SCENARIO=networking/invalid_ocid_format
 ./tests/scripts/run.sh fixture ACTION=status TARGET=basic
@@ -72,8 +74,10 @@ Direct runner usage:
 - When `test_mode = true`, the stack exposes extra non-sensitive metadata through `terraform output -json` for local inspection tooling.
 - Successful `test` and `fixture` runs clean up their timestamped artifact directories by default. Set `TESTS_KEEP_SUCCESS_ARTIFACTS=true` if you want to retain successful logs locally.
 - Failed scenarios now print expected-vs-actual diagnostics when available and point to the saved Terraform logs under `tests/artifacts/` so you can jump straight to the relevant run output.
-- `SUITE=fast` is the CI-safe subset used on pull requests and includes only scenarios explicitly tagged in `suites.txt` that fail before live OCI access is needed.
-- `SUITE=live` is the local OCI-backed subset for fixture-based existing-cluster compatibility checks.
+- `SUITE=fast` is the CI-safe subset used on pull requests and includes only scenarios explicitly tagged for `fast` in `scenario.json` or legacy `suites.txt` metadata.
+- `SUITE=live` is the local OCI-backed subset for fixture-based existing-cluster compatibility checks and self-bootstraps the required `network`, `basic`, and `enhanced` fixture profiles from empty local state.
+- Live scenarios declare explicit `infra.profile` and `infra.bootstrap` metadata in `scenario.json`. The live suite groups scenarios by profile, reuses matching fixture state, and only tears down or redeploys when the next profile needs different infra.
+- By default the live suite leaves the last prepared fixtures warm after a successful run. Set `LIVE_FIXTURE_FINAL_CLEANUP=success` to destroy all fixture targets touched by the suite in dependency order after success.
 - `SUITE=live` also includes multi-step managed-cluster drift scenarios that use the shared network fixture plus OCI CLI to perform an out-of-band cluster upgrade.
 - The full-stack live deployment scenario now deploys once, runs multiple post-deploy validators, destroys the stack on success, and keeps it on failure for debugging.
 - `tests/.env` and `tests/.env.local` are ignored by git and are the right place for real local test values.

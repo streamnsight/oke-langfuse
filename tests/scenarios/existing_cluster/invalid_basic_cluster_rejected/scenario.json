@@ -1,6 +1,19 @@
 {
   "mode": "apply",
   "expectation": "fail",
+  "infra": {
+    "profile": "basic-private",
+    "bootstrap": [
+      {
+        "target": "network",
+        "action": "up"
+      },
+      {
+        "target": "basic",
+        "action": "up"
+      }
+    ]
+  },
   "suites": [
     "live"
   ],

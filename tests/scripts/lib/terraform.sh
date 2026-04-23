@@ -206,6 +206,258 @@ filter_scenarios_by_suite() {
   esac
 }
 
+scenario_infra_bootstrap_lines() {
+  local scenario_dir="$1"
+
+  if scenario_has_manifest "$scenario_dir"; then
+    scenario_json_get_raw "$scenario_dir" '
+      .infra.bootstrap // [] |
+      .[] |
+      [
+        (.target // ""),
+        (.action // ""),
+        (if has("size") then (.size | tostring) else "" end),
+        (if has("use_custom_cloud_init") then (.use_custom_cloud_init | tostring) else "" end),
+        (if has("is_public_endpoint") then (.is_public_endpoint | tostring) else "" end)
+      ] | @tsv
+    '
+    return
+  fi
+
+  [ -f "$scenario_dir/fixture.env" ] || return 0
+
+  (
+    unset TARGET ACTION SIZE USE_CUSTOM_CLOUD_INIT IS_PUBLIC_ENDPOINT
+    # shellcheck disable=SC1090
+    source "$scenario_dir/fixture.env"
+    require_non_empty "${TARGET:-}" "TARGET is required in $scenario_dir/fixture.env"
+    require_non_empty "${ACTION:-}" "ACTION is required in $scenario_dir/fixture.env"
+    printf '%s\t%s\t%s\t%s\t%s\n' \
+      "${TARGET:-}" \
+      "${ACTION:-}" \
+      "${SIZE:-}" \
+      "${USE_CUSTOM_CLOUD_INIT:-}" \
+      "${IS_PUBLIC_ENDPOINT:-}"
+  )
+}
+
+scenario_infra_bootstrap_signature() {
+  local scenario_dir="$1"
+  local bootstrap_lines
+  bootstrap_lines="$(scenario_infra_bootstrap_lines "$scenario_dir")"
+
+  if [ -n "$bootstrap_lines" ]; then
+    printf '%s\n' "$bootstrap_lines"
+  fi
+}
+
+scenario_infra_profile() {
+  local scenario_dir="$1"
+  local profile=""
+
+  if scenario_has_manifest "$scenario_dir"; then
+    profile="$(scenario_json_get_string "$scenario_dir" '.infra.profile')" || profile=""
+    if [ -n "$profile" ]; then
+      printf '%s\n' "$profile"
+      return
+    fi
+  fi
+
+  local signature
+  signature="$(scenario_infra_bootstrap_signature "$scenario_dir")"
+  if [ -n "$signature" ]; then
+    printf 'fallback-%s\n' "$(slugify "$signature")"
+  fi
+}
+
+record_touched_fixture_targets() {
+  local touched_file="$1"
+  local scenario_dir="$2"
+  local bootstrap_lines
+  bootstrap_lines="$(scenario_infra_bootstrap_signature "$scenario_dir")"
+  [ -n "$bootstrap_lines" ] || return 0
+
+  while IFS=$'\t' read -r target _action _size _use_custom_cloud_init _is_public_endpoint; do
+    [ -n "$target" ] || continue
+    if ! grep -Fxq "$target" "$touched_file" 2>/dev/null; then
+      printf '%s\n' "$target" >>"$touched_file"
+    fi
+  done <<<"$bootstrap_lines"
+}
+
+cleanup_touched_fixture_targets() {
+  local touched_file="$1"
+  local cleanup_mode="${LIVE_FIXTURE_FINAL_CLEANUP:-never}"
+
+  case "$cleanup_mode" in
+    never)
+      return 0
+      ;;
+    success)
+      ;;
+    *)
+      die "Unsupported LIVE_FIXTURE_FINAL_CLEANUP value: $cleanup_mode"
+      ;;
+  esac
+
+  [ -f "$touched_file" ] || return 0
+
+  local target
+  for target in enhanced basic network; do
+    if grep -Fxq "$target" "$touched_file" 2>/dev/null; then
+      destroy_fixture_if_present "$target"
+    fi
+  done
+}
+
+activate_scenario_infra_profile() {
+  local scenario_dir="$1"
+  local touched_file="${2:-}"
+  local bootstrap_lines
+  local profile
+  bootstrap_lines="$(scenario_infra_bootstrap_signature "$scenario_dir")"
+  [ -n "$bootstrap_lines" ] || return 0
+  profile="$(scenario_infra_profile "$scenario_dir")"
+
+  local desired_network="false"
+  local desired_basic="false"
+  local desired_enhanced="false"
+  local line_count="0"
+
+  while IFS=$'\t' read -r target action _size _use_custom_cloud_init _is_public_endpoint; do
+    [ -n "$target" ] || continue
+    [ -n "$action" ] || die "ACTION is required for scenario infra bootstrap in $scenario_dir"
+    line_count=$((line_count + 1))
+
+    case "$target" in
+      network)
+        desired_network="true"
+        ;;
+      basic)
+        desired_basic="true"
+        ;;
+      enhanced)
+        desired_enhanced="true"
+        ;;
+      *)
+        die "Unsupported fixture target '$target' in scenario infra bootstrap for $scenario_dir"
+        ;;
+    esac
+  done <<<"$bootstrap_lines"
+
+  if [ "$line_count" -eq 0 ]; then
+    return 0
+  fi
+
+  if [ -n "$profile" ]; then
+    log "Activating live infra profile '$profile' for ${scenario_dir#"$TESTS_DIR/scenarios/"}"
+  fi
+
+  if [ -n "$touched_file" ]; then
+    record_touched_fixture_targets "$touched_file" "$scenario_dir"
+  fi
+
+  if [ "$desired_basic" != "true" ]; then
+    destroy_fixture_if_present basic
+  fi
+  if [ "$desired_enhanced" != "true" ]; then
+    destroy_fixture_if_present enhanced
+  fi
+
+  while IFS=$'\t' read -r target action size use_custom_cloud_init is_public_endpoint; do
+    [ -n "$target" ] || continue
+
+    if [ "$action" = "up" ] && fixture_state_exists_for_target "$target"; then
+      case "$target" in
+        enhanced)
+          local requested_size requested_cloud_init requested_public_endpoint
+          requested_size="${size:-2}"
+          requested_cloud_init="${use_custom_cloud_init:-true}"
+          requested_public_endpoint="${is_public_endpoint:-false}"
+          if ! fixture_matches_requested_state \
+            "$target" \
+            "$requested_size" \
+            "$requested_cloud_init" \
+            "$requested_public_endpoint"; then
+            destroy_fixture_if_present "$target"
+          fi
+          ;;
+        basic|network)
+          ;;
+      esac
+    fi
+
+    run_fixture_action_with_overrides \
+      "$target" \
+      "$action" \
+      "$size" \
+      "$use_custom_cloud_init" \
+      "$is_public_endpoint"
+  done <<<"$bootstrap_lines"
+}
+
+plan_scenario_execution_order() {
+  local selector="${1:-}"
+  local scenario_dirs
+  scenario_dirs="$(resolve_scenarios "$selector")"
+
+  if [ "${SUITE:-}" != "live" ] || [ -n "$selector" ]; then
+    printf '%s\n' "$scenario_dirs"
+    return
+  fi
+
+  local temp_dir
+  temp_dir="$(mktemp -d)"
+  local -a group_profiles=()
+  local -a group_files=()
+  local scenario_dir
+
+  while IFS= read -r scenario_dir; do
+    [ -n "$scenario_dir" ] || continue
+
+    local profile signature group_index
+    profile="$(scenario_infra_profile "$scenario_dir")"
+    signature="$(scenario_infra_bootstrap_signature "$scenario_dir")"
+    group_index="-1"
+
+    if [ -z "$profile" ]; then
+      profile="__ungrouped__:${scenario_dir#"$TESTS_DIR/scenarios/"}"
+    fi
+
+    local i
+    for i in "${!group_profiles[@]}"; do
+      if [ "${group_profiles[$i]}" = "$profile" ]; then
+        group_index="$i"
+        break
+      fi
+    done
+
+    if [ "$group_index" -lt 0 ]; then
+      group_profiles+=("$profile")
+      group_files+=("$temp_dir/group-${#group_profiles[@]}.txt")
+      group_index=$((${#group_profiles[@]} - 1))
+      : >"${group_files[$group_index]}"
+    else
+      local first_scenario existing_signature
+      first_scenario="$(head -n 1 "${group_files[$group_index]}")"
+      existing_signature="$(scenario_infra_bootstrap_signature "$first_scenario")"
+      if [ "$existing_signature" != "$signature" ]; then
+        rm -rf "$temp_dir"
+        die "Scenario profile '$profile' maps to inconsistent bootstrap definitions."
+      fi
+    fi
+
+    printf '%s\n' "$scenario_dir" >>"${group_files[$group_index]}"
+  done <<<"$scenario_dirs"
+
+  local group_file
+  for group_file in "${group_files[@]}"; do
+    cat "$group_file"
+  done
+
+  rm -rf "$temp_dir"
+}
+
 copy_repo_for_scenario() {
   local destination="$1"
   rsync -a \
@@ -354,18 +606,9 @@ scenario_targets() {
   fi
 }
 
-prepare_fixture_for_scenario() {
+prepare_scenario_infra() {
   local scenario_dir="$1"
-  [ -f "$scenario_dir/fixture.env" ] || return 0
-
-  (
-    unset TARGET ACTION SIZE USE_CUSTOM_CLOUD_INIT IS_PUBLIC_ENDPOINT
-    # shellcheck disable=SC1090
-    source "$scenario_dir/fixture.env"
-    require_non_empty "${TARGET:-}" "TARGET is required in $scenario_dir/fixture.env"
-    require_non_empty "${ACTION:-}" "ACTION is required in $scenario_dir/fixture.env"
-    run_fixture_action "${TARGET:-}" "${ACTION:-}" "${SIZE:-}"
-  )
+  activate_scenario_infra_profile "$scenario_dir"
 }
 
 prepare_scenario_workdir() {
@@ -467,7 +710,9 @@ run_single_scenario() {
   local destroy_args=(-input=false -lock=false -no-color -var-file="terraform.tfvars")
 
   log "Running scenario $scenario_name (expect: $expectation, mode: $raw_mode, cleanup: $cleanup_policy)"
-  prepare_fixture_for_scenario "$scenario_dir"
+  if [ "${TESTS_SKIP_SCENARIO_BOOTSTRAP:-false}" != "true" ]; then
+    prepare_scenario_infra "$scenario_dir"
+  fi
   copy_repo_for_scenario "$work_dir"
   prepare_scenario_workdir "$scenario_dir" "$scenario_name" "$work_dir"
 
@@ -780,20 +1025,44 @@ run_scenario_suite() {
   local selector="${1:-}"
   local ran_any="false"
   local failures=()
+  local ordered_scenarios
+  local active_profile=""
+  local touched_targets_file
+  touched_targets_file="$(mktemp)"
+  ordered_scenarios="$(plan_scenario_execution_order "$selector")"
   local scenario_dir
   while IFS= read -r scenario_dir; do
     [ -n "$scenario_dir" ] || continue
     ran_any="true"
+
+    if [ "${SUITE:-}" = "live" ]; then
+      if [ -n "$selector" ]; then
+        activate_scenario_infra_profile "$scenario_dir" "$touched_targets_file"
+      else
+        local scenario_profile
+        scenario_profile="$(scenario_infra_profile "$scenario_dir")"
+        if [ "$scenario_profile" != "$active_profile" ]; then
+          activate_scenario_infra_profile "$scenario_dir" "$touched_targets_file"
+          active_profile="$scenario_profile"
+        fi
+      fi
+      TESTS_SKIP_SCENARIO_BOOTSTRAP="true"
+    fi
+
     if ! run_single_scenario "$scenario_dir"; then
       failures+=("${TESTS_LAST_SCENARIO_RESULT:-${scenario_dir#"$TESTS_DIR/scenarios/"}|unknown failure}")
     fi
-  done < <(resolve_scenarios "$selector")
+
+    unset TESTS_SKIP_SCENARIO_BOOTSTRAP
+  done <<<"$ordered_scenarios"
 
   if [ "$ran_any" != "true" ]; then
+    rm -f "$touched_targets_file"
     die "No scenarios were executed"
   fi
 
   if [ "${#failures[@]}" -gt 0 ]; then
+    rm -f "$touched_targets_file"
     printf '[tests] Scenario failures summary:\n' >&2
     local failure
     for failure in "${failures[@]}"; do
@@ -806,6 +1075,12 @@ run_scenario_suite() {
     done
     exit 1
   fi
+
+  if [ "${SUITE:-}" = "live" ] && [ "${LIVE_FIXTURE_FINAL_CLEANUP:-never}" = "success" ]; then
+    cleanup_touched_fixture_targets "$touched_targets_file"
+  fi
+
+  rm -f "$touched_targets_file"
 
   log "Scenario suite completed."
 }

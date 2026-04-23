@@ -1,6 +1,22 @@
 {
   "mode": "apply-console",
   "expectation": "pass",
+  "infra": {
+    "profile": "enhanced-private-3-default-init",
+    "bootstrap": [
+      {
+        "target": "network",
+        "action": "up"
+      },
+      {
+        "target": "enhanced",
+        "action": "up",
+        "size": 3,
+        "use_custom_cloud_init": false,
+        "is_public_endpoint": false
+      }
+    ]
+  },
   "suites": [
     "live"
   ],

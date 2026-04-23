@@ -186,8 +186,9 @@ By default the preflight looks for the stack's docker login and docker credentia
 [ ] use existing Cache cluster
 [ ] Postgres users ACLs
 [ ] validate deployment from local with profile
-[ ] container vulnerability scanning
-[ ] build worker image
+[X] container vulnerability scanning
+[X] build worker image
 [ ] auto add group and user to IDCS app
 [ ] ensure cloud-init provisions OCIR login script + cronjob
 [ ] 'latest' as langfuse helm chart option (lookup and use latest)
+[ ] Clikchouse node-pool

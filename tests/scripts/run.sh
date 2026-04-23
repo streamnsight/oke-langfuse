@@ -23,6 +23,7 @@ Usage:
 Commands:
   help
   test      Run preflight plus scenario validation. Optional: SCENARIO=<name> SUITE=<all|fast|live>
+            Live suites self-bootstrap fixture profiles and may set LIVE_FIXTURE_FINAL_CLEANUP=success.
   fixture   Manage fixture workspace. Required: TARGET=<network|basic|enhanced> ACTION=<up|down|refresh|status|scale>
   fixture-down-all  Destroy all fixture workspaces in dependency order. Manual cleanup only.
   debug     Collect OCI DevOps and Kubernetes diagnostics. Required: TARGET=<network|basic|enhanced>
@@ -31,6 +32,7 @@ Examples:
   ./tests/scripts/run.sh test
   ./tests/scripts/run.sh test SUITE=fast
   ./tests/scripts/run.sh test SUITE=live
+  ./tests/scripts/run.sh test SUITE=live LIVE_FIXTURE_FINAL_CLEANUP=success
   ./tests/scripts/run.sh test SCENARIO=existing_cluster/invalid_empty_cluster_ocid
   ./tests/scripts/run.sh test SUITE=all SCENARIO=networking/valid_existing_vcn
   ./tests/scripts/run.sh fixture ACTION=status TARGET=network
