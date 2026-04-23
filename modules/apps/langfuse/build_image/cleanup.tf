@@ -30,6 +30,18 @@ resource "null_resource" "langfuse_ocir_repo_cleanup" {
       else
         echo "OCIR repo $REPO_NAME not found; skipping delete."
       fi
+      REPO_NAME="${self.triggers.tenancy_namespace}/${self.triggers.deploy_id}/langfuse-worker"
+      REPO_ID=$(oci artifacts container repository list \
+        --profile ${self.triggers.profile} \
+        --compartment-id ${self.triggers.compartment_id} \
+        --all \
+        --query "data.items[?\"display-name\"=='${self.triggers.deploy_id}/langfuse-worker'].id | [0]" \
+        --raw-output | tr -d '\r')
+      if [ -n "$REPO_ID" ] && [ "$REPO_ID" != "null" ]; then
+        oci artifacts container repository delete --profile ${self.triggers.profile} --repository-id "$REPO_ID" --force
+      else
+        echo "OCIR repo $REPO_NAME not found; skipping delete."
+      fi
     CMD
   }
   # trigger only on actual terraform destroy

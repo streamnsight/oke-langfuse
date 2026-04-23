@@ -98,7 +98,8 @@ module "langfuse_gateway" {
   shape_name            = local.ci_shape_selected
   depends_on = [
     module.istio_deployment_using_addon_manager,
-    module.istio_gateway_crds
+    module.istio_gateway_crds,
+    oci_containerengine_node_pool.oci_oke_node_pool
   ]
 }
 
@@ -206,7 +207,8 @@ module "langfuse_chart" {
     module.langfuse_redis,
     oci_objectstorage_bucket.langfuse_bucket,
     module.build_langfuse_image,
-    module.cert_manager_deployment_using_addon_manager
+    module.cert_manager_deployment_using_addon_manager,
+    oci_containerengine_node_pool.oci_oke_node_pool
   ]
 }
 
