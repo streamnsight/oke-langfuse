@@ -50,6 +50,108 @@ fixture_state_output_value() {
   ' "$state_file"
 }
 
+fixture_state_resource_exists() {
+  local target="$1"
+  local resource_type="$2"
+  local resource_name="$3"
+  local state_file
+  state_file="$(fixture_state_file_for_target "$target")"
+
+  [ -f "$state_file" ] || return 1
+
+  jq -e \
+    --arg type "$resource_type" \
+    --arg name "$resource_name" \
+    '
+      any(
+        .resources[]?;
+        .mode == "managed"
+        and .type == $type
+        and .name == $name
+        and ((.instances // []) | length > 0)
+      )
+    ' \
+    "$state_file" >/dev/null 2>&1
+}
+
+enhanced_fixture_cluster_matches_requested_state() {
+  local requested_public_endpoint="$1"
+  local actual_public_endpoint
+
+  fixture_state_resource_exists enhanced oci_containerengine_cluster enhanced || return 1
+  actual_public_endpoint="$(fixture_state_output_value enhanced is_public_endpoint 2>/dev/null || true)"
+  [ -n "$actual_public_endpoint" ] || return 1
+  [ "$actual_public_endpoint" = "$requested_public_endpoint" ]
+}
+
+enhanced_fixture_node_pool_matches_requested_state() {
+  local requested_size="$1"
+  local requested_cloud_init="$2"
+  local actual_size actual_cloud_init
+
+  fixture_state_resource_exists enhanced oci_containerengine_node_pool primary || return 1
+  actual_size="$(fixture_state_output_value enhanced node_pool_size 2>/dev/null || true)"
+  actual_cloud_init="$(fixture_state_output_value enhanced use_custom_cloud_init 2>/dev/null || true)"
+  [ -n "$actual_size" ] || return 1
+  [ -n "$actual_cloud_init" ] || return 1
+  [ "$actual_size" = "$requested_size" ] || return 1
+  [ "$actual_cloud_init" = "$requested_cloud_init" ]
+}
+
+enhanced_fixture_transition_kind() {
+  local requested_size="$1"
+  local requested_cloud_init="$2"
+  local requested_public_endpoint="$3"
+
+  if ! fixture_state_exists_for_target enhanced; then
+    printf 'create\n'
+    return
+  fi
+
+  local cluster_present node_pool_present cluster_matches node_pool_matches
+  cluster_present="false"
+  node_pool_present="false"
+  cluster_matches="false"
+  node_pool_matches="false"
+
+  if fixture_state_resource_exists enhanced oci_containerengine_cluster enhanced; then
+    cluster_present="true"
+  fi
+  if fixture_state_resource_exists enhanced oci_containerengine_node_pool primary; then
+    node_pool_present="true"
+  fi
+
+  if [ "$cluster_present" != "true" ] && [ "$node_pool_present" != "true" ]; then
+    printf 'create\n'
+    return
+  fi
+  if [ "$cluster_present" = "true" ] && [ "$node_pool_present" != "true" ]; then
+    printf 'nodepool-create\n'
+    return
+  fi
+  if [ "$cluster_present" != "true" ] && [ "$node_pool_present" = "true" ]; then
+    printf 'cluster-create\n'
+    return
+  fi
+
+  if enhanced_fixture_cluster_matches_requested_state "$requested_public_endpoint"; then
+    cluster_matches="true"
+  fi
+  if enhanced_fixture_node_pool_matches_requested_state "$requested_size" "$requested_cloud_init"; then
+    node_pool_matches="true"
+  fi
+
+  if [ "$cluster_matches" = "true" ] && [ "$node_pool_matches" = "true" ]; then
+    printf 'noop\n'
+  elif [ "$cluster_matches" = "true" ]; then
+    printf 'nodepool-update\n'
+  elif [ "$node_pool_matches" = "true" ]; then
+    printf 'cluster-update\n'
+  else
+    printf 'cluster-and-nodepool-update\n'
+  fi
+}
+
 fixture_matches_requested_state() {
   local target="$1"
   local requested_size="${2:-}"
@@ -65,18 +167,8 @@ fixture_matches_requested_state() {
       return 0
       ;;
     enhanced)
-      local actual_size actual_cloud_init actual_public_endpoint
-      actual_size="$(fixture_state_output_value "$target" node_pool_size 2>/dev/null || true)"
-      actual_cloud_init="$(fixture_state_output_value "$target" use_custom_cloud_init 2>/dev/null || true)"
-      actual_public_endpoint="$(fixture_state_output_value "$target" is_public_endpoint 2>/dev/null || true)"
-
-      [ -n "$actual_size" ] || return 1
-      [ -n "$actual_cloud_init" ] || return 1
-      [ -n "$actual_public_endpoint" ] || return 1
-
-      [ "$actual_size" = "$requested_size" ] || return 1
-      [ "$actual_cloud_init" = "$requested_cloud_init" ] || return 1
-      [ "$actual_public_endpoint" = "$requested_public_endpoint" ] || return 1
+      enhanced_fixture_cluster_matches_requested_state "$requested_public_endpoint" || return 1
+      enhanced_fixture_node_pool_matches_requested_state "$requested_size" "$requested_cloud_init" || return 1
       return 0
       ;;
     *)
@@ -367,7 +459,7 @@ enhanced_fixture_write_summary() {
   local selector_kubernetes_version="${TF_VAR_kubernetes_version:-v1.34.1}"
   local selector_operating_system="${TF_VAR_fixture_operating_system:-Oracle Linux}"
   local selector_operating_system_version="${TF_VAR_fixture_operating_system_version:-8}"
-  local selector_shape="${TF_VAR_fixture_shape:-${TF_VAR_node_shape:-VM.Standard.E5.Flex}}"
+  local selector_shape="${TF_VAR_fixture_shape:-${TF_VAR_np1_node_shape:-${TF_VAR_node_shape:-VM.Standard.E5.Flex}}}"
   local selector_image_override="${TF_VAR_fixture_node_image_id:-}"
   local resolved_image_id="unknown"
   local resolved_image_name="unknown"

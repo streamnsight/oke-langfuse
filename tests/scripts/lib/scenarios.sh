@@ -5,6 +5,58 @@ hcl_quote() {
   jq -Rn --arg value "$value" '$value'
 }
 
+resolve_oke_worker_image_id() {
+  local kubernetes_version="$1"
+  local compartment_id="${2:-${TF_VAR_tenancy_ocid:-}}"
+  local operating_system="${3:-${TF_VAR_fixture_operating_system:-Oracle Linux}}"
+  local operating_system_version="${4:-${TF_VAR_fixture_operating_system_version:-8}}"
+  local shape="${5:-${TF_VAR_fixture_shape:-${TF_VAR_np1_node_shape:-VM.Standard.E5.Flex}}}"
+
+  require_non_empty "$kubernetes_version" "kubernetes_version is required for OKE worker image resolution."
+  require_non_empty "$compartment_id" "compartment_id is required for OKE worker image resolution."
+  require_non_empty "$operating_system" "operating_system is required for OKE worker image resolution."
+  require_non_empty "$operating_system_version" "operating_system_version is required for OKE worker image resolution."
+  require_non_empty "$shape" "shape is required for OKE worker image resolution."
+  require_command terraform
+
+  (
+    local scratch_dir
+    scratch_dir="$(mktemp -d "${TMPDIR:-/tmp}/tests-node-image-selector.XXXXXX")"
+    trap 'rm -rf "$scratch_dir"' EXIT
+
+    local init_args=()
+    while IFS= read -r arg; do
+      [ -n "$arg" ] && init_args+=("$arg")
+    done < <(terraform_init_args)
+
+    {
+      printf 'terraform {\n'
+      printf '  required_providers {\n'
+      printf '    oci = {\n'
+      printf '      source = "oracle/oci"\n'
+      printf '    }\n'
+      printf '  }\n'
+      printf '}\n\n'
+      printf 'provider "oci" {}\n\n'
+      printf 'module "node_image_selector" {\n'
+      printf '  source = %s\n' "$(hcl_quote "$ROOT_DIR/modules/oke/node-image-selector")"
+      printf '  compartment_id = %s\n' "$(hcl_quote "$compartment_id")"
+      printf '  kubernetes_version = %s\n' "$(hcl_quote "$kubernetes_version")"
+      printf '  operating_system = %s\n' "$(hcl_quote "$operating_system")"
+      printf '  operating_system_version = %s\n' "$(hcl_quote "$operating_system_version")"
+      printf '  shape = %s\n' "$(hcl_quote "$shape")"
+      printf '}\n\n'
+      printf 'output "selected_image_id" {\n'
+      printf '  value = module.node_image_selector.selected_image_id\n'
+      printf '}\n'
+    } >"$scratch_dir/main.tf"
+
+    terraform -chdir="$scratch_dir" init "${init_args[@]}" >/dev/null
+    terraform -chdir="$scratch_dir" apply -input=false -auto-approve >/dev/null
+    terraform -chdir="$scratch_dir" output -raw selected_image_id
+  )
+}
+
 fixture_outputs_json_for_target() {
   local target="$1"
   local fixture_dir
@@ -147,8 +199,7 @@ write_managed_cluster_with_network_tfvars() {
     TF_VAR_secrets_store_key_id \
     TF_VAR_langfuse_s3_access_key \
     TF_VAR_langfuse_s3_secret_key \
-    TF_VAR_ssh_public_key \
-    TF_VAR_np1_image_id
+    TF_VAR_ssh_public_key
 
   {
     printf 'region = %s\n' "$(hcl_quote "$TF_VAR_region")"
@@ -163,7 +214,6 @@ write_managed_cluster_with_network_tfvars() {
     printf 'langfuse_s3_access_key = %s\n' "$(hcl_quote "$TF_VAR_langfuse_s3_access_key")"
     printf 'langfuse_s3_secret_key = %s\n' "$(hcl_quote "$TF_VAR_langfuse_s3_secret_key")"
     printf 'ssh_public_key = %s\n' "$(hcl_quote "$TF_VAR_ssh_public_key")"
-    printf 'np1_image_id = %s\n' "$(hcl_quote "$TF_VAR_np1_image_id")"
     printf 'use_existing_vcn = true\n'
     printf 'vcn_id = %s\n' "$(hcl_quote "$vcn_id")"
     printf 'kubernetes_endpoint_subnet = %s\n' "$(hcl_quote "$kubernetes_endpoint_subnet")"

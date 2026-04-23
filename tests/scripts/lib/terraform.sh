@@ -270,6 +270,77 @@ scenario_infra_profile() {
   fi
 }
 
+scenario_infra_sort_key() {
+  local scenario_dir="$1"
+  local bootstrap_lines
+  bootstrap_lines="$(scenario_infra_bootstrap_signature "$scenario_dir")"
+
+  if [ -z "$bootstrap_lines" ]; then
+    printf '90-000-000-000\n'
+    return
+  fi
+
+  local desired_network="false"
+  local desired_basic="false"
+  local desired_enhanced="false"
+  local enhanced_size="999"
+  local enhanced_cloud_init="true"
+  local enhanced_public_endpoint="false"
+
+  while IFS=$'\t' read -r target action size use_custom_cloud_init is_public_endpoint; do
+    [ -n "$target" ] || continue
+    [ -n "$action" ] || die "ACTION is required for scenario infra bootstrap in $scenario_dir"
+
+    case "$target" in
+      network)
+        desired_network="true"
+        ;;
+      basic)
+        desired_basic="true"
+        ;;
+      enhanced)
+        desired_enhanced="true"
+        enhanced_size="${size:-2}"
+        enhanced_cloud_init="${use_custom_cloud_init:-true}"
+        enhanced_public_endpoint="${is_public_endpoint:-false}"
+        ;;
+      *)
+        die "Unsupported fixture target '$target' in scenario infra bootstrap for $scenario_dir"
+        ;;
+    esac
+  done <<<"$bootstrap_lines"
+
+  if [ "$desired_enhanced" = "true" ]; then
+    local public_rank cloud_init_rank
+    if [ "$enhanced_public_endpoint" = "true" ]; then
+      public_rank="1"
+    else
+      public_rank="0"
+    fi
+
+    if [ "$enhanced_cloud_init" = "true" ]; then
+      cloud_init_rank="1"
+    else
+      cloud_init_rank="0"
+    fi
+
+    printf '20-%s%s-%03d-000\n' "$public_rank" "$cloud_init_rank" "$enhanced_size"
+    return
+  fi
+
+  if [ "$desired_basic" = "true" ]; then
+    printf '10-000-000-000\n'
+    return
+  fi
+
+  if [ "$desired_network" = "true" ]; then
+    printf '00-000-000-000\n'
+    return
+  fi
+
+  printf '90-000-000-000\n'
+}
+
 record_touched_fixture_targets() {
   local touched_file="$1"
   local scenario_dir="$2"
@@ -308,6 +379,46 @@ cleanup_touched_fixture_targets() {
       destroy_fixture_if_present "$target"
     fi
   done
+}
+
+scenario_bootstrap_request_for_target() {
+  local scenario_dir="$1"
+  local requested_target="$2"
+  local bootstrap_lines
+  bootstrap_lines="$(scenario_infra_bootstrap_lines "$scenario_dir")"
+  [ -n "$bootstrap_lines" ] || return 1
+
+  local target action size use_custom_cloud_init is_public_endpoint
+  while IFS=$'\t' read -r target action size use_custom_cloud_init is_public_endpoint; do
+    [ -n "$target" ] || continue
+    if [ "$target" = "$requested_target" ]; then
+      printf '%s\t%s\t%s\t%s\t%s\n' \
+        "$target" \
+        "$action" \
+        "$size" \
+        "$use_custom_cloud_init" \
+        "$is_public_endpoint"
+      return 0
+    fi
+  done <<<"$bootstrap_lines"
+
+  return 1
+}
+
+run_fixture_request_line() {
+  local request_line="$1"
+  local target action size use_custom_cloud_init is_public_endpoint
+
+  IFS=$'\t' read -r target action size use_custom_cloud_init is_public_endpoint <<<"$request_line"
+  [ -n "$target" ] || die "Fixture request line is missing TARGET."
+  [ -n "$action" ] || die "Fixture request line is missing ACTION for target '$target'."
+
+  run_fixture_action_with_overrides \
+    "$target" \
+    "$action" \
+    "$size" \
+    "$use_custom_cloud_init" \
+    "$is_public_endpoint"
 }
 
 activate_scenario_infra_profile() {
@@ -357,13 +468,6 @@ activate_scenario_infra_profile() {
     record_touched_fixture_targets "$touched_file" "$scenario_dir"
   fi
 
-  if [ "$desired_basic" != "true" ]; then
-    destroy_fixture_if_present basic
-  fi
-  if [ "$desired_enhanced" != "true" ]; then
-    destroy_fixture_if_present enhanced
-  fi
-
   while IFS=$'\t' read -r target action size use_custom_cloud_init is_public_endpoint; do
     [ -n "$target" ] || continue
 
@@ -371,29 +475,128 @@ activate_scenario_infra_profile() {
       case "$target" in
         enhanced)
           local requested_size requested_cloud_init requested_public_endpoint
+          local transition_kind
           requested_size="${size:-2}"
           requested_cloud_init="${use_custom_cloud_init:-true}"
           requested_public_endpoint="${is_public_endpoint:-false}"
-          if ! fixture_matches_requested_state \
-            "$target" \
-            "$requested_size" \
-            "$requested_cloud_init" \
-            "$requested_public_endpoint"; then
-            destroy_fixture_if_present "$target"
-          fi
+          transition_kind="$(
+            enhanced_fixture_transition_kind \
+              "$requested_size" \
+              "$requested_cloud_init" \
+              "$requested_public_endpoint"
+          )"
+          case "$transition_kind" in
+            noop)
+              ;;
+            create)
+              log "Enhanced fixture is absent or incomplete; bootstrapping cluster and node pool."
+              ;;
+            nodepool-create)
+              log "Enhanced cluster is already present but the node pool is missing; creating the node pool without rebuilding the cluster."
+              ;;
+            cluster-create)
+              log "Enhanced node pool state exists without a matching cluster; rebuilding the cluster layer before reconciling the node pool."
+              ;;
+            nodepool-update)
+              log "Enhanced node pool differs from requested profile; reconciling node-pool settings in place and letting OCI cycle nodes."
+              ;;
+            cluster-update)
+              log "Enhanced cluster endpoint differs from requested profile; reconciling cluster settings in place while reusing the node pool."
+              ;;
+            cluster-and-nodepool-update)
+              log "Enhanced cluster and node pool both differ from requested profile; reconciling in place and avoiding a fixture teardown."
+              ;;
+            *)
+              die "Unknown enhanced fixture transition kind: $transition_kind"
+              ;;
+          esac
           ;;
         basic|network)
           ;;
       esac
     fi
 
-    run_fixture_action_with_overrides \
+    run_fixture_request_line "$(printf '%s\t%s\t%s\t%s\t%s' \
       "$target" \
       "$action" \
       "$size" \
       "$use_custom_cloud_init" \
-      "$is_public_endpoint"
+      "$is_public_endpoint")"
   done <<<"$bootstrap_lines"
+}
+
+prewarm_live_fixture_suite() {
+  if [ "${SUITE:-live}" != "live" ]; then
+    die "fixture-prewarm only supports SUITE=live."
+  fi
+  if [ -n "${SCENARIO:-}" ]; then
+    die "fixture-prewarm does not accept SCENARIO; it prewarms the ordered live suite."
+  fi
+
+  ensure_artifacts_dir
+
+  local ordered_scenarios
+  ordered_scenarios="$(plan_scenario_execution_order "")"
+
+  local first_network_request=""
+  local first_basic_request=""
+  local first_enhanced_request=""
+  local scenario_dir=""
+
+  while IFS= read -r scenario_dir; do
+    [ -n "$scenario_dir" ] || continue
+
+    if [ -z "$first_network_request" ]; then
+      first_network_request="$(scenario_bootstrap_request_for_target "$scenario_dir" network || true)"
+    fi
+    if [ -z "$first_basic_request" ]; then
+      first_basic_request="$(scenario_bootstrap_request_for_target "$scenario_dir" basic || true)"
+    fi
+    if [ -z "$first_enhanced_request" ]; then
+      first_enhanced_request="$(scenario_bootstrap_request_for_target "$scenario_dir" enhanced || true)"
+    fi
+  done <<<"$ordered_scenarios"
+
+  [ -n "$first_network_request" ] || die "The live suite does not declare a network bootstrap step to prewarm."
+
+  log "Prewarming live suite fixtures from the ordered live scenario plan."
+  log "Preparing shared network first."
+  run_fixture_request_line "$first_network_request"
+
+  local pids=()
+  local labels=()
+  local failures=()
+
+  if [ -n "$first_basic_request" ]; then
+    log "Prewarming first basic profile."
+    (
+      run_fixture_request_line "$first_basic_request"
+    ) &
+    pids+=("$!")
+    labels+=("basic")
+  fi
+
+  if [ -n "$first_enhanced_request" ]; then
+    log "Prewarming first enhanced profile."
+    (
+      run_fixture_request_line "$first_enhanced_request"
+    ) &
+    pids+=("$!")
+    labels+=("enhanced")
+  fi
+
+  local i
+  for i in "${!pids[@]}"; do
+    if ! wait "${pids[$i]}"; then
+      failures+=("${labels[$i]}")
+    fi
+  done
+
+  if [ "${#failures[@]}" -gt 0 ]; then
+    die "fixture-prewarm failed for target(s): ${failures[*]}"
+  fi
+
+  log "Live fixture prewarm completed. Warm fixtures remain available for a subsequent SUITE=live run."
 }
 
 plan_scenario_execution_order() {
@@ -410,6 +613,7 @@ plan_scenario_execution_order() {
   temp_dir="$(mktemp -d)"
   local -a group_profiles=()
   local -a group_files=()
+  local -a group_sort_keys=()
   local scenario_dir
 
   while IFS= read -r scenario_dir; do
@@ -435,6 +639,7 @@ plan_scenario_execution_order() {
     if [ "$group_index" -lt 0 ]; then
       group_profiles+=("$profile")
       group_files+=("$temp_dir/group-${#group_profiles[@]}.txt")
+      group_sort_keys+=("$(scenario_infra_sort_key "$scenario_dir")")
       group_index=$((${#group_profiles[@]} - 1))
       : >"${group_files[$group_index]}"
     else
@@ -450,10 +655,21 @@ plan_scenario_execution_order() {
     printf '%s\n' "$scenario_dir" >>"${group_files[$group_index]}"
   done <<<"$scenario_dirs"
 
-  local group_file
-  for group_file in "${group_files[@]}"; do
-    cat "$group_file"
+  local ordered_groups_file
+  ordered_groups_file="$temp_dir/ordered-groups.txt"
+  : >"$ordered_groups_file"
+
+  local i
+  for i in "${!group_files[@]}"; do
+    printf '%s\t%04d\t%s\n' \
+      "${group_sort_keys[$i]}" \
+      "$i" \
+      "${group_files[$i]}" >>"$ordered_groups_file"
   done
+
+  while IFS=$'\t' read -r _sort_key _group_index group_file; do
+    cat "$group_file"
+  done < <(sort "$ordered_groups_file")
 
   rm -rf "$temp_dir"
 }

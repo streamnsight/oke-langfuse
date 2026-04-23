@@ -76,7 +76,7 @@ Direct runner usage:
 - Failed scenarios now print expected-vs-actual diagnostics when available and point to the saved Terraform logs under `tests/artifacts/` so you can jump straight to the relevant run output.
 - `SUITE=fast` is the CI-safe subset used on pull requests and includes only scenarios explicitly tagged for `fast` in `scenario.json` or legacy `suites.txt` metadata.
 - `SUITE=live` is the local OCI-backed subset for fixture-based existing-cluster compatibility checks and self-bootstraps the required `network`, `basic`, and `enhanced` fixture profiles from empty local state.
-- Live scenarios declare explicit `infra.profile` and `infra.bootstrap` metadata in `scenario.json`. The live suite groups scenarios by profile, reuses matching fixture state, and only tears down or redeploys when the next profile needs different infra.
+- Live scenarios declare explicit `infra.profile` and `infra.bootstrap` metadata in `scenario.json`. The live suite groups scenarios by profile, orders the groups to minimize cluster churn, reconciles `enhanced` cluster and node-pool settings in place, and only tears down fixture targets that are no longer needed by the next group.
 - By default the live suite leaves the last prepared fixtures warm after a successful run. Set `LIVE_FIXTURE_FINAL_CLEANUP=success` to destroy all fixture targets touched by the suite in dependency order after success.
 - `SUITE=live` also includes multi-step managed-cluster drift scenarios that use the shared network fixture plus OCI CLI to perform an out-of-band cluster upgrade.
 - The full-stack live deployment scenario now deploys once, runs multiple post-deploy validators, destroys the stack on success, and keeps it on failure for debugging.

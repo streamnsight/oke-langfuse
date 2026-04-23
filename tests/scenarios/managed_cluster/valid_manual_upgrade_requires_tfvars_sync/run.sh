@@ -36,11 +36,13 @@ fi
 
 initial_version="v$(printf '%s\n' "$available_versions" | tail -n 2 | head -n 1)"
 upgrade_version="v$(printf '%s\n' "$available_versions" | tail -n 1)"
+initial_np1_image_id="$(resolve_oke_worker_image_id "$initial_version")"
 
 export STACK_TEST_INCLUDE_IDCS_PLACEHOLDERS=false
 write_managed_cluster_with_network_tfvars \
   "$WORK_DIR/terraform.tfvars" \
-  "kubernetes_version = $(hcl_quote "$initial_version")"
+  "kubernetes_version = $(hcl_quote "$initial_version")" \
+  "np1_image_id = $(hcl_quote "$initial_np1_image_id")"
 unset STACK_TEST_INCLUDE_IDCS_PLACEHOLDERS
 
 append_live_identity_tfvars "$WORK_DIR/terraform.tfvars"

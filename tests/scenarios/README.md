@@ -25,7 +25,7 @@ Each scenario provides either a tracked `terraform.tfvars` file, a `prepare.sh` 
 - `cleanup_policy` may be `always`, `success`, or `never`. Legacy `destroy_after_run: true` still maps to `always`.
 - `SUITE=fast` runs only scenarios explicitly tagged with `fast` in `scenario.json` or `suites.txt`.
 - `SUITE=live` runs only scenarios explicitly tagged with `live` in `scenario.json` or `suites.txt`.
-- Live scenarios may declare `infra.profile` plus `infra.bootstrap`. The runner groups `SUITE=live` scenarios by profile in first-seen order, reuses compatible fixture state within a group, and reconciles fixture targets only when the next group requires different infra.
+- Live scenarios may declare `infra.profile` plus `infra.bootstrap`. The runner groups `SUITE=live` scenarios by profile, reorders the groups to reduce expensive fixture transitions, reconciles `enhanced` cluster and node-pool changes in place, and only tears down fixture targets that the next profile no longer needs.
 - `infra.bootstrap` is an ordered list of fixture actions. Current supported fields are `target`, `action`, `size`, `use_custom_cloud_init`, and `is_public_endpoint`.
 - `fixture.env` remains a fallback for unmigrated scenarios, but manifest `infra` is the source of truth when both are present.
 - Set `LIVE_FIXTURE_FINAL_CLEANUP=success` if you want a successful live suite to destroy all touched fixture targets after the run. The default is `never`, which leaves the last prepared profile warm.

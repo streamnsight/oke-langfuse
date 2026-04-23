@@ -23,8 +23,9 @@ Usage:
 Commands:
   help
   test      Run preflight plus scenario validation. Optional: SCENARIO=<name> SUITE=<all|fast|live>
-            Live suites self-bootstrap fixture profiles and may set LIVE_FIXTURE_FINAL_CLEANUP=success.
+            Live suites self-bootstrap fixture profiles from empty local state, reorder them to reduce cluster churn, and may set LIVE_FIXTURE_FINAL_CLEANUP=success.
   fixture   Manage fixture workspace. Required: TARGET=<network|basic|enhanced> ACTION=<up|down|refresh|status|scale>
+  fixture-prewarm  Prewarm the ordered live-suite fixture footprint ahead of a run. Optional: SUITE=live
   fixture-down-all  Destroy all fixture workspaces in dependency order. Manual cleanup only.
   debug     Collect OCI DevOps and Kubernetes diagnostics. Required: TARGET=<network|basic|enhanced>
 
@@ -32,6 +33,7 @@ Examples:
   ./tests/scripts/run.sh test
   ./tests/scripts/run.sh test SUITE=fast
   ./tests/scripts/run.sh test SUITE=live
+  ./tests/scripts/run.sh fixture-prewarm
   ./tests/scripts/run.sh test SUITE=live LIVE_FIXTURE_FINAL_CLEANUP=success
   ./tests/scripts/run.sh test SCENARIO=existing_cluster/invalid_empty_cluster_ocid
   ./tests/scripts/run.sh test SUITE=all SCENARIO=networking/valid_existing_vcn
@@ -67,6 +69,10 @@ case "$COMMAND" in
     ;;
   fixture)
     run_fixture_action "${TARGET:-}" "${ACTION:-}" "${SIZE:-}"
+    ;;
+  fixture-prewarm)
+    export SUITE="${SUITE:-live}"
+    prewarm_live_fixture_suite
     ;;
   fixture-down-all)
     destroy_all_fixtures
