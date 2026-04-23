@@ -17,3 +17,5 @@ tests/.terraform.d/
 tests/.obc/
 tests/.env
 tests/.env.local
+langfuse/
+langfuse*.tgz
