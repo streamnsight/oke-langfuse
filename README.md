@@ -176,3 +176,4 @@ The stack DOES NOT attempt to modify an existing cluster cloud-init for obvious 
 [ ] build worker image
 [ ] auto add group and user to IDCS app
 [ ] ensure cloud-init provisions OCIR login script + cronjob
+[ ] 'latest' as langfuse helm chart option (lookup and use latest)
