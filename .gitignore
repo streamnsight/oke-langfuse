@@ -9,3 +9,11 @@ CaCertificate-langfuse.pub
 kubeconfig
 *.backup_
 *.tfstate_
+tests/artifacts/*
+!tests/artifacts/README.md
+tests/.terraform.d/
+tests/.obc/
+tests/.env
+tests/.env.local
+langfuse/
+langfuse*.tgz
