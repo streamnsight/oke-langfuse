@@ -13,6 +13,7 @@ Current behavior:
 - keeps `fixture_node_image_id` as an escape hatch when a manual image override is needed
 - exposes cluster, bastion, and image-selector details through `terraform output -json`
 - is planned by the live harness as layered cluster plus node-pool state so compatible scenarios can reuse the cluster and pay only for node-pool cycling when size or cloud-init changes
+- is the enhanced target prewarmed by `fixture-prewarm`, using the first enhanced profile in planned live-suite order
 
 The lifecycle interface is already wired through:
 

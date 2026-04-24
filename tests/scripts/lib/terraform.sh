@@ -430,9 +430,6 @@ activate_scenario_infra_profile() {
   [ -n "$bootstrap_lines" ] || return 0
   profile="$(scenario_infra_profile "$scenario_dir")"
 
-  local desired_network="false"
-  local desired_basic="false"
-  local desired_enhanced="false"
   local line_count="0"
 
   while IFS=$'\t' read -r target action _size _use_custom_cloud_init _is_public_endpoint; do
@@ -441,14 +438,7 @@ activate_scenario_infra_profile() {
     line_count=$((line_count + 1))
 
     case "$target" in
-      network)
-        desired_network="true"
-        ;;
-      basic)
-        desired_basic="true"
-        ;;
-      enhanced)
-        desired_enhanced="true"
+      network|basic|enhanced)
         ;;
       *)
         die "Unsupported fixture target '$target' in scenario infra bootstrap for $scenario_dir"

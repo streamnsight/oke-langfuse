@@ -47,6 +47,137 @@ kube_pick_context() {
   head -n 1 "$contexts_file" 2>/dev/null || true
 }
 
+kube_write_pod_summary() {
+  local pods_json="$1"
+  local summary_file="$2"
+
+  if [ ! -f "$pods_json" ]; then
+    return 0
+  fi
+
+  jq -r '
+    def container_state_reason:
+      .state.waiting.reason
+      // .state.terminated.reason
+      // .lastState.terminated.reason
+      // "";
+    def container_state_message:
+      .state.waiting.message
+      // .state.terminated.message
+      // .lastState.terminated.message
+      // "";
+
+    if ((.items // []) | length) == 0 then
+      "Pods",
+      "----",
+      "- none discovered"
+    else
+      "Pods",
+      "----",
+      (
+        (.items // [])[] |
+        "- " + (.metadata.name // "unknown"),
+        "  phase=" + (.status.phase // "unknown"),
+        "  node=" + (.spec.nodeName // "unassigned"),
+        "  pod_ip=" + (.status.podIP // "unknown"),
+        "  conditions=" + (
+          [
+            (.status.conditions // [])[]? |
+            select((.status // "") != "True") |
+            (.type // "unknown") + ":" + (.status // "unknown")
+          ] | if length == 0 then "ready" else join(", ") end
+        ),
+        (
+          [
+            (.status.initContainerStatuses // [])[]?,
+            (.status.containerStatuses // [])[]?
+          ] |
+          if length == 0 then
+            "  containers=none"
+          else
+            .[] |
+            "  container=" + (.name // "unknown")
+            + " ready=" + ((.ready // false) | tostring)
+            + " restarts=" + ((.restartCount // 0) | tostring)
+            + " image=" + (.image // "unknown")
+            + (
+              if (container_state_reason | length) > 0 then
+                " reason=" + container_state_reason
+              else
+                ""
+              end
+            )
+            + (
+              if (container_state_message | length) > 0 then
+                " message=" + (container_state_message | gsub("[\r\n\t]+"; " "))
+              else
+                ""
+              end
+            )
+          end
+        )
+      )
+    end
+  ' "$pods_json" >"$summary_file" 2>/dev/null || true
+}
+
+kube_append_warning_events_summary() {
+  local events_file="$1"
+  local summary_file="$2"
+
+  if [ ! -f "$events_file" ]; then
+    return 0
+  fi
+
+  {
+    printf '\nWarning Events\n'
+    printf '--------------\n'
+    if ! awk 'NR == 1 {next} /Warning|Failed|BackOff|ErrImagePull|ImagePullBackOff|FailedScheduling|FailedMount/ {print}' "$events_file"; then
+      :
+    fi
+  } >>"$summary_file"
+}
+
+kube_append_node_summary() {
+  local nodes_json="$1"
+  local summary_file="$2"
+
+  if [ ! -f "$nodes_json" ]; then
+    return 0
+  fi
+
+  {
+    printf '\nNodes\n'
+    printf '-----\n'
+    jq -r '
+      if ((.items // []) | length) == 0 then
+        "- none discovered"
+      else
+        (.items // [])[] |
+        "- " + (.metadata.name // "unknown")
+        + " ready="
+        + (
+          [
+            (.status.conditions // [])[]? |
+            select((.type // "") == "Ready") |
+            (.status // "unknown")
+          ][0] // "unknown"
+        )
+        + " schedulable="
+        + (if (.spec.unschedulable // false) then "false" else "true" end)
+        + " internal_ip="
+        + (
+          [
+            (.status.addresses // [])[]? |
+            select((.type // "") == "InternalIP") |
+            (.address // "unknown")
+          ][0] // "unknown"
+        )
+      end
+    ' "$nodes_json" 2>/dev/null || printf '%s\n' '- unavailable'
+  } >>"$summary_file"
+}
+
 collect_cluster_debug() {
   local target="$1"
   local debug_dir="$2"
@@ -57,7 +188,7 @@ collect_cluster_debug() {
   ensure_obc_root_dir
 
   local kube_dir="$debug_dir/kube"
-  mkdir -p "$kube_dir/describes" "$kube_dir/logs"
+  mkdir -p "$kube_dir/describes" "$kube_dir/logs" "$kube_dir/node-describes" "$kube_dir/pod-yaml"
 
   local outputs_json stack_outputs
   outputs_json="$(load_fixture_outputs "$target")"
@@ -124,17 +255,40 @@ collect_cluster_debug() {
   if [ -s "$kube_dir/cluster-info.stderr" ]; then
     return 0
   fi
+  kube_capture_api "$kube_dir/nodes.json" "$kube_dir/nodes.stderr" get nodes -o json
+  kube_capture_api "$kube_dir/nodes.txt" "$kube_dir/nodes-wide.stderr" get nodes -o wide
+  kube_capture_api "$kube_dir/cluster-events.txt" "$kube_dir/cluster-events.stderr" get events -A --sort-by=.metadata.creationTimestamp
   kube_capture_api "$kube_dir/namespaces.txt" "$kube_dir/namespaces.stderr" get ns
   kube_capture_api "$kube_dir/resources.txt" "$kube_dir/resources.stderr" get all -n "$namespace" -o wide
   kube_capture_api "$kube_dir/workloads.txt" "$kube_dir/workloads.stderr" get deploy,sts,ds,job,cronjob -n "$namespace" -o wide
+  kube_capture_api "$kube_dir/workloads.json" "$kube_dir/workloads-json.stderr" get deploy,sts,ds,job,cronjob,rs -n "$namespace" -o json
   kube_capture_api "$kube_dir/services.txt" "$kube_dir/services.stderr" get svc -n "$namespace" -o wide
+  kube_capture_api "$kube_dir/services.json" "$kube_dir/services-json.stderr" get svc,endpoints,ingress,pvc -n "$namespace" -o json
   kube_capture_api "$kube_dir/pods.json" "$kube_dir/pods.stderr" get pods -n "$namespace" -o json
   kube_capture_api "$kube_dir/pods.txt" "$kube_dir/pods-wide.stderr" get pods -n "$namespace" -o wide
   kube_capture_api "$kube_dir/events.txt" "$kube_dir/events.stderr" get events -n "$namespace" --sort-by=.metadata.creationTimestamp
+  kube_write_pod_summary "$kube_dir/pods.json" "$kube_dir/summary.txt"
+  kube_append_node_summary "$kube_dir/nodes.json" "$kube_dir/summary.txt"
+  kube_append_warning_events_summary "$kube_dir/events.txt" "$kube_dir/summary.txt"
+  kube_append_warning_events_summary "$kube_dir/cluster-events.txt" "$kube_dir/summary.txt"
+
+  local node_name
+  while IFS= read -r node_name; do
+    [ -n "$node_name" ] || continue
+    kube_capture_api \
+      "$kube_dir/node-describes/$(slugify "$node_name").txt" \
+      "$kube_dir/node-describes/$(slugify "$node_name").stderr" \
+      describe node "$node_name"
+  done < <(jq -r 'try .items // [] | .[] | .metadata.name' "$kube_dir/nodes.json" 2>/dev/null)
 
   local pod_name
   while IFS= read -r pod_name; do
     [ -n "$pod_name" ] || continue
+    kube_capture_api \
+      "$kube_dir/pod-yaml/$(slugify "$pod_name").yaml" \
+      "$kube_dir/pod-yaml/$(slugify "$pod_name").stderr" \
+      get pod "$pod_name" -n "$namespace" -o yaml
+
     kube_capture_api \
       "$kube_dir/describes/$(slugify "$pod_name").txt" \
       "$kube_dir/describes/$(slugify "$pod_name").stderr" \

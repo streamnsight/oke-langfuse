@@ -81,6 +81,7 @@ devops_write_summary() {
   local pipelines_file="$3"
   local deployments_file="$4"
   local deployment_file="$5"
+  local named_deployments_dir="${6:-}"
 
   {
     printf 'DevOps Debug Summary\n'
@@ -129,6 +130,20 @@ devops_write_summary() {
         "Time Created: \(.timeCreated // .time_created // "unknown")"
       ' "$deployment_file" 2>/dev/null || printf '%s\n' 'Unavailable'
     fi
+
+    if [ -n "$named_deployments_dir" ] && [ -d "$named_deployments_dir" ]; then
+      printf '\nNamed Deployments\n'
+      local deployment_summary_found="false"
+      local deployment_summary_file
+      for deployment_summary_file in "$named_deployments_dir"/*.summary.txt; do
+        [ -f "$deployment_summary_file" ] || continue
+        deployment_summary_found="true"
+        cat "$deployment_summary_file"
+      done
+      if [ "$deployment_summary_found" != "true" ]; then
+        printf '%s\n' '- none discovered'
+      fi
+    fi
   } >"$summary_file"
 }
 
@@ -156,6 +171,8 @@ collect_devops_debug() {
   local deployments_file="$devops_dir/deployments.json"
   local deployment_file="$devops_dir/deployment.json"
   local summary_file="$devops_dir/summary.txt"
+  local named_deployments_dir="$devops_dir/named-deployments"
+  mkdir -p "$named_deployments_dir"
 
   if [ -n "$project_id" ]; then
     devops_oci_capture \
@@ -241,5 +258,42 @@ collect_devops_debug() {
       --deployment-id "$selected_deployment_id"
   fi
 
-  devops_write_summary "$summary_file" "$devops_dir/request.json" "$pipelines_file" "$deployments_file" "$deployment_file"
+  local deployment_name deployment_id deployment_slug
+  while IFS=$'\t' read -r deployment_name deployment_id; do
+    [ -n "$deployment_name" ] || continue
+    [ -n "$deployment_id" ] || continue
+
+    deployment_slug="$(slugify "$deployment_name")"
+    devops_oci_capture \
+      "$named_deployments_dir/$deployment_slug.json" \
+      "$named_deployments_dir/$deployment_slug.stderr" \
+      devops deployment get \
+      --deployment-id "$deployment_id"
+
+    jq -r --arg name "$deployment_name" '
+      .data // . |
+      [
+        "- " + $name,
+        "  id=" + (.id // ""),
+        "  pipeline_id=" + (.deployPipelineId // .["deploy-pipeline-id"] // ""),
+        "  state=" + (.lifecycleState // .lifecycle_state // "unknown"),
+        "  time_created=" + (.timeCreated // .time_created // "unknown")
+      ] | .[]
+    ' "$named_deployments_dir/$deployment_slug.json" >"$named_deployments_dir/$deployment_slug.summary.txt" 2>/dev/null || true
+  done < <(
+    printf '%s\n' "$stack_outputs" | jq -r '
+      try .test_metadata.value.devops.deployment_ids // {} |
+      to_entries[] |
+      select(.value != null and .value != "") |
+      [.key, .value] | @tsv
+    '
+  )
+
+  devops_write_summary \
+    "$summary_file" \
+    "$devops_dir/request.json" \
+    "$pipelines_file" \
+    "$deployments_file" \
+    "$deployment_file" \
+    "$named_deployments_dir"
 }

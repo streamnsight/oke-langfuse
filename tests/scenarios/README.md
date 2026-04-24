@@ -10,6 +10,7 @@ Each scenario provides either a tracked `terraform.tfvars` file, a `prepare.sh` 
 ./tests/scripts/run.sh test
 ./tests/scripts/run.sh test SUITE=fast
 ./tests/scripts/run.sh test SUITE=live
+./tests/scripts/run.sh fixture-prewarm
 ./tests/scripts/run.sh test SCENARIO=existing_cluster/invalid_empty_cluster_ocid
 ./tests/scripts/run.sh test SUITE=all SCENARIO=networking/valid_existing_vcn
 ```
@@ -25,10 +26,12 @@ Each scenario provides either a tracked `terraform.tfvars` file, a `prepare.sh` 
 - `cleanup_policy` may be `always`, `success`, or `never`. Legacy `destroy_after_run: true` still maps to `always`.
 - `SUITE=fast` runs only scenarios explicitly tagged with `fast` in `scenario.json` or `suites.txt`.
 - `SUITE=live` runs only scenarios explicitly tagged with `live` in `scenario.json` or `suites.txt`.
-- Live scenarios may declare `infra.profile` plus `infra.bootstrap`. The runner groups `SUITE=live` scenarios by profile, reorders the groups to reduce expensive fixture transitions, reconciles `enhanced` cluster and node-pool changes in place, and only tears down fixture targets that the next profile no longer needs.
+- `fixture-prewarm` is the recommended fast path before `SUITE=live`. It prewarms the ordered live-suite footprint by creating the shared network first, then the first basic and first enhanced profiles in parallel, and leaves those fixtures up for the later test run.
+- Live scenarios may declare `infra.profile` plus `infra.bootstrap`. The runner groups `SUITE=live` scenarios by profile, keeps the current `network-only -> basic -> enhanced` execution order, reconciles `enhanced` cluster and node-pool changes in place, and preserves warm `basic` and `enhanced` fixtures across unrelated profile boundaries unless the same target must move to a different state or final cleanup is requested.
 - `infra.bootstrap` is an ordered list of fixture actions. Current supported fields are `target`, `action`, `size`, `use_custom_cloud_init`, and `is_public_endpoint`.
 - `fixture.env` remains a fallback for unmigrated scenarios, but manifest `infra` is the source of truth when both are present.
 - Set `LIVE_FIXTURE_FINAL_CLEANUP=success` if you want a successful live suite to destroy all touched fixture targets after the run. The default is `never`, which leaves the last prepared profile warm.
+- The warm enhanced fixture chosen by `fixture-prewarm` is the first enhanced profile in planned live order, not all enhanced profiles.
 - The fast suite is intentionally limited to offline validation failures that happen before OCI provider authentication or live data lookups.
 - The script exits non-zero if any scenario behaves unexpectedly.
 
