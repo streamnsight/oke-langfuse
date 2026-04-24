@@ -47,6 +47,56 @@ require_non_empty() {
   [ -n "$value" ] || die "$message"
 }
 
+live_selector_required_env_vars() {
+  printf '%s\n' \
+    TF_VAR_fixture_operating_system \
+    TF_VAR_fixture_operating_system_version \
+    TF_VAR_fixture_shape
+}
+
+assert_manual_image_override_valid() {
+  if [ -z "${TF_VAR_fixture_node_image_id:-}" ]; then
+    return 0
+  fi
+
+  case "${TF_VAR_fixture_node_image_id}" in
+    ocid1.image.*)
+      return 0
+      ;;
+    *)
+      die "TF_VAR_fixture_node_image_id must be a valid OCI image OCID when set."
+      ;;
+  esac
+}
+
+assert_live_selector_env_ready() {
+  local context="${1:-live image selection}"
+  local missing=()
+  local name
+
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    if [ -z "${!name:-}" ]; then
+      missing+=("$name")
+    fi
+  done < <(live_selector_required_env_vars)
+
+  if [ "${#missing[@]}" -gt 0 ]; then
+    printf '[tests] Missing required live image selector environment variables for %s:\n' "$context" >&2
+    printf '  - %s\n' "${missing[@]}" >&2
+    die "Populate tests/.env or tests/.env.local with the live selector inputs before running live fixtures."
+  fi
+
+  assert_manual_image_override_valid
+}
+
+log_manual_image_override() {
+  local context="${1:-live image selection}"
+  if [ -n "${TF_VAR_fixture_node_image_id:-}" ]; then
+    log "$context is using TF_VAR_fixture_node_image_id as a manual worker image override; selector lookup is bypassed intentionally."
+  fi
+}
+
 timestamp_utc() {
   date -u +"%Y%m%dT%H%M%SZ"
 }

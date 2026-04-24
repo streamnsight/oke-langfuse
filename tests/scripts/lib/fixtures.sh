@@ -256,6 +256,22 @@ fixture_required_env_vars() {
   esac
 }
 
+fixture_action_requires_live_selector_inputs() {
+  local target="$1"
+  local action="$2"
+
+  [ "$target" = "enhanced" ] || return 1
+
+  case "$action" in
+    up|refresh|scale)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 assert_fixture_env_ready() {
   local target="$1"
   local missing=()
@@ -457,9 +473,9 @@ enhanced_fixture_write_summary() {
   local max_node_pool_size="0"
   local cloud_init_node_pool_count="0"
   local selector_kubernetes_version="${TF_VAR_kubernetes_version:-v1.34.1}"
-  local selector_operating_system="${TF_VAR_fixture_operating_system:-Oracle Linux}"
-  local selector_operating_system_version="${TF_VAR_fixture_operating_system_version:-8}"
-  local selector_shape="${TF_VAR_fixture_shape:-${TF_VAR_np1_node_shape:-${TF_VAR_node_shape:-VM.Standard.E5.Flex}}}"
+  local selector_operating_system="${TF_VAR_fixture_operating_system:-unknown}"
+  local selector_operating_system_version="${TF_VAR_fixture_operating_system_version:-unknown}"
+  local selector_shape="${TF_VAR_fixture_shape:-unknown}"
   local selector_image_override="${TF_VAR_fixture_node_image_id:-}"
   local resolved_image_id="unknown"
   local resolved_image_name="unknown"
@@ -876,6 +892,10 @@ run_fixture_action() {
   require_non_empty "$action" "ACTION is required for fixture command"
 
   assert_fixture_env_ready "$target"
+  if fixture_action_requires_live_selector_inputs "$target" "$action"; then
+    assert_live_selector_env_ready "fixture target '$target' action '$action'"
+    log_manual_image_override "Fixture target '$target' action '$action'"
+  fi
   if fixture_requires_enhanced_health_checks "$target" "$action"; then
     require_command jq
     require_command oci

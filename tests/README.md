@@ -26,6 +26,14 @@ Then fill in real values in `tests/.env`. The test runner automatically loads:
 
 The recommended pattern is to store Terraform inputs as `TF_VAR_*` exports so both fixture workspaces and stack-level Terraform commands pick them up automatically.
 
+`SUITE=live` and `fixture-prewarm` require these selector inputs in one of those env files:
+
+- `TF_VAR_fixture_operating_system`
+- `TF_VAR_fixture_operating_system_version`
+- `TF_VAR_fixture_shape`
+
+`TF_VAR_fixture_node_image_id` remains available only as a manual recovery override when OCI image selection is inconsistent. It does not replace the required selector inputs.
+
 ## Commands
 
 From the repo root:
@@ -79,10 +87,11 @@ Direct runner usage:
 - `SUITE=fast` is the CI-safe subset used on pull requests and includes only scenarios explicitly tagged for `fast` in `scenario.json` or legacy `suites.txt` metadata.
 - `SUITE=live` is the local OCI-backed subset for fixture-based existing-cluster compatibility checks and self-bootstraps the required `network`, `basic`, and `enhanced` fixture profiles from empty local state.
 - `make fixture-prewarm` and `./tests/scripts/run.sh fixture-prewarm` are the recommended fast path before `SUITE=live`. Prewarm creates the shared network first, then brings up the first basic and first enhanced profiles from the ordered live suite in parallel, and leaves them warm for reuse.
+- The live runner loads selector inputs from `tests/.env` and `tests/.env.local` once at startup, and `SUITE=live`, `fixture-prewarm`, and enhanced fixture create/update actions fail fast if `TF_VAR_fixture_operating_system`, `TF_VAR_fixture_operating_system_version`, or `TF_VAR_fixture_shape` are missing.
 - Live scenarios declare explicit `infra.profile` and `infra.bootstrap` metadata in `scenario.json`. The live suite groups scenarios by profile, keeps the current `network-only -> basic -> enhanced` ordering, reconciles `enhanced` cluster and node-pool settings in place, and intentionally retains warm `basic` and `enhanced` fixtures across unrelated scenarios so prewarm remains useful.
 - By default the live suite leaves the last prepared fixtures warm after a successful run. Set `LIVE_FIXTURE_FINAL_CLEANUP=success` to destroy all fixture targets touched by the suite in dependency order after success.
 - The warm enhanced footprint is based on the first enhanced profile in planned live order, not every enhanced profile in the suite.
-- `SUITE=live` also includes a multi-step managed-cluster drift scenario that uses the shared network fixture, resolves its worker image through the shared Terraform node-image-selector helper, and performs an out-of-band cluster upgrade.
+- `SUITE=live` also includes a multi-step managed-cluster drift scenario that uses the shared network fixture, resolves its worker image through the shared Terraform node-image-selector helper with those env-backed selector inputs, and performs an out-of-band cluster upgrade.
 - The full-stack live deployment scenario now deploys once, runs multiple post-deploy validators, destroys the stack on success, and keeps it on failure for debugging.
 - `tests/.env` and `tests/.env.local` are ignored by git and are the right place for real local test values.
 - The harness defaults `OBC_ROOT_DIR` to `tests/.obc` so `obc registry oke add`, `kubectl`, and later `obc kube-exec` subprocesses share the same persistent local state. Export `OBC_ROOT_DIR` yourself if you want a different location.

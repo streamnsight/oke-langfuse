@@ -7,29 +7,10 @@ hcl_quote() {
 
 resolve_oke_worker_image_id() {
   local kubernetes_version="$1"
-  local current_image_metadata=""
-  if [ -n "${TF_VAR_np1_image_id:-}" ]; then
-    require_command oci
-    current_image_metadata="$(
-      oci $(while IFS= read -r arg; do [ -n "$arg" ] && printf '%q ' "$arg"; done < <(oci_cli_global_args)) \
-        compute image get \
-        --image-id "${TF_VAR_np1_image_id}" 2>/dev/null || true
-    )"
-  fi
-
-  local metadata_compartment_id=""
-  local metadata_operating_system=""
-  local metadata_operating_system_version=""
-  if [ -n "$current_image_metadata" ]; then
-    metadata_compartment_id="$(printf '%s\n' "$current_image_metadata" | jq -r 'try .data["compartment-id"] // empty')"
-    metadata_operating_system="$(printf '%s\n' "$current_image_metadata" | jq -r 'try .data["operating-system"] // empty')"
-    metadata_operating_system_version="$(printf '%s\n' "$current_image_metadata" | jq -r 'try .data["operating-system-version"] // empty')"
-  fi
-
-  local compartment_id="${2:-${TF_VAR_fixture_image_compartment_id:-${metadata_compartment_id:-${TF_VAR_tenancy_ocid:-}}}}"
-  local operating_system="${3:-${TF_VAR_fixture_operating_system:-${metadata_operating_system:-Oracle Linux}}}"
-  local operating_system_version="${4:-${TF_VAR_fixture_operating_system_version:-${metadata_operating_system_version:-8}}}"
-  local shape="${5:-${TF_VAR_fixture_shape:-${TF_VAR_np1_node_shape:-VM.Standard.E5.Flex}}}"
+  local compartment_id="${2:-${TF_VAR_fixture_image_compartment_id:-${TF_VAR_tenancy_ocid:-}}}"
+  local operating_system="${3:-${TF_VAR_fixture_operating_system:-}}"
+  local operating_system_version="${4:-${TF_VAR_fixture_operating_system_version:-}}"
+  local shape="${5:-${TF_VAR_fixture_shape:-}}"
   local resolver_quiet="${TESTS_IMAGE_RESOLVER_QUIET:-false}"
 
   require_non_empty "$kubernetes_version" "kubernetes_version is required for OKE worker image resolution."
@@ -37,6 +18,13 @@ resolve_oke_worker_image_id() {
   require_non_empty "$operating_system" "operating_system is required for OKE worker image resolution."
   require_non_empty "$operating_system_version" "operating_system_version is required for OKE worker image resolution."
   require_non_empty "$shape" "shape is required for OKE worker image resolution."
+
+  if [ -n "${TF_VAR_fixture_node_image_id:-}" ]; then
+    printf '[tests] Using TF_VAR_fixture_node_image_id as a manual worker image override for Kubernetes version %s.\n' "$kubernetes_version" >&2
+    printf '%s\n' "$TF_VAR_fixture_node_image_id"
+    return 0
+  fi
+
   require_command terraform
   require_command jq
 

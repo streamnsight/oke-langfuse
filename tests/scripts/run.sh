@@ -23,9 +23,10 @@ Usage:
 Commands:
   help
   test      Run preflight plus scenario validation. Optional: SCENARIO=<name> SUITE=<all|fast|live>
-            Live suites self-bootstrap fixture profiles from empty local state, reorder them to reduce cluster churn, and may set LIVE_FIXTURE_FINAL_CLEANUP=success.
+            Live suites self-bootstrap fixture profiles from empty local state, reorder them to reduce cluster churn, require TF_VAR_fixture_operating_system / TF_VAR_fixture_operating_system_version / TF_VAR_fixture_shape from tests/.env or tests/.env.local, and may set LIVE_FIXTURE_FINAL_CLEANUP=success.
   fixture   Manage fixture workspace. Required: TARGET=<network|basic|enhanced> ACTION=<up|down|refresh|status|scale>
   fixture-prewarm  Prewarm the ordered live-suite fixture footprint ahead of a run. Optional: SUITE=live
+            Uses the same required live selector env vars as SUITE=live. TF_VAR_fixture_node_image_id remains a manual recovery override.
   fixture-down-all  Destroy all fixture workspaces in dependency order. Manual cleanup only.
   debug     Collect OCI DevOps and Kubernetes diagnostics. Required: TARGET=<network|basic|enhanced>
 

@@ -522,6 +522,7 @@ prewarm_live_fixture_suite() {
   if [ -n "${SCENARIO:-}" ]; then
     die "fixture-prewarm does not accept SCENARIO; it prewarms the ordered live suite."
   fi
+  assert_live_selector_env_ready "fixture-prewarm"
 
   ensure_artifacts_dir
 
@@ -1227,6 +1228,10 @@ run_scenario_suite() {
   ensure_artifacts_dir
   require_command terraform
   require_command rsync
+
+  if [ "${SUITE:-}" = "live" ]; then
+    assert_live_selector_env_ready "SUITE=live"
+  fi
 
   run_preflight_checks
 
