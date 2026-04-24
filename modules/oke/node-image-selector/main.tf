@@ -4,52 +4,81 @@
 locals {
   image_id_override_normalized = try(trimspace(var.image_id_override), "") != "" ? trimspace(var.image_id_override) : null
   kubernetes_version_trimmed   = trimprefix(var.kubernetes_version, "v")
+  operating_system_slug        = replace(var.operating_system, " ", "-")
+  source_name_prefix           = "${local.operating_system_slug}-${var.operating_system_version}"
+  shape_is_arm                 = length(regexall("(^|\\.)A1\\.|Ampere", var.shape)) > 0
+  shape_is_gpu                 = length(regexall("GPU", var.shape)) > 0
 }
 
-data "oci_core_images" "base_images" {
-  count                    = local.image_id_override_normalized == null ? 1 : 0
-  compartment_id           = var.compartment_id
-  operating_system         = var.operating_system
-  operating_system_version = var.operating_system_version
-  shape                    = var.shape
-  state                    = "AVAILABLE"
-  sort_by                  = "TIMECREATED"
-  sort_order               = "DESC"
-
-  filter {
-    name   = "display_name"
-    values = ["^(?!.*-OKE-).*$"]
-    regex  = true
-  }
+data "oci_containerengine_node_pool_option" "oke_node_pool_option" {
+  count               = local.image_id_override_normalized == null ? 1 : 0
+  node_pool_option_id = "all"
 }
 
 locals {
-  base_image_candidates = local.image_id_override_normalized == null ? try(data.oci_core_images.base_images[0].images, []) : []
-  base_image            = length(local.base_image_candidates) > 0 ? local.base_image_candidates[0] : null
-}
-
-module "recommended_image" {
-  count              = local.image_id_override_normalized == null && local.base_image != null ? 1 : 0
-  source             = "../recommended-compute-image"
-  image_id           = local.base_image.id
-  kubernetes_version = var.kubernetes_version
-}
-
-locals {
-  oke_image_candidates = local.image_id_override_normalized == null && length(module.recommended_image) > 0 ? [
-    for option in module.recommended_image[0].image_options :
-    option if startswith(
-      option.source_name,
-      "${module.recommended_image[0].images.display_name}-OKE-${local.kubernetes_version_trimmed}"
+  compatible_sources = local.image_id_override_normalized == null ? [
+    for source in try(data.oci_containerengine_node_pool_option.oke_node_pool_option[0].sources, []) :
+    source if startswith(source.source_name, local.source_name_prefix) && (
+      local.shape_is_arm ? strcontains(source.source_name, "-aarch64-") :
+      local.shape_is_gpu ? strcontains(source.source_name, "-GPU-") :
+      !strcontains(source.source_name, "-aarch64-") && !strcontains(source.source_name, "-GPU-")
     )
   ] : []
 
+  base_image_candidates = [
+    for source in local.compatible_sources : {
+      id           = source.image_id
+      display_name = source.source_name
+    } if !strcontains(source.source_name, "-OKE-")
+  ]
+
+  oke_image_candidates = [
+    for source in local.compatible_sources : {
+      image_id    = source.image_id
+      source_name = source.source_name
+    } if strcontains(source.source_name, "-OKE-${local.kubernetes_version_trimmed}-")
+  ]
+
+  latest_oke_image_sort_key = length(local.oke_image_candidates) > 0 ? reverse(sort([
+    for candidate in local.oke_image_candidates :
+    "${data.oci_core_image.oke_candidate[candidate.image_id].time_created}|${candidate.image_id}"
+  ]))[0] : null
+
+  selected_oke_image = local.latest_oke_image_sort_key == null ? null : one([
+    for candidate in local.oke_image_candidates : {
+      image_id     = candidate.image_id
+      source_name  = candidate.source_name
+      display_name = data.oci_core_image.oke_candidate[candidate.image_id].display_name
+      time_created = data.oci_core_image.oke_candidate[candidate.image_id].time_created
+    } if "${data.oci_core_image.oke_candidate[candidate.image_id].time_created}|${candidate.image_id}" == local.latest_oke_image_sort_key
+  ])
+
+  selected_base_image = local.selected_oke_image != null ? {
+    id = one([
+      for source in local.base_image_candidates :
+      source.id if startswith(local.selected_oke_image.source_name, "${source.display_name}-OKE-")
+    ])
+    display_name = one([
+      for source in local.base_image_candidates :
+      source.display_name if startswith(local.selected_oke_image.source_name, "${source.display_name}-OKE-")
+    ])
+  } : null
+
   selected_image_id = local.image_id_override_normalized != null ? local.image_id_override_normalized : (
-    length(local.oke_image_candidates) > 0 ? local.oke_image_candidates[0].image_id : null
+    try(local.selected_oke_image.image_id, null)
   )
   selected_source_name = local.image_id_override_normalized != null ? null : (
-    length(local.oke_image_candidates) > 0 ? local.oke_image_candidates[0].source_name : null
+    try(local.selected_oke_image.source_name, null)
   )
+}
+
+data "oci_core_image" "oke_candidate" {
+  for_each = {
+    for candidate in local.oke_image_candidates :
+    candidate.image_id => candidate
+  }
+
+  image_id = each.key
 }
 
 data "oci_core_image" "selected_image" {
@@ -62,13 +91,13 @@ resource "terraform_data" "selector_guard" {
 
   lifecycle {
     precondition {
-      condition     = local.image_id_override_normalized != null || local.base_image != null
+      condition     = local.image_id_override_normalized != null || length(local.base_image_candidates) > 0
       error_message = "No compatible base image was found for the requested operating system, operating system version, and shape."
     }
 
     precondition {
       condition     = local.image_id_override_normalized != null || length(local.oke_image_candidates) > 0
-      error_message = "No OKE-ready image was found for the selected base image and requested Kubernetes version."
+      error_message = "No OKE-ready image was found for the requested operating system, operating system version, shape, and Kubernetes version."
     }
   }
 }
@@ -84,10 +113,11 @@ output "selector" {
     operating_system_version = var.operating_system_version
     shape                    = var.shape
     kubernetes_version       = var.kubernetes_version
-    base_image_id            = try(local.base_image.id, null)
-    base_image_display_name  = try(local.base_image.display_name, null)
+    base_image_id            = try(local.selected_base_image.id, null)
+    base_image_display_name  = try(local.selected_base_image.display_name, null)
     selected_image_id        = local.selected_image_id
     selected_image_name      = try(data.oci_core_image.selected_image[0].display_name, null)
     selected_source_name     = local.selected_source_name
+    selected_image_created   = try(local.selected_oke_image.time_created, try(data.oci_core_image.selected_image[0].time_created, null))
   }
 }

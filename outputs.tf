@@ -72,6 +72,11 @@ output "integrated_app_name" {
   value = local.cluster_name_sanitized
 }
 
+output "node_pool_image_override_status" {
+  description = "Node pool image override status, including enabled overrides and stale saved image IDs that are currently ignored."
+  value       = local.node_pool_image_override_status
+}
+
 output "test_metadata" {
   description = "Additional non-sensitive metadata for local test tooling when test_mode is enabled."
   value = var.test_mode ? {
@@ -137,6 +142,7 @@ output "test_metadata" {
     features = {
       oci_genai_gateway_enabled = var.enable_oci_genai_gateway
     }
+    node_pool_image_overrides = local.node_pool_image_override_status
     existing_cluster_preflight = var.use_existing_cluster && var.enable_existing_cluster_cloud_init_preflight ? {
       compatible             = length(local.existing_cluster_cloud_init_matching_node_pools) > 0
       matching_node_pool_ids = local.existing_cluster_cloud_init_matching_node_pools
@@ -144,10 +150,6 @@ output "test_metadata" {
     } : null
   } : null
 }
-
-# output "img" {
-#   value = module.recommended_image
-# }
 
 # output "k8s_version" {
 #   value = local.kubernetes_version
