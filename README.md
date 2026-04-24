@@ -177,8 +177,5 @@ The stack DOES NOT attempt to modify an existing cluster cloud-init for obvious 
 [ ] build worker image
 [ ] auto add group and user to IDCS app
 [ ] ensure cloud-init provisions OCIR login script + cronjob
-<<<<<<< Updated upstream
-=======
 [ ] 'latest' as langfuse helm chart option (lookup and use latest)
 [ ] ClickHouse dedicated node-pool
->>>>>>> Stashed changes
