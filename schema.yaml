@@ -88,6 +88,9 @@ variableGroups:
       - np1_node_shape
       - np1_ocpus
       - np1_memory_gb
+      - np1_operating_system
+      - np1_operating_system_version
+      - np1_image_override
       - np1_image_id
       - np1_boot_volume_size_in_gbs
       - np1_node_count
@@ -116,11 +119,14 @@ variableGroups:
       - np2_node_shape
       - np2_ocpus
       - np2_memory_gb
+      - np2_operating_system
+      - np2_operating_system_version
+      - np2_image_override
+      - np2_image_id
       - np2_node_count
       - np2_enable_autoscaler
       - np2_autoscaler_min_nodes
       - np2_autoscaler_max_nodes
-      - np2_image_id
       - np2_boot_volume_size_in_gbs
       - np2_add_tag
       - np2_tags
@@ -141,11 +147,14 @@ variableGroups:
       - np3_node_shape
       - np3_ocpus
       - np3_memory_gb
+      - np3_operating_system
+      - np3_operating_system_version
+      - np3_image_override
+      - np3_image_id
       - np3_node_count
       - np3_enable_autoscaler
       - np3_autoscaler_min_nodes
       - np3_autoscaler_max_nodes
-      - np3_image_id
       - np3_boot_volume_size_in_gbs
       - np3_add_tag
       - np3_tags
@@ -628,6 +637,31 @@ variables:
         #     - np1_node_shape    
         #     - "VM.Standard3.Flex"
 
+  np1_operating_system:
+    type: string
+    title: Operating System
+    description: Operating system used for automatic node image selection for this node pool.
+    enum:
+      - "Oracle Linux"
+    default: "Oracle Linux"
+    required: true
+
+  np1_operating_system_version:
+    type: string
+    title: Operating System Version
+    description: Operating system version used for automatic node image selection for this node pool.
+    enum:
+      - "8"
+      - "9"
+    default: "8"
+    required: true
+
+  np1_image_override:
+    type: boolean
+    title: Override Image Selection
+    description: Enable to bypass automatic image selection and force a custom image OCID for this node pool.
+    default: false
+
   np1_enable_autoscaler:
     type: boolean
     title: Enable Node Pool Autoscaler
@@ -670,18 +704,17 @@ variables:
         - true
 
   np1_image_id:
-    type: oci:core:image:id
-    title: Image Id
+    type: string
+    title: Custom Image OCID
     description: |
-      Image to use for this Node Pool. 
-      Some applications may require specific versions of Linux. OL8.10 is preferred.
-      For Kubernetes v1.32.x to 1.34.x select Oracle-Linux-8.10-2026.02.28-0
-      For Kubernetes v1.35.0 select Oracle-Linux-8.10-2026.01.29-0
-    dependsOn:
-      compartmentId: cluster_compartment_id
-      shape: np1_node_shape
-      operatingSystem: "Oracle Linux"
-    required: true
+      Optional custom image OCID for this node pool.
+      This value is ignored unless Override Image Selection is enabled for this node pool.
+      Use this only when you intentionally want to bypass automatic OS and OS version based image selection.
+    required: false
+    visible:
+      eq:
+        - np1_image_override
+        - true
 
   np1_boot_volume_size_in_gbs:
     type: integer
@@ -831,6 +864,31 @@ variables:
             - np2_node_shape    
             - "VM.Standard3.Flex"
 
+  np2_operating_system:
+    type: string
+    title: Operating System
+    description: Operating system used for automatic node image selection for this node pool.
+    enum:
+      - "Oracle Linux"
+    default: "Oracle Linux"
+    required: true
+
+  np2_operating_system_version:
+    type: string
+    title: Operating System Version
+    description: Operating system version used for automatic node image selection for this node pool.
+    enum:
+      - "8"
+      - "9"
+    default: "8"
+    required: true
+
+  np2_image_override:
+    type: boolean
+    title: Override Image Selection
+    description: Enable to bypass automatic image selection and force a custom image OCID for this node pool.
+    default: false
+
   np2_enable_autoscaler:
     type: boolean
     title: Enable Node Pool Autoscaler
@@ -873,16 +931,17 @@ variables:
         - true
 
   np2_image_id:
-    type: oci:core:image:id
-    title: Image Id    
+    type: string
+    title: Custom Image OCID
     description: |
-      Image to use for this Node Pool. 
-      Some applications may require specific versions of Linux. OL7.9 is preferred.
-    dependsOn:
-      compartmentId: cluster_compartment_id
-      shape: np2_node_shape
-      operatingSystem: "Oracle Linux"
-    required: true
+      Optional custom image OCID for this node pool.
+      This value is ignored unless Override Image Selection is enabled for this node pool.
+      Use this only when you intentionally want to bypass automatic OS and OS version based image selection.
+    required: false
+    visible:
+      eq:
+        - np2_image_override
+        - true
 
   np2_boot_volume_size_in_gbs:
     type: integer
@@ -1024,6 +1083,31 @@ variables:
             - np3_node_shape    
             - "VM.Standard3.Flex"
 
+  np3_operating_system:
+    type: string
+    title: Operating System
+    description: Operating system used for automatic node image selection for this node pool.
+    enum:
+      - "Oracle Linux"
+    default: "Oracle Linux"
+    required: true
+
+  np3_operating_system_version:
+    type: string
+    title: Operating System Version
+    description: Operating system version used for automatic node image selection for this node pool.
+    enum:
+      - "8"
+      - "9"
+    default: "8"
+    required: true
+
+  np3_image_override:
+    type: boolean
+    title: Override Image Selection
+    description: Enable to bypass automatic image selection and force a custom image OCID for this node pool.
+    default: false
+
   np3_enable_autoscaler:
     type: boolean
     title: Enable Node Pool Autoscaler
@@ -1066,16 +1150,17 @@ variables:
         - true
 
   np3_image_id:
-    type: oci:core:image:id
-    title: Image Id
+    type: string
+    title: Custom Image OCID
     description: |
-      Image to use for this Node Pool. 
-      Some applications may require specific versions of Linux. OL7.9 is preferred.
-    dependsOn:
-      compartmentId: cluster_compartment_id
-      shape: np3_node_shape
-      operatingSystem: "Oracle Linux"
-    required: true
+      Optional custom image OCID for this node pool.
+      This value is ignored unless Override Image Selection is enabled for this node pool.
+      Use this only when you intentionally want to bypass automatic OS and OS version based image selection.
+    required: false
+    visible:
+      eq:
+        - np3_image_override
+        - true
 
   np3_boot_volume_size_in_gbs:
     type: integer

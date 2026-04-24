@@ -136,8 +136,24 @@ variable "np1_memory_gb" {
   default = 64
 }
 
+variable "np1_operating_system" {
+  type    = string
+  default = "Oracle Linux"
+}
+
+variable "np1_operating_system_version" {
+  type    = string
+  default = "8"
+}
+
+variable "np1_image_override" {
+  type    = bool
+  default = false
+}
+
 variable "np1_image_id" {
-  default = ""
+  type    = string
+  default = null
 }
 
 variable "np1_boot_volume_size_in_gbs" {
@@ -192,7 +208,23 @@ variable "np2_memory_gb" {
   default = 64
 }
 
+variable "np2_operating_system" {
+  type    = string
+  default = "Oracle Linux"
+}
+
+variable "np2_operating_system_version" {
+  type    = string
+  default = "8"
+}
+
+variable "np2_image_override" {
+  type    = bool
+  default = false
+}
+
 variable "np2_image_id" {
+  type    = string
   default = null
 }
 
@@ -248,7 +280,23 @@ variable "np3_memory_gb" {
   default = 64
 }
 
+variable "np3_operating_system" {
+  type    = string
+  default = "Oracle Linux"
+}
+
+variable "np3_operating_system_version" {
+  type    = string
+  default = "8"
+}
+
+variable "np3_image_override" {
+  type    = bool
+  default = false
+}
+
 variable "np3_image_id" {
+  type    = string
   default = null
 }
 
