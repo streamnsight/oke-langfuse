@@ -821,9 +821,11 @@ prepare_scenario_workdir() {
   local scenario_dir="$1"
   local scenario_name="$2"
   local work_dir="$3"
+  local artifact_dir="${4:-}"
 
   if [ -f "$scenario_dir/prepare.sh" ]; then
-    bash "$work_dir/tests/scenarios/$scenario_name/prepare.sh" "$work_dir"
+    TESTS_SCENARIO_ARTIFACT_DIR="$artifact_dir" \
+      bash "$work_dir/tests/scenarios/$scenario_name/prepare.sh" "$work_dir"
   elif [ -f "$scenario_dir/terraform.tfvars" ]; then
     cp "$scenario_dir/terraform.tfvars" "$work_dir/terraform.tfvars"
   fi
@@ -920,7 +922,7 @@ run_single_scenario() {
     prepare_scenario_infra "$scenario_dir"
   fi
   copy_repo_for_scenario "$work_dir"
-  prepare_scenario_workdir "$scenario_dir" "$scenario_name" "$work_dir"
+  prepare_scenario_workdir "$scenario_dir" "$scenario_name" "$work_dir" "$artifact_dir"
 
   capture_terraform_outputs "$work_dir" "$outputs_before"
 

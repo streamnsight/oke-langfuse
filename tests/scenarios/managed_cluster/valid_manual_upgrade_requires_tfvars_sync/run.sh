@@ -2,6 +2,7 @@
 set -euo pipefail
 
 WORK_DIR="${1:?workdir is required}"
+ARTIFACT_DIR="${TESTS_SCENARIO_ARTIFACT_DIR:-$WORK_DIR/tests/artifacts/managed-cluster}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TESTS_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 # shellcheck source=tests/scripts/lib/common.sh
@@ -15,6 +16,7 @@ require_command jq
 require_command oci
 
 assert_network_fixture_ready
+mkdir -p "$ARTIFACT_DIR"
 
 rm -f "$WORK_DIR/terraform.tfstate" "$WORK_DIR/terraform.tfstate.backup"
 
@@ -34,9 +36,30 @@ if [ "$(printf '%s\n' "$available_versions" | sed '/^$/d' | wc -l | tr -d ' ')" 
   die "Managed cluster version drift scenario requires at least two available Kubernetes versions."
 fi
 
-initial_version="v$(printf '%s\n' "$available_versions" | tail -n 2 | head -n 1)"
 upgrade_version="v$(printf '%s\n' "$available_versions" | tail -n 1)"
-initial_np1_image_id="$(resolve_oke_worker_image_id "$initial_version")"
+
+version_probe_log="$ARTIFACT_DIR/version-selection.txt"
+: >"$version_probe_log"
+
+initial_version=""
+initial_np1_image_id=""
+while IFS= read -r candidate_version_no_v; do
+  [ -n "$candidate_version_no_v" ] || continue
+  candidate_version="v${candidate_version_no_v}"
+  printf '[tests] Probing worker image availability for %s\n' "$candidate_version" | tee -a "$version_probe_log"
+
+  if TESTS_IMAGE_RESOLVER_QUIET=true candidate_image_id="$(resolve_oke_worker_image_id "$candidate_version")"; then
+    initial_version="$candidate_version"
+    initial_np1_image_id="$candidate_image_id"
+    printf '[tests] Selected initial version %s with image %s\n' "$initial_version" "$initial_np1_image_id" | tee -a "$version_probe_log"
+    break
+  fi
+
+  printf '[tests] No resolvable worker image found for %s; trying the next lower version.\n' "$candidate_version" | tee -a "$version_probe_log"
+done < <(printf '%s\n' "$available_versions" | sed '$d' | sort -Vr)
+
+require_non_empty "$initial_version" "Managed cluster version drift scenario requires at least one lower Kubernetes version with a resolvable worker image."
+require_non_empty "$initial_np1_image_id" "Managed cluster version drift scenario failed to resolve an image for the selected initial version."
 
 export STACK_TEST_INCLUDE_IDCS_PLACEHOLDERS=false
 write_managed_cluster_with_network_tfvars \

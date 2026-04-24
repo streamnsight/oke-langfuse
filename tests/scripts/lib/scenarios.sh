@@ -7,10 +7,30 @@ hcl_quote() {
 
 resolve_oke_worker_image_id() {
   local kubernetes_version="$1"
-  local compartment_id="${2:-${TF_VAR_tenancy_ocid:-}}"
-  local operating_system="${3:-${TF_VAR_fixture_operating_system:-Oracle Linux}}"
-  local operating_system_version="${4:-${TF_VAR_fixture_operating_system_version:-8}}"
+  local current_image_metadata=""
+  if [ -n "${TF_VAR_np1_image_id:-}" ]; then
+    require_command oci
+    current_image_metadata="$(
+      oci $(while IFS= read -r arg; do [ -n "$arg" ] && printf '%q ' "$arg"; done < <(oci_cli_global_args)) \
+        compute image get \
+        --image-id "${TF_VAR_np1_image_id}" 2>/dev/null || true
+    )"
+  fi
+
+  local metadata_compartment_id=""
+  local metadata_operating_system=""
+  local metadata_operating_system_version=""
+  if [ -n "$current_image_metadata" ]; then
+    metadata_compartment_id="$(printf '%s\n' "$current_image_metadata" | jq -r 'try .data["compartment-id"] // empty')"
+    metadata_operating_system="$(printf '%s\n' "$current_image_metadata" | jq -r 'try .data["operating-system"] // empty')"
+    metadata_operating_system_version="$(printf '%s\n' "$current_image_metadata" | jq -r 'try .data["operating-system-version"] // empty')"
+  fi
+
+  local compartment_id="${2:-${TF_VAR_fixture_image_compartment_id:-${metadata_compartment_id:-${TF_VAR_tenancy_ocid:-}}}}"
+  local operating_system="${3:-${TF_VAR_fixture_operating_system:-${metadata_operating_system:-Oracle Linux}}}"
+  local operating_system_version="${4:-${TF_VAR_fixture_operating_system_version:-${metadata_operating_system_version:-8}}}"
   local shape="${5:-${TF_VAR_fixture_shape:-${TF_VAR_np1_node_shape:-VM.Standard.E5.Flex}}}"
+  local resolver_quiet="${TESTS_IMAGE_RESOLVER_QUIET:-false}"
 
   require_non_empty "$kubernetes_version" "kubernetes_version is required for OKE worker image resolution."
   require_non_empty "$compartment_id" "compartment_id is required for OKE worker image resolution."
@@ -18,28 +38,38 @@ resolve_oke_worker_image_id() {
   require_non_empty "$operating_system_version" "operating_system_version is required for OKE worker image resolution."
   require_non_empty "$shape" "shape is required for OKE worker image resolution."
   require_command terraform
+  require_command jq
 
   (
-    local scratch_dir
-    scratch_dir="$(mktemp -d "${TMPDIR:-/tmp}/tests-node-image-selector.XXXXXX")"
-    trap 'rm -rf "$scratch_dir"' EXIT
+    local scratch_dir=""
+    local resolver_artifact_dir=""
+    mkdir -p "$ROOT_DIR/.tests-tmp"
+    scratch_dir="$(mktemp -d "$ROOT_DIR/.tests-tmp/node-image-selector.XXXXXX")"
+    trap 'rm -rf "${scratch_dir:-}"' EXIT
+
+    if [ -n "${TESTS_SCENARIO_ARTIFACT_DIR:-}" ]; then
+      resolver_artifact_dir="$TESTS_SCENARIO_ARTIFACT_DIR/resolver/node-image-selector"
+      mkdir -p "$resolver_artifact_dir"
+    fi
 
     local init_args=()
     while IFS= read -r arg; do
       [ -n "$arg" ] && init_args+=("$arg")
     done < <(terraform_init_args)
 
+    unset TF_PLUGIN_CACHE_DIR
+
     {
       printf 'terraform {\n'
       printf '  required_providers {\n'
       printf '    oci = {\n'
-      printf '      source = "oracle/oci"\n'
+      printf '      source = "hashicorp/oci"\n'
       printf '    }\n'
       printf '  }\n'
       printf '}\n\n'
       printf 'provider "oci" {}\n\n'
       printf 'module "node_image_selector" {\n'
-      printf '  source = %s\n' "$(hcl_quote "$ROOT_DIR/modules/oke/node-image-selector")"
+      printf '  source = %s\n' "$(hcl_quote "../../modules/oke/node-image-selector")"
       printf '  compartment_id = %s\n' "$(hcl_quote "$compartment_id")"
       printf '  kubernetes_version = %s\n' "$(hcl_quote "$kubernetes_version")"
       printf '  operating_system = %s\n' "$(hcl_quote "$operating_system")"
@@ -51,9 +81,80 @@ resolve_oke_worker_image_id() {
       printf '}\n'
     } >"$scratch_dir/main.tf"
 
-    terraform -chdir="$scratch_dir" init "${init_args[@]}" >/dev/null
-    terraform -chdir="$scratch_dir" apply -input=false -auto-approve >/dev/null
-    terraform -chdir="$scratch_dir" output -raw selected_image_id
+    local init_status=0
+    set +e
+    terraform -chdir="$scratch_dir" init "${init_args[@]}" >"$scratch_dir/terraform-init.log" 2>&1
+    init_status=$?
+    set -e
+    if [ "$init_status" -ne 0 ]; then
+      if [ "$resolver_quiet" = "true" ]; then
+        exit 1
+      fi
+      if [ -n "$resolver_artifact_dir" ]; then
+        cp "$scratch_dir/main.tf" "$resolver_artifact_dir/main.tf"
+        cp "$scratch_dir/terraform-init.log" "$resolver_artifact_dir/terraform-init.log"
+      fi
+      printf '[tests] OKE worker image resolver terraform init failed for Kubernetes version %s.\n' "$kubernetes_version" >&2
+      if [ -n "$resolver_artifact_dir" ]; then
+        printf '[tests] Resolver artifacts: %s\n' "$resolver_artifact_dir" >&2
+      fi
+      tail -n 40 "$scratch_dir/terraform-init.log" | sed 's/^/[tests]   /' >&2 || true
+      die "Failed to initialize the OKE worker image resolver."
+    fi
+
+    local apply_status=0
+    set +e
+    terraform -chdir="$scratch_dir" apply -input=false -auto-approve >"$scratch_dir/terraform-apply.log" 2>&1
+    apply_status=$?
+    set -e
+    if [ "$apply_status" -ne 0 ]; then
+      if [ "$resolver_quiet" = "true" ]; then
+        exit 1
+      fi
+      if [ -n "$resolver_artifact_dir" ]; then
+        cp "$scratch_dir/main.tf" "$resolver_artifact_dir/main.tf"
+        cp "$scratch_dir/terraform-init.log" "$resolver_artifact_dir/terraform-init.log"
+        cp "$scratch_dir/terraform-apply.log" "$resolver_artifact_dir/terraform-apply.log"
+      fi
+      printf '[tests] OKE worker image resolver terraform apply failed for Kubernetes version %s.\n' "$kubernetes_version" >&2
+      if [ -n "$resolver_artifact_dir" ]; then
+        printf '[tests] Resolver artifacts: %s\n' "$resolver_artifact_dir" >&2
+      fi
+      tail -n 40 "$scratch_dir/terraform-apply.log" | sed 's/^/[tests]   /' >&2 || true
+      die "Failed to apply the OKE worker image resolver."
+    fi
+
+    terraform -chdir="$scratch_dir" output -json >"$scratch_dir/terraform-output.json" 2>"$scratch_dir/terraform-output.stderr"
+
+    local resolved_image_id
+    resolved_image_id="$(jq -r 'try .selected_image_id.value // empty' "$scratch_dir/terraform-output.json")"
+    if [[ ! "$resolved_image_id" =~ ^ocid1\.image\. ]]; then
+      if [ "$resolver_quiet" = "true" ]; then
+        exit 1
+      fi
+      if [ -n "$resolver_artifact_dir" ]; then
+        cp "$scratch_dir/main.tf" "$resolver_artifact_dir/main.tf"
+        cp "$scratch_dir/terraform-init.log" "$resolver_artifact_dir/terraform-init.log"
+        cp "$scratch_dir/terraform-apply.log" "$resolver_artifact_dir/terraform-apply.log"
+        cp "$scratch_dir/terraform-output.json" "$resolver_artifact_dir/terraform-output.json"
+        cp "$scratch_dir/terraform-output.stderr" "$resolver_artifact_dir/terraform-output.stderr"
+      fi
+      printf '[tests] OKE worker image resolver failed for Kubernetes version %s.\n' "$kubernetes_version" >&2
+      if [ -n "$resolver_artifact_dir" ]; then
+        printf '[tests] Resolver artifacts: %s\n' "$resolver_artifact_dir" >&2
+      fi
+      if [ -s "$scratch_dir/terraform-output.stderr" ]; then
+        printf '[tests] terraform output stderr:\n' >&2
+        sed 's/^/[tests]   /' "$scratch_dir/terraform-output.stderr" >&2
+      fi
+      if [ -s "$scratch_dir/terraform-apply.log" ]; then
+        printf '[tests] terraform apply log (last 40 lines):\n' >&2
+        tail -n 40 "$scratch_dir/terraform-apply.log" | sed 's/^/[tests]   /' >&2
+      fi
+      die "Failed to resolve a valid OKE worker image ID."
+    fi
+
+    printf '%s\n' "$resolved_image_id"
   )
 }
 
