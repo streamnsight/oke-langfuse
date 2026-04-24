@@ -500,7 +500,7 @@ variable "redis_node_memory" {
 
 variable "langfuse_helm_chart_version" {
   type    = string
-  default = "1.5.14"
+  default = "1.5.27"
 }
 
 variable "identity_domain_id" {
