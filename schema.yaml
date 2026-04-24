@@ -638,7 +638,7 @@ variables:
         #     - "VM.Standard3.Flex"
 
   np1_operating_system:
-    type: string
+    type: enum
     title: Operating System
     description: Operating system used for automatic node image selection for this node pool.
     enum:
@@ -647,7 +647,7 @@ variables:
     required: true
 
   np1_operating_system_version:
-    type: string
+    type: enum
     title: Operating System Version
     description: Operating system version used for automatic node image selection for this node pool.
     enum:
@@ -865,7 +865,7 @@ variables:
             - "VM.Standard3.Flex"
 
   np2_operating_system:
-    type: string
+    type: enum
     title: Operating System
     description: Operating system used for automatic node image selection for this node pool.
     enum:
@@ -874,7 +874,7 @@ variables:
     required: true
 
   np2_operating_system_version:
-    type: string
+    type: enum
     title: Operating System Version
     description: Operating system version used for automatic node image selection for this node pool.
     enum:
@@ -1084,7 +1084,7 @@ variables:
             - "VM.Standard3.Flex"
 
   np3_operating_system:
-    type: string
+    type: enum
     title: Operating System
     description: Operating system used for automatic node image selection for this node pool.
     enum:
@@ -1093,7 +1093,7 @@ variables:
     required: true
 
   np3_operating_system_version:
-    type: string
+    type: enum
     title: Operating System Version
     description: Operating system version used for automatic node image selection for this node pool.
     enum:
