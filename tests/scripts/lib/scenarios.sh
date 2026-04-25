@@ -5,13 +5,15 @@ hcl_quote() {
   jq -Rn --arg value "$value" '$value'
 }
 
-resolve_oke_worker_image_id() {
+resolve_oke_worker_image_selector_json() {
   local kubernetes_version="$1"
   local compartment_id="${2:-${TF_VAR_fixture_image_compartment_id:-${TF_VAR_tenancy_ocid:-}}}"
   local operating_system="${3:-${TF_VAR_fixture_operating_system:-}}"
   local operating_system_version="${4:-${TF_VAR_fixture_operating_system_version:-}}"
   local shape="${5:-${TF_VAR_fixture_shape:-}}"
   local resolver_quiet="${TESTS_IMAGE_RESOLVER_QUIET:-false}"
+  local disable_override="${TESTS_DISABLE_FIXTURE_IMAGE_OVERRIDE:-false}"
+  local image_id_override="${TF_VAR_fixture_node_image_id:-}"
 
   require_non_empty "$kubernetes_version" "kubernetes_version is required for OKE worker image resolution."
   require_non_empty "$compartment_id" "compartment_id is required for OKE worker image resolution."
@@ -19,10 +21,10 @@ resolve_oke_worker_image_id() {
   require_non_empty "$operating_system_version" "operating_system_version is required for OKE worker image resolution."
   require_non_empty "$shape" "shape is required for OKE worker image resolution."
 
-  if [ -n "${TF_VAR_fixture_node_image_id:-}" ]; then
+  if [ -n "$image_id_override" ] && [ "$disable_override" != "true" ]; then
     printf '[tests] Using TF_VAR_fixture_node_image_id as a manual worker image override for Kubernetes version %s.\n' "$kubernetes_version" >&2
-    printf '%s\n' "$TF_VAR_fixture_node_image_id"
-    return 0
+  elif [ -n "$image_id_override" ] && [ "$disable_override" = "true" ]; then
+    printf '[tests] Ignoring TF_VAR_fixture_node_image_id for Kubernetes version %s; selector-backed resolution is required for this scenario.\n' "$kubernetes_version" >&2
   fi
 
   require_command terraform
@@ -63,9 +65,15 @@ resolve_oke_worker_image_id() {
       printf '  operating_system = %s\n' "$(hcl_quote "$operating_system")"
       printf '  operating_system_version = %s\n' "$(hcl_quote "$operating_system_version")"
       printf '  shape = %s\n' "$(hcl_quote "$shape")"
+      if [ -n "$image_id_override" ] && [ "$disable_override" != "true" ]; then
+        printf '  image_id_override = %s\n' "$(hcl_quote "$image_id_override")"
+      fi
       printf '}\n\n'
       printf 'output "selected_image_id" {\n'
       printf '  value = module.node_image_selector.selected_image_id\n'
+      printf '}\n'
+      printf '\noutput "selector" {\n'
+      printf '  value = module.node_image_selector.selector\n'
       printf '}\n'
     } >"$scratch_dir/main.tf"
 
@@ -114,8 +122,9 @@ resolve_oke_worker_image_id() {
 
     terraform -chdir="$scratch_dir" output -json >"$scratch_dir/terraform-output.json" 2>"$scratch_dir/terraform-output.stderr"
 
-    local resolved_image_id
+    local resolved_image_id selector_json
     resolved_image_id="$(jq -r 'try .selected_image_id.value // empty' "$scratch_dir/terraform-output.json")"
+    selector_json="$(jq -c 'try .selector.value // empty' "$scratch_dir/terraform-output.json")"
     if [[ ! "$resolved_image_id" =~ ^ocid1\.image\. ]]; then
       if [ "$resolver_quiet" = "true" ]; then
         exit 1
@@ -142,8 +151,36 @@ resolve_oke_worker_image_id() {
       die "Failed to resolve a valid OKE worker image ID."
     fi
 
-    printf '%s\n' "$resolved_image_id"
+    if [ -z "$selector_json" ] || [ "$selector_json" = "null" ]; then
+      if [ "$resolver_quiet" = "true" ]; then
+        exit 1
+      fi
+      if [ -n "$resolver_artifact_dir" ]; then
+        cp "$scratch_dir/main.tf" "$resolver_artifact_dir/main.tf"
+        cp "$scratch_dir/terraform-init.log" "$resolver_artifact_dir/terraform-init.log"
+        cp "$scratch_dir/terraform-apply.log" "$resolver_artifact_dir/terraform-apply.log"
+        cp "$scratch_dir/terraform-output.json" "$resolver_artifact_dir/terraform-output.json"
+        cp "$scratch_dir/terraform-output.stderr" "$resolver_artifact_dir/terraform-output.stderr"
+      fi
+      die "Failed to resolve OKE worker image selector metadata."
+    fi
+
+    if [ -n "$resolver_artifact_dir" ]; then
+      cp "$scratch_dir/main.tf" "$resolver_artifact_dir/main.tf"
+      cp "$scratch_dir/terraform-init.log" "$resolver_artifact_dir/terraform-init.log"
+      cp "$scratch_dir/terraform-apply.log" "$resolver_artifact_dir/terraform-apply.log"
+      cp "$scratch_dir/terraform-output.json" "$resolver_artifact_dir/terraform-output.json"
+      cp "$scratch_dir/terraform-output.stderr" "$resolver_artifact_dir/terraform-output.stderr"
+    fi
+
+    printf '%s\n' "$selector_json"
   )
+}
+
+resolve_oke_worker_image_id() {
+  local selector_json
+  selector_json="$(resolve_oke_worker_image_selector_json "$@")"
+  jq -r '.selected_image_id // empty' <<<"$selector_json"
 }
 
 fixture_outputs_json_for_target() {

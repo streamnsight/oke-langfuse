@@ -1,6 +1,6 @@
 TEST_RUNNER := ./tests/scripts/run.sh
 
-.PHONY: help test fixture fixture-prewarm fixture-down-all debug
+.PHONY: help test fixture fixture-prewarm fixture-down-all cleanup-failed-stack debug
 
 help:
 	@bash $(TEST_RUNNER) help
@@ -16,6 +16,9 @@ fixture-prewarm:
 
 fixture-down-all:
 	@bash $(TEST_RUNNER) fixture-down-all
+
+cleanup-failed-stack:
+	@bash $(TEST_RUNNER) cleanup-failed-stack $(if $(STACK_DIR),STACK_DIR=$(STACK_DIR))
 
 debug:
 	@bash $(TEST_RUNNER) debug $(if $(TARGET),TARGET=$(TARGET)) $(if $(SCENARIO),SCENARIO=$(SCENARIO))

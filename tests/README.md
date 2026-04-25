@@ -52,6 +52,7 @@ make fixture ACTION=up TARGET=enhanced
 make fixture ACTION=scale TARGET=enhanced SIZE=3
 make fixture ACTION=refresh TARGET=enhanced USE_CUSTOM_CLOUD_INIT=false
 make fixture-down-all
+make cleanup-failed-stack STACK_DIR=tests/artifacts/failed-stacks/deployment_valid_existing_cluster_existing_vcn
 
 make debug TARGET=enhanced
 ```
@@ -69,6 +70,7 @@ Direct runner usage:
 ./tests/scripts/run.sh fixture ACTION=status TARGET=basic
 ./tests/scripts/run.sh fixture ACTION=refresh TARGET=enhanced USE_CUSTOM_CLOUD_INIT=false
 ./tests/scripts/run.sh fixture-down-all
+./tests/scripts/run.sh cleanup-failed-stack STACK_DIR=tests/artifacts/failed-stacks/deployment_valid_existing_cluster_existing_vcn
 ./tests/scripts/run.sh debug TARGET=enhanced
 ```
 
@@ -92,7 +94,9 @@ Direct runner usage:
 - By default the live suite leaves the last prepared fixtures warm after a successful run. Set `LIVE_FIXTURE_FINAL_CLEANUP=success` to destroy all fixture targets touched by the suite in dependency order after success.
 - The warm enhanced footprint is based on the first enhanced profile in planned live order, not every enhanced profile in the suite.
 - `SUITE=live` also includes a multi-step managed-cluster drift scenario that uses the shared network fixture, resolves its worker image through the shared Terraform node-image-selector helper with those env-backed selector inputs, and performs an out-of-band cluster upgrade.
-- The full-stack live deployment scenario now deploys once, runs multiple post-deploy validators, destroys the stack on success, and keeps it on failure for debugging.
+- The managed-cluster drift scenario ignores `TF_VAR_fixture_node_image_id` intentionally so it always exercises selector-backed worker image resolution for the chosen Kubernetes version.
+- The full-stack live deployment scenario now deploys once, runs multiple post-deploy validators, destroys the stack on success, and preserves the failed stack workdir under `tests/artifacts/failed-stacks/` on failure so you can destroy it explicitly before rerunning.
+- If the full-stack live deployment scenario fails, reruns are blocked until you run `./tests/scripts/run.sh cleanup-failed-stack STACK_DIR=...` for the preserved failed stack directory printed in the scenario failure output.
 - `tests/.env` and `tests/.env.local` are ignored by git and are the right place for real local test values.
 - The harness defaults `OBC_ROOT_DIR` to `tests/.obc` so `obc registry oke add`, `kubectl`, and later `obc kube-exec` subprocesses share the same persistent local state. Export `OBC_ROOT_DIR` yourself if you want a different location.
 - `make debug TARGET=...` resolves DevOps runtime IDs from `terraform output -json` first and only uses `PROJECT_ID`, `PIPELINE_ID`, or `DEPLOYMENT_ID` as optional manual overrides.

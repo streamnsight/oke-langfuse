@@ -17,6 +17,11 @@ source "$TESTS_DIR/scripts/lib/devops.sh"
 # shellcheck source=tests/scripts/lib/kube.sh
 source "$TESTS_DIR/scripts/lib/kube.sh"
 
+SCENARIO_SLUG="$(slugify "${TESTS_SCENARIO_NAME:-deployment/valid_existing_cluster_existing_vcn}")"
+PRESERVED_STACKS_ROOT="$TESTS_DIR/artifacts/failed-stacks"
+PRESERVED_STACK_DIR="$PRESERVED_STACKS_ROOT/$SCENARIO_SLUG"
+PRESERVED_STACK_MARKER="$PRESERVED_STACK_DIR/cleanup-required"
+
 require_command terraform
 require_command jq
 require_command oci
@@ -37,6 +42,37 @@ VALIDATION_MESSAGES=()
 VALIDATION_FAILURES=()
 METADATA_READY="false"
 KUBE_CONTEXT_READY="false"
+
+preserved_stack_cleanup_command() {
+  printf './tests/scripts/run.sh cleanup-failed-stack STACK_DIR=%s\n' "$PRESERVED_STACK_DIR"
+}
+
+fail_if_cleanup_required() {
+  if [ ! -f "$PRESERVED_STACK_MARKER" ]; then
+    return 0
+  fi
+
+  printf '[tests] A failed full-stack deployment still requires cleanup before rerun.\n' >&2
+  printf '[tests] Preserved stack directory: %s\n' "$PRESERVED_STACK_DIR" >&2
+  printf '[tests] Cleanup command: %s\n' "$(preserved_stack_cleanup_command)" >&2
+  exit 1
+}
+
+preserve_failed_stack() {
+  if [ ! -f "$WORK_DIR/terraform.tfstate" ]; then
+    return 0
+  fi
+
+  mkdir -p "$PRESERVED_STACKS_ROOT"
+  rm -rf "$PRESERVED_STACK_DIR"
+  cp -R "$WORK_DIR" "$PRESERVED_STACK_DIR"
+  printf '%s\n' "$ARTIFACT_DIR" >"$PRESERVED_STACK_DIR/source-artifact-dir.txt"
+  : >"$PRESERVED_STACK_MARKER"
+  printf '%s\n' "$(preserved_stack_cleanup_command)" >"$PRESERVED_STACK_DIR/cleanup-command.txt"
+
+  printf '[tests] Preserved failed full-stack workdir at %s\n' "$PRESERVED_STACK_DIR"
+  printf '[tests] Cleanup command: %s\n' "$(preserved_stack_cleanup_command)"
+}
 
 record_validation() {
   local name="$1"
@@ -205,6 +241,26 @@ validate_test_metadata() {
 
   METADATA_READY="true"
   record_validation "test-metadata" "PASS" "Required runtime metadata is present."
+  return 0
+}
+
+validate_existing_cluster_addon_reuse() {
+  if [ "$METADATA_READY" != "true" ]; then
+    record_validation "existing-cluster-addon-reuse" "FAIL" "Skipped add-on reuse reporting because test metadata is unavailable."
+    return 1
+  fi
+
+  local reused created
+  reused="$(jq -r '
+    try .deployment.existing_cluster_addons.reused // [] |
+    if length == 0 then "none" else join(", ") end
+  ' "$ARTIFACT_DIR/test-metadata.json")"
+  created="$(jq -r '
+    try .deployment.existing_cluster_addons.created // [] |
+    if length == 0 then "none" else join(", ") end
+  ' "$ARTIFACT_DIR/test-metadata.json")"
+
+  record_validation "existing-cluster-addon-reuse" "PASS" "Reused add-ons: $reused. Created add-ons: $created."
   return 0
 }
 
@@ -533,6 +589,8 @@ validate_langfuse_endpoint() {
   return 1
 }
 
+fail_if_cleanup_required
+
 printf '[tests] Applying the full stack once for post-deploy validation\n'
 set +e
 terraform -chdir="$WORK_DIR" apply -input=false -lock=false -no-color -var-file="terraform.tfvars" -auto-approve
@@ -543,6 +601,7 @@ if [ "$apply_status" -ne 0 ]; then
   if [ -f "$WORK_DIR/terraform.tfstate" ]; then
     capture_outputs || true
     collect_runtime_debug
+    preserve_failed_stack
   fi
   exit "$apply_status"
 fi
@@ -550,6 +609,7 @@ fi
 capture_outputs
 
 validate_test_metadata || true
+validate_existing_cluster_addon_reuse || true
 validate_load_balancer || true
 validate_devops_deployments || true
 validate_registry_images || true
@@ -561,5 +621,6 @@ write_summary
 
 if [ "${#VALIDATION_FAILURES[@]}" -gt 0 ]; then
   collect_runtime_debug
+  preserve_failed_stack
   exit 1
 fi

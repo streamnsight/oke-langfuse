@@ -28,6 +28,7 @@ Commands:
   fixture-prewarm  Prewarm the ordered live-suite fixture footprint ahead of a run. Optional: SUITE=live
             Uses the same required live selector env vars as SUITE=live. TF_VAR_fixture_node_image_id remains a manual recovery override.
   fixture-down-all  Destroy all fixture workspaces in dependency order. Manual cleanup only.
+  cleanup-failed-stack  Destroy a preserved failed full-stack workdir. Required: STACK_DIR=<path>
   debug     Collect OCI DevOps and Kubernetes diagnostics. Required: TARGET=<network|basic|enhanced>
 
 Examples:
@@ -42,6 +43,7 @@ Examples:
   ./tests/scripts/run.sh fixture ACTION=scale TARGET=enhanced SIZE=3
   ./tests/scripts/run.sh fixture ACTION=refresh TARGET=enhanced USE_CUSTOM_CLOUD_INIT=false
   ./tests/scripts/run.sh fixture-down-all
+  ./tests/scripts/run.sh cleanup-failed-stack STACK_DIR=tests/artifacts/failed-stacks/deployment_valid_existing_cluster_existing_vcn
   ./tests/scripts/run.sh debug TARGET=enhanced
 EOF
 }
@@ -77,6 +79,9 @@ case "$COMMAND" in
     ;;
   fixture-down-all)
     destroy_all_fixtures
+    ;;
+  cleanup-failed-stack)
+    cleanup_failed_stack_dir "${STACK_DIR:-}"
     ;;
   debug)
     TARGET="${TARGET:-}"

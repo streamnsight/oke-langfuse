@@ -43,15 +43,33 @@ version_probe_log="$ARTIFACT_DIR/version-selection.txt"
 
 initial_version=""
 initial_np1_image_id=""
+initial_selector_json=""
 while IFS= read -r candidate_version_no_v; do
   [ -n "$candidate_version_no_v" ] || continue
   candidate_version="v${candidate_version_no_v}"
   printf '[tests] Probing worker image availability for %s\n' "$candidate_version" | tee -a "$version_probe_log"
 
-  if TESTS_IMAGE_RESOLVER_QUIET=true candidate_image_id="$(resolve_oke_worker_image_id "$candidate_version")"; then
+  if TESTS_IMAGE_RESOLVER_QUIET=true TESTS_DISABLE_FIXTURE_IMAGE_OVERRIDE=true candidate_selector_json="$(resolve_oke_worker_image_selector_json "$candidate_version")"; then
+    candidate_image_id="$(jq -r '.selected_image_id // empty' <<<"$candidate_selector_json")"
+    candidate_source_name="$(jq -r '.selected_source_name // empty' <<<"$candidate_selector_json")"
+    candidate_image_override="$(jq -r '.image_id_override // empty' <<<"$candidate_selector_json")"
+    if [ -n "$candidate_image_override" ]; then
+      printf '[tests] Selector unexpectedly reported image override usage for %s; trying the next lower version.\n' "$candidate_version" | tee -a "$version_probe_log"
+      continue
+    fi
+    if [[ "$candidate_source_name" != *"-OKE-${candidate_version_no_v}-"* ]]; then
+      printf '[tests] Selector returned source %s for %s; expected an OKE image tagged for %s.\n' \
+        "${candidate_source_name:-unknown}" \
+        "$candidate_version" \
+        "$candidate_version_no_v" | tee -a "$version_probe_log"
+      continue
+    fi
+
     initial_version="$candidate_version"
     initial_np1_image_id="$candidate_image_id"
+    initial_selector_json="$candidate_selector_json"
     printf '[tests] Selected initial version %s with image %s\n' "$initial_version" "$initial_np1_image_id" | tee -a "$version_probe_log"
+    printf '%s\n' "$initial_selector_json" | jq '.' >"$ARTIFACT_DIR/selector-choice.json"
     break
   fi
 
@@ -60,6 +78,23 @@ done < <(printf '%s\n' "$available_versions" | sed '$d' | sort -Vr)
 
 require_non_empty "$initial_version" "Managed cluster version drift scenario requires at least one lower Kubernetes version with a resolvable worker image."
 require_non_empty "$initial_np1_image_id" "Managed cluster version drift scenario failed to resolve an image for the selected initial version."
+require_non_empty "$initial_selector_json" "Managed cluster version drift scenario failed to capture selector metadata for the selected initial version."
+
+selector_override="$(jq -r '.image_id_override // empty' <<<"$initial_selector_json")"
+selector_source_name="$(jq -r '.selected_source_name // empty' <<<"$initial_selector_json")"
+selector_image_name="$(jq -r '.selected_image_name // empty' <<<"$initial_selector_json")"
+if [ -n "$selector_override" ]; then
+  die "Managed cluster version drift scenario must not use TF_VAR_fixture_node_image_id; selector metadata reported an override."
+fi
+if [[ "$selector_source_name" != *"-OKE-${initial_version#v}-"* ]]; then
+  die "Selector chose source '${selector_source_name:-unknown}' for $initial_version; expected the source name to include OKE version ${initial_version#v}."
+fi
+
+printf '[tests] Selector compatibility assertion passed for %s: image=%s source=%s display_name=%s\n' \
+  "$initial_version" \
+  "$initial_np1_image_id" \
+  "${selector_source_name:-unknown}" \
+  "${selector_image_name:-unknown}" | tee -a "$version_probe_log"
 
 export STACK_TEST_INCLUDE_IDCS_PLACEHOLDERS=false
 write_managed_cluster_with_network_tfvars \

@@ -669,6 +669,7 @@ copy_repo_for_scenario() {
   local destination="$1"
   rsync -a \
     --exclude ".git" \
+    --exclude ".tests-tmp" \
     --exclude ".terraform" \
     --exclude "terraform.tfvars" \
     --exclude "terraform.tfvars.json" \
@@ -686,6 +687,45 @@ capture_terraform_outputs() {
   else
     printf '{}\n' >"$outfile"
   fi
+}
+
+cleanup_failed_stack_dir() {
+  local stack_dir="$1"
+  require_non_empty "$stack_dir" "STACK_DIR is required for cleanup-failed-stack"
+  require_command terraform
+
+  [ -d "$stack_dir" ] || die "Preserved stack directory does not exist: $stack_dir"
+  [ -f "$stack_dir/terraform.tfvars" ] || die "Preserved stack directory is missing terraform.tfvars: $stack_dir"
+
+  local init_log="$stack_dir/cleanup-terraform-init.log"
+  local destroy_log="$stack_dir/cleanup-terraform-destroy.log"
+  local marker_file="$stack_dir/cleanup-required"
+  local completed_file="$stack_dir/cleanup-completed.txt"
+
+  if [ ! -f "$marker_file" ]; then
+    log "No cleanup marker found for preserved stack directory: $stack_dir"
+    return 0
+  fi
+
+  if [ ! -f "$stack_dir/terraform.tfstate" ]; then
+    rm -f "$marker_file"
+    printf '%s no terraform.tfstate was present; removed cleanup marker.\n' "$(timestamp_utc)" >"$completed_file"
+    log "Removed cleanup marker for preserved stack directory without Terraform state: $stack_dir"
+    return 0
+  fi
+
+  local init_args=()
+  while IFS= read -r arg; do
+    [ -n "$arg" ] && init_args+=("$arg")
+  done < <(terraform_init_args)
+
+  log "Destroying preserved failed stack from $stack_dir"
+  terraform -chdir="$stack_dir" init "${init_args[@]}" >"$init_log" 2>&1
+  terraform -chdir="$stack_dir" destroy -input=false -lock=false -no-color -var-file="terraform.tfvars" -auto-approve >"$destroy_log" 2>&1
+
+  rm -f "$marker_file"
+  printf '%s cleanup completed successfully.\n' "$(timestamp_utc)" >"$completed_file"
+  log "Preserved failed stack cleanup completed: $stack_dir"
 }
 
 terraform_provider_runtime_hint() {

@@ -1,8 +1,8 @@
 {
-  "mode": "plan",
-  "expectation": "fail",
-  "expected_error": "cluster_ocid must be provided and non-empty",
-  "plan_targets": [
-    "data.oci_containerengine_cluster.target"
-  ]
+  "mode": "console",
+  "expectation": "pass",
+  "suites": [
+    "fast"
+  ],
+  "expected_output": "true"
 }

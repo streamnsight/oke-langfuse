@@ -15,6 +15,7 @@ tests/artifacts/*
 !tests/artifacts/README.md
 tests/.terraform.d/
 tests/.obc/
+.tests-tmp/
 tests/.env
 tests/.env.local
 langfuse/

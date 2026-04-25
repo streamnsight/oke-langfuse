@@ -163,9 +163,9 @@ cluster_ocid                                 = "ocid1.cluster..."
 enable_existing_cluster_cloud_init_preflight = true
 ```
 
-When enabled, Terraform inspects `data.oci_containerengine_node_pools.target.node_pools[*].node_metadata.user_data` and checks for OCIR bootstrap markers that distinguish this stack's custom cloud-init from the default OKE init.
+When enabled, Terraform inspects every eligible existing node pool with at least three nodes, decodes `node_metadata.user_data`, and checks for OCIR bootstrap markers that distinguish this stack's custom cloud-init from the default OKE init.
 
-By default the preflight looks for the stack's docker login and docker credential helper bootstrap paths. If your existing cluster uses a different but still valid bootstrap implementation, you can tune the check with `existing_cluster_cloud_init_required_markers`.
+By default the preflight looks for the stack's docker login path, docker credential helper bootstrap path, and the recurring docker-login cron command. If your existing cluster uses a different but still valid bootstrap implementation, you can tune the check with `existing_cluster_cloud_init_required_markers`.
 
 
 ## References
@@ -179,7 +179,7 @@ By default the preflight looks for the stack's docker login and docker credentia
 [X] SSL Cert: IP cert
 [ ] SSL cert: domain / DNS based certificates
 [ ] OSS native client support using workload identity (PR here [12379](https://github.com/langfuse/langfuse/pull/12379))
-[X] Vault secret update
+[X] Vault secrets
 [ ] support cross compartment deployments, policies for cross-compartment deployment (DevOps, cluster, VCN)
 [X] Support deployment on existing cluster
 [X] look up available shell stages shapes and choose from those only.
@@ -190,6 +190,6 @@ By default the preflight looks for the stack's docker login and docker credentia
 [X] container vulnerability scanning
 [X] build worker image
 [ ] auto add group and user to IDCS app
-[ ] ensure cloud-init provisions OCIR login script + cronjob
+[X] ensure cloud-init provisions OCIR login script + cronjob
 [ ] 'latest' as langfuse helm chart option (lookup and use latest)
 [ ] ClickHouse dedicated node-pool

@@ -48,9 +48,9 @@ variable "enable_existing_cluster_cloud_init_preflight" {
 variable "existing_cluster_cloud_init_required_markers" {
   type = list(string)
   default = [
-    "/var/run/docker_login.sh",
-    "/var/run/docker-credential-helper-init.sh",
-    "crontab -l 2>/dev/null; echo \"*/20 * * * * root",
+    "/usr/local/bin/docker_login.sh",
+    "/usr/local/bin/docker-credential-helper-init.sh",
+    "*/20 * * * * /bin/bash -lc",
   ]
 }
 
