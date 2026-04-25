@@ -97,9 +97,9 @@ output "test_metadata" {
       id      = try(module.bastion[0].id, null)
     }
     deployment = {
-      deploy_id    = local.deploy_id
-      namespace    = "langfuse"
-      langfuse_url = "https://${local.langfuse_url}/langfuse"
+      deploy_id          = local.deploy_id
+      namespace          = "langfuse"
+      langfuse_url       = "https://${local.langfuse_url}/langfuse"
       cluster_autoscaler = local.cluster_autoscaler_test_metadata
       existing_cluster_addons = {
         active  = sort(tolist(local.existing_addons))
@@ -150,11 +150,11 @@ output "test_metadata" {
     }
     node_pool_image_overrides = local.node_pool_image_override_status
     existing_cluster_preflight = var.use_existing_cluster && var.enable_existing_cluster_cloud_init_preflight ? {
-      compatible                     = length(local.existing_cluster_cloud_init_matching_node_pools) > 0
-      inspected_node_pool_ids        = local.existing_cluster_cloud_init_inspected_node_pool_ids
-      matching_node_pool_ids         = local.existing_cluster_cloud_init_matching_node_pools
+      compatible                      = length(local.existing_cluster_cloud_init_matching_node_pools) > 0
+      inspected_node_pool_ids         = local.existing_cluster_cloud_init_inspected_node_pool_ids
+      matching_node_pool_ids          = local.existing_cluster_cloud_init_matching_node_pools
       missing_markers_by_node_pool_id = local.existing_cluster_cloud_init_missing_markers_by_node_pool_id
-      required_markers               = var.existing_cluster_cloud_init_required_markers
+      required_markers                = var.existing_cluster_cloud_init_required_markers
     } : null
   } : null
 }

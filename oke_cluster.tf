@@ -182,7 +182,7 @@ locals {
     if try(node_pool.node_config_details[0].size, 0) >= 3
   ]
 
-  existing_cluster_primary_node_pool = length(local.existing_cluster_sized_node_pools) > 0 ? local.existing_cluster_sized_node_pools[0] : null
+  existing_cluster_primary_node_pool                  = length(local.existing_cluster_sized_node_pools) > 0 ? local.existing_cluster_sized_node_pools[0] : null
   existing_cluster_cloud_init_inspected_node_pool_ids = sort(keys(data.oci_containerengine_node_pool.target))
   existing_cluster_cloud_init_user_data_by_node_pool_id = {
     for node_pool_id, node_pool in data.oci_containerengine_node_pool.target :
