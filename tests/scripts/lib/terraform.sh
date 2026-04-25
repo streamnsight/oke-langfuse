@@ -887,6 +887,54 @@ run_logged_command() {
   "$@" >"$logfile" 2>&1
 }
 
+destroy_log_is_retryable() {
+  local logfile="$1"
+  [ -f "$logfile" ] || return 1
+
+  grep -Eq \
+    'Error: .*EOF|Error: .*no such host|Error: .*connection reset by peer|Error: .*i/o timeout|Error: .*TLS handshake timeout' \
+    "$logfile"
+}
+
+run_logged_destroy_with_retries() {
+  local logfile="$1"
+  shift
+
+  local max_attempts=3
+  local attempt=1
+  : >"$logfile"
+
+  while [ "$attempt" -le "$max_attempts" ]; do
+    local attempt_log="${logfile}.attempt-${attempt}"
+    local attempt_status=0
+
+    if run_logged_command "$attempt_log" "$@"; then
+      attempt_status=0
+    else
+      attempt_status=$?
+    fi
+
+    if [ -s "$attempt_log" ]; then
+      if [ "$attempt" -gt 1 ]; then
+        printf '\n[tests] terraform destroy retry attempt %s/%s\n' "$attempt" "$max_attempts" >>"$logfile"
+      fi
+      cat "$attempt_log" >>"$logfile"
+    fi
+    rm -f "$attempt_log"
+
+    if [ "$attempt_status" -eq 0 ]; then
+      return 0
+    fi
+    if [ "$attempt" -ge "$max_attempts" ] || ! destroy_log_is_retryable "$logfile"; then
+      return "$attempt_status"
+    fi
+
+    log "Terraform destroy hit a transient provider/network error; retrying cleanup (attempt $((attempt + 1))/$max_attempts)"
+    sleep $((attempt * 10))
+    attempt=$((attempt + 1))
+  done
+}
+
 run_preflight_checks() {
   local artifact_dir
   artifact_dir="$(create_artifact_dir "preflight")"
@@ -1223,7 +1271,7 @@ run_single_scenario() {
 
   if cleanup_policy_requires_destroy "$cleanup_policy" "$scenario_succeeded" && [ -f "$work_dir/terraform.tfstate" ]; then
     begin_log_group "Scenario $scenario_name: terraform destroy"
-    if ! run_logged_command "$destroy_log" terraform -chdir="$work_dir" destroy "${destroy_args[@]}" -auto-approve; then
+    if ! run_logged_destroy_with_retries "$destroy_log" terraform -chdir="$work_dir" destroy "${destroy_args[@]}" -auto-approve; then
       cleanup_failed="true"
     fi
     end_log_group

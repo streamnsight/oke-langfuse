@@ -199,17 +199,40 @@ set -e
 
 printf '%s\n' "$plan_output"
 
-if [ "$plan_status" -eq 0 ]; then
-  die "Expected plan to fail after the out-of-band cluster upgrade, but it succeeded."
-fi
-
 expected_error="The stack-managed OKE cluster is running Kubernetes version"
-if [[ "$plan_output" != *"$expected_error"* ]]; then
-  die "Plan failed after the manual upgrade, but it did not include the managed-cluster drift guard message."
+expected_cluster_plan_header='oci_containerengine_cluster.oci_oke_cluster[0] will be updated in-place'
+expected_cluster_version_diff="kubernetes_version            = \"$upgrade_version\" -> \"$initial_version\""
+if [ "$plan_status" -ne 0 ]; then
+  if [[ "$plan_output" != *"$expected_error"* ]]; then
+    die "Plan failed after the manual upgrade, but it did not include the managed-cluster drift guard message."
+  fi
+  log_step "Managed cluster drift detected via version-guard failure"
+else
+  if [[ "$plan_output" != *"$expected_cluster_plan_header"* ]] || [[ "$plan_output" != *"$expected_cluster_version_diff"* ]]; then
+    die "Expected plan to surface manual cluster version drift, but it neither failed with the managed-cluster drift guard nor planned to reconcile the cluster from $upgrade_version back to $initial_version."
+  fi
+  log_step "Managed cluster drift detected via explicit reconciliation plan: $upgrade_version -> $initial_version"
 fi
 
 perl -0pi -e 's/^kubernetes_version\s*=.*$/kubernetes_version = "'"$upgrade_version"'"/m' "$WORK_DIR/terraform.tfvars"
 
-terraform -chdir="$WORK_DIR" plan -input=false -lock=false -no-color -var-file="terraform.tfvars" "${target_args[@]}" >/dev/null
+set +e
+synced_plan_output="$(
+  terraform -chdir="$WORK_DIR" plan -input=false -lock=false -no-color -var-file="terraform.tfvars" "${target_args[@]}" 2>&1
+)"
+synced_plan_status=$?
+set -e
+
+printf '%s\n' "$synced_plan_output"
+
+if [ "$synced_plan_status" -ne 0 ]; then
+  die "Plan failed after syncing terraform.tfvars to $upgrade_version."
+fi
+if [[ "$synced_plan_output" == *"$expected_error"* ]]; then
+  die "Managed-cluster drift guard still fired after syncing terraform.tfvars to $upgrade_version."
+fi
+if [[ "$synced_plan_output" == *"$expected_cluster_version_diff"* ]]; then
+  die "Cluster version drift remained in the plan after syncing terraform.tfvars to $upgrade_version."
+fi
 
 printf 'managed cluster version drift guard verified: %s -> %s\n' "$initial_version" "$upgrade_version"
