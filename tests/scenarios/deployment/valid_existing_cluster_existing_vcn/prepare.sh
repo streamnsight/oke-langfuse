@@ -15,8 +15,7 @@ cluster_id="$(fixture_output_value enhanced cluster_id)"
 export STACK_TEST_INCLUDE_IDCS_PLACEHOLDERS=false
 write_existing_cluster_with_network_tfvars \
   "$WORK_DIR/terraform.tfvars" \
-  "$cluster_id" \
-  "enable_existing_cluster_cloud_init_preflight = true"
+  "$cluster_id"
 unset STACK_TEST_INCLUDE_IDCS_PLACEHOLDERS
 
 append_live_identity_tfvars "$WORK_DIR/terraform.tfvars"

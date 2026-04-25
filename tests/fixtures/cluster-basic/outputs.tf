@@ -10,10 +10,6 @@ output "cluster_type" {
   value = oci_containerengine_cluster.basic.type
 }
 
-output "bastion_id" {
-  value = try(module.bastion[0].id, null)
-}
-
 output "network" {
   value = {
     vcn_id                        = data.terraform_remote_state.network.outputs.vcn_id

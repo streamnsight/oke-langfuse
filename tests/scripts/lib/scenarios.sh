@@ -233,8 +233,7 @@ write_existing_cluster_tfvars() {
     TF_VAR_secrets_store_key_id \
     TF_VAR_langfuse_s3_access_key \
     TF_VAR_langfuse_s3_secret_key \
-    TF_VAR_ssh_public_key \
-    TF_VAR_np1_image_id
+    TF_VAR_ssh_public_key
 
   {
     printf 'region = %s\n' "$(hcl_quote "$TF_VAR_region")"

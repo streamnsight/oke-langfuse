@@ -359,6 +359,12 @@ enhanced_fixture_cloud_init_node_pool_count() {
   local node_pools_file="$1"
   local outputs_file="${2:-}"
   local node_pool_count="${3:-0}"
+  local artifact_dir="${4:-}"
+  local report_file=""
+
+  if [ -n "$artifact_dir" ]; then
+    report_file="$artifact_dir/cloud-init-node-pools.json"
+  fi
 
   if [ -f "$node_pools_file" ]; then
     local metadata_available metadata_count
@@ -370,6 +376,33 @@ enhanced_fixture_cloud_init_node_pool_count() {
     ' "$node_pools_file" 2>/dev/null || printf 'false\n')"
 
     if [ "$metadata_available" = "true" ]; then
+      if [ -n "$report_file" ]; then
+        jq '
+          [
+            try (.data // [])[] |
+            {
+              id: .id,
+              has_user_data: (
+                (
+                  ."node-metadata"."user_data"
+                  // .nodeMetadata.user_data
+                  // .nodeMetadata.userData
+                  // .node_metadata.user_data
+                  // ""
+                ) | tostring | length
+              ) > 0
+            }
+          ] as $items |
+          {
+            source: "node-pool-list",
+            requested_custom_cloud_init: null,
+            inspected_node_pool_ids: ($items | map(.id)),
+            node_pools_with_user_data_ids: ($items | map(select(.has_user_data) | .id)),
+            missing_user_data_node_pool_ids: ($items | map(select(.has_user_data | not) | .id))
+          }
+        ' "$node_pools_file" >"$report_file" 2>/dev/null || true
+      fi
+
       metadata_count="$(jq -r '
         [
           try (.data // [])[] |
@@ -389,15 +422,75 @@ enhanced_fixture_cloud_init_node_pool_count() {
       printf '%s\n' "$metadata_count"
       return
     fi
-  fi
 
-  if [ -f "$outputs_file" ]; then
-    local requested_cloud_init
-    requested_cloud_init="$(enhanced_fixture_requested_output_bool "$outputs_file" use_custom_cloud_init)"
-    if [ "$requested_cloud_init" = "true" ] && [ "$node_pool_count" -ge 1 ]; then
-      printf '%s\n' "$node_pool_count"
+    local node_pool_ids
+    node_pool_ids="$(jq -r 'try (.data // [])[] | .id // empty' "$node_pools_file" 2>/dev/null || true)"
+    if [ -n "$node_pool_ids" ] && [ -n "$artifact_dir" ]; then
+      local node_pool_get_dir node_pool_report_tsv
+      node_pool_get_dir="$artifact_dir/node-pool-get"
+      node_pool_report_tsv="$artifact_dir/cloud-init-node-pools.tsv"
+      mkdir -p "$node_pool_get_dir"
+      : >"$node_pool_report_tsv"
+
+      local node_pool_id stdout_file stderr_file has_user_data
+      while IFS= read -r node_pool_id; do
+        [ -n "$node_pool_id" ] || continue
+        stdout_file="$node_pool_get_dir/$(slugify "$node_pool_id").json"
+        stderr_file="$node_pool_get_dir/$(slugify "$node_pool_id").stderr"
+        fixture_oci_capture "$stdout_file" "$stderr_file" \
+          ce node-pool get \
+          --node-pool-id "$node_pool_id" || true
+
+        has_user_data="$(jq -r '
+          try (
+            (
+              .data."node-metadata"."user_data"
+              // .data.nodeMetadata.user_data
+              // .data.nodeMetadata.userData
+              // .data.node_metadata.user_data
+              // ""
+            ) | tostring | length
+          ) > 0
+        ' "$stdout_file" 2>/dev/null || printf 'false\n')"
+        case "$has_user_data" in
+          true|false) ;;
+          *) has_user_data="false" ;;
+        esac
+        printf '%s\t%s\n' "$node_pool_id" "$has_user_data" >>"$node_pool_report_tsv"
+      done <<<"$node_pool_ids"
+
+      jq -Rn --arg requested_cloud_init "$(enhanced_fixture_requested_output_bool "$outputs_file" use_custom_cloud_init)" '
+        [
+          inputs |
+          select(length > 0) |
+          split("\t") |
+          {id: .[0], has_user_data: (.[1] == "true")}
+        ] as $items |
+        {
+          source: "node-pool-get",
+          requested_custom_cloud_init: $requested_cloud_init,
+          inspected_node_pool_ids: ($items | map(.id)),
+          node_pools_with_user_data_ids: ($items | map(select(.has_user_data) | .id)),
+          missing_user_data_node_pool_ids: ($items | map(select(.has_user_data | not) | .id))
+        }
+      ' <"$node_pool_report_tsv" >"$report_file"
+
+      metadata_count="$(awk -F '\t' '$2 == "true" { count += 1 } END { print count + 0 }' "$node_pool_report_tsv")"
+      printf '%s\n' "$metadata_count"
       return
     fi
+  fi
+
+  if [ -n "$report_file" ]; then
+    jq -n --arg requested_cloud_init "$(enhanced_fixture_requested_output_bool "$outputs_file" use_custom_cloud_init)" '
+      {
+        source: "unavailable",
+        requested_custom_cloud_init: $requested_cloud_init,
+        inspected_node_pool_ids: [],
+        node_pools_with_user_data_ids: [],
+        missing_user_data_node_pool_ids: []
+      }
+    ' >"$report_file"
   fi
 
   printf '0\n'
@@ -571,7 +664,12 @@ enhanced_fixture_write_summary() {
     cluster_public="$(enhanced_fixture_requested_output_bool "$outputs_file" is_public_endpoint)"
   fi
 
-  cloud_init_node_pool_count="$(enhanced_fixture_cloud_init_node_pool_count "$node_pools_file" "$outputs_file" "$node_pool_count")"
+  cloud_init_node_pool_count="$(enhanced_fixture_cloud_init_node_pool_count "$node_pools_file" "$outputs_file" "$node_pool_count" "$(dirname "$summary_file")")"
+  local cloud_init_report_file inspected_node_pool_ids node_pools_with_user_data_ids missing_user_data_node_pool_ids
+  cloud_init_report_file="$(dirname "$summary_file")/cloud-init-node-pools.json"
+  inspected_node_pool_ids="$(jq -r 'try (.inspected_node_pool_ids // []) | if length == 0 then "none" else join(", ") end' "$cloud_init_report_file" 2>/dev/null || printf 'unknown\n')"
+  node_pools_with_user_data_ids="$(jq -r 'try (.node_pools_with_user_data_ids // []) | if length == 0 then "none" else join(", ") end' "$cloud_init_report_file" 2>/dev/null || printf 'unknown\n')"
+  missing_user_data_node_pool_ids="$(jq -r 'try (.missing_user_data_node_pool_ids // []) | if length == 0 then "none" else join(", ") end' "$cloud_init_report_file" 2>/dev/null || printf 'unknown\n')"
 
   {
     if [ -s "$summary_file" ]; then
@@ -598,6 +696,9 @@ enhanced_fixture_write_summary() {
     printf 'Active node pool count: %s\n' "$active_node_pool_count"
     printf 'Max observed node pool size: %s\n' "$max_node_pool_size"
     printf 'Node pools with user_data: %s\n' "$cloud_init_node_pool_count"
+    printf 'Inspected node pool IDs: %s\n' "$inspected_node_pool_ids"
+    printf 'Node pool IDs with user_data: %s\n' "$node_pools_with_user_data_ids"
+    printf 'Node pool IDs missing user_data: %s\n' "$missing_user_data_node_pool_ids"
     printf 'Selected work request ID: %s\n' "${selected_work_request_id:-none}"
   } >>"$summary_file"
 }
@@ -762,7 +863,7 @@ enhanced_fixture_validate() {
     if [ "$cluster_public" = "unknown" ]; then
       cluster_public="$(enhanced_fixture_requested_output_bool "$outputs_file" is_public_endpoint)"
     fi
-    cloud_init_node_pool_count="$(enhanced_fixture_cloud_init_node_pool_count "$node_pools_file" "$outputs_file" "$node_pool_count")"
+    cloud_init_node_pool_count="$(enhanced_fixture_cloud_init_node_pool_count "$node_pools_file" "$outputs_file" "$node_pool_count" "$artifact_dir")"
 
     ready="false"
     if [ "$cluster_state" = "ACTIVE" ] \

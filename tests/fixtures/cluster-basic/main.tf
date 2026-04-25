@@ -47,11 +47,3 @@ resource "oci_containerengine_cluster" "basic" {
     ignore_changes = [defined_tags]
   }
 }
-
-module "bastion" {
-  count          = var.create_bastion ? 1 : 0
-  source         = "../../../modules/compute/bastion"
-  compartment_id = var.cluster_compartment_id
-  subnet_id      = data.terraform_remote_state.network.outputs.kubernetes_endpoint_subnet_id
-  bastion_name   = "${local.cluster_name}-bastion"
-}
