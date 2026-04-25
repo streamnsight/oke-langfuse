@@ -45,10 +45,11 @@ Before you start, you will need:
 - The Identity Domain OCID **or** details for an existing app (Domain URL, App ID, Client ID, Client Secret)
   - If you do not control the app, an admin must update the redirect URL after deployment
 
-For node images, for Kubernetes v1.32.x to 1.34.x select Oracle-Linux-8.10-2026.02.28-0
-For Kubernetes v1.35.0 select Oracle-Linux-8.10-2026.01.29-0
+For stack-managed node pools, the normal path is to set `np*_operating_system` and `np*_operating_system_version`. The stack resolves an OKE-ready worker image from those inputs, the node shape, and the selected Kubernetes version.
 
-Other images *may* work but if they do, they will be slower to boot/scale because Kubernetes binaries are not preinstalled.
+If you need to force a custom image OCID, set `np*_image_override = true` and then provide `np*_image_id`. The `np*_image_id` value is ignored unless the matching override flag is enabled. This is intentional so stale saved image IDs from older stack versions do not silently affect image selection.
+
+Custom images may work, but non-OKE-ready images will usually boot and scale more slowly because Kubernetes binaries are not preinstalled.
 
 ⚠️ **Important:** After deployment, assign users (or groups) to the IDCS application to allow access. If you cannot create the app, ask your Identity Domain admin to do this.
 
@@ -177,3 +178,4 @@ The stack DOES NOT attempt to modify an existing cluster cloud-init for obvious 
 [ ] auto add group and user to IDCS app
 [ ] ensure cloud-init provisions OCIR login script + cronjob
 [ ] 'latest' as langfuse helm chart option (lookup and use latest)
+[ ] ClickHouse dedicated node-pool

@@ -72,9 +72,10 @@ output "integrated_app_name" {
   value = local.cluster_name_sanitized
 }
 
-# output "img" {
-#   value = module.recommended_image
-# }
+output "node_pool_image_override_status" {
+  description = "Node pool image override status, including enabled overrides and stale saved image IDs that are currently ignored."
+  value       = local.node_pool_image_override_status
+}
 
 # output "k8s_version" {
 #   value = local.kubernetes_version

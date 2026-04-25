@@ -13,21 +13,6 @@ module "cloud_init_script" {
   source = "./modules/oke/cloud_init_script"
 }
 
-# The recommended image module finds the OKE specific image for the generic compute image 
-# provided. The OKE specific images have k8s components pre-loaded and is much faster to
-# startup, making scale up/down and node cycling events shorter.
-module "recommended_image" {
-  for_each           = var.use_existing_cluster ? toset([]) : toset([for image in [var.np1_image_id, var.np2_image_id, var.np3_image_id] : image if image != null])
-  source             = "./modules/oke/recommended-compute-image"
-  image_id           = each.value
-  kubernetes_version = local.kubernetes_version
-}
-
-# to debug
-# output "recommended_images" {
-#   value = module.recommended_image
-# }
-
 # Checks that requested shapes are available in the requested AD. Some shapes may be 
 # available in one AD but not all, and would cause the node-pool to fail when requested 
 # to deploy in all ADs. This module provides a map of shape availabilities, used in deploying
@@ -38,6 +23,84 @@ module "available_shapes" {
   tenancy_ocid   = var.tenancy_ocid
   compartment_id = var.cluster_compartment_id
   wanted_shapes  = compact([var.np1_node_shape, var.np2_node_shape, var.np3_node_shape])
+}
+
+module "np1_node_image_selector" {
+  count                    = var.use_existing_cluster || var.node_pool_count < 1 || var.np1_image_override ? 0 : 1
+  source                   = "./modules/oke/node-image-selector"
+  compartment_id           = var.tenancy_ocid
+  kubernetes_version       = local.kubernetes_version
+  operating_system         = var.np1_operating_system
+  operating_system_version = var.np1_operating_system_version
+  shape                    = var.np1_node_shape
+}
+
+module "np2_node_image_selector" {
+  count                    = var.use_existing_cluster || var.node_pool_count < 2 || var.np2_image_override ? 0 : 1
+  source                   = "./modules/oke/node-image-selector"
+  compartment_id           = var.tenancy_ocid
+  kubernetes_version       = local.kubernetes_version
+  operating_system         = var.np2_operating_system
+  operating_system_version = var.np2_operating_system_version
+  shape                    = var.np2_node_shape
+}
+
+module "np3_node_image_selector" {
+  count                    = var.use_existing_cluster || var.node_pool_count < 3 || var.np3_image_override ? 0 : 1
+  source                   = "./modules/oke/node-image-selector"
+  compartment_id           = var.tenancy_ocid
+  kubernetes_version       = local.kubernetes_version
+  operating_system         = var.np3_operating_system
+  operating_system_version = var.np3_operating_system_version
+  shape                    = var.np3_node_shape
+}
+
+resource "terraform_data" "node_pool_image_override_validation" {
+  count = var.use_existing_cluster ? 0 : 1
+
+  input = {
+    np1_image_override = var.np1_image_override
+    np2_image_override = var.np2_image_override
+    np3_image_override = var.np3_image_override
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.node_pool_count < 1 || !var.np1_image_override || try(trimspace(var.np1_image_id), "") != ""
+      error_message = "np1_image_override is enabled, so np1_image_id must be set to a non-empty image OCID."
+    }
+
+    precondition {
+      condition     = var.node_pool_count < 2 || !var.np2_image_override || try(trimspace(var.np2_image_id), "") != ""
+      error_message = "np2_image_override is enabled, so np2_image_id must be set to a non-empty image OCID."
+    }
+
+    precondition {
+      condition     = var.node_pool_count < 3 || !var.np3_image_override || try(trimspace(var.np3_image_id), "") != ""
+      error_message = "np3_image_override is enabled, so np3_image_id must be set to a non-empty image OCID."
+    }
+  }
+}
+
+locals {
+  node_pool_image_overrides_enabled = var.use_existing_cluster ? {} : {
+    np1 = var.node_pool_count >= 1 && var.np1_image_override
+    np2 = var.node_pool_count >= 2 && var.np2_image_override
+    np3 = var.node_pool_count >= 3 && var.np3_image_override
+  }
+
+  node_pool_image_ids_present = var.use_existing_cluster ? {} : {
+    np1 = var.node_pool_count >= 1 && try(trimspace(var.np1_image_id), "") != ""
+    np2 = var.node_pool_count >= 2 && try(trimspace(var.np2_image_id), "") != ""
+    np3 = var.node_pool_count >= 3 && try(trimspace(var.np3_image_id), "") != ""
+  }
+
+  node_pool_image_override_status = {
+    overrides_enabled  = [for node_pool, enabled in local.node_pool_image_overrides_enabled : node_pool if enabled]
+    ignored_image_ids  = [for node_pool, present in local.node_pool_image_ids_present : node_pool if present && !local.node_pool_image_overrides_enabled[node_pool]]
+    guidance           = "np*_image_id is ignored unless the matching np*_image_override flag is enabled."
+    migration_guidance = "If you upgraded from an older stack version, you may want to clear stale saved np*_image_id values, but they do not affect image selection while override is disabled."
+  }
 }
 
 locals {
@@ -52,7 +115,7 @@ locals {
       min_nodes               = var.np1_autoscaler_min_nodes
       max_nodes               = var.np1_autoscaler_max_nodes
       node_shape              = var.np1_node_shape
-      image_id                = module.recommended_image[var.np1_image_id].recommended_image_id
+      image_id                = var.np1_image_override ? var.np1_image_id : module.np1_node_image_selector[0].selected_image_id
       boot_volume_size_in_gbs = var.np1_boot_volume_size_in_gbs
       tags                    = var.np1_tags
       ocpus                   = var.np1_ocpus
@@ -67,7 +130,7 @@ locals {
       min_nodes               = var.np2_autoscaler_min_nodes
       max_nodes               = var.np2_autoscaler_max_nodes
       node_shape              = var.np2_node_shape
-      image_id                = module.recommended_image[var.np2_image_id].recommended_image_id
+      image_id                = var.np2_image_override ? var.np2_image_id : module.np2_node_image_selector[0].selected_image_id
       boot_volume_size_in_gbs = var.np2_boot_volume_size_in_gbs
       tags                    = var.np2_tags
       ocpus                   = var.np2_ocpus
@@ -82,7 +145,7 @@ locals {
       min_nodes               = var.np3_autoscaler_min_nodes
       max_nodes               = var.np3_autoscaler_max_nodes
       node_shape              = var.np3_node_shape
-      image_id                = module.recommended_image[var.np3_image_id].recommended_image_id
+      image_id                = var.np3_image_override ? var.np3_image_id : module.np3_node_image_selector[0].selected_image_id
       boot_volume_size_in_gbs = var.np3_boot_volume_size_in_gbs
       tags                    = var.np3_tags
       ocpus                   = var.np3_ocpus
