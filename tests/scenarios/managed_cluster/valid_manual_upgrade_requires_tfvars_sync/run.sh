@@ -25,6 +25,35 @@ while IFS= read -r arg; do
   [ -n "$arg" ] && oci_args+=("$arg")
 done < <(oci_cli_global_args)
 
+log_step() {
+  printf '[tests] %s\n' "$*"
+}
+
+record_live_cluster_version() {
+  local cluster_id="$1"
+  local label="$2"
+  local outfile="$ARTIFACT_DIR/live-cluster-${label}.json"
+  local stderr_file="$ARTIFACT_DIR/live-cluster-${label}.stderr"
+
+  oci ce cluster get \
+    --cluster-id "$cluster_id" \
+    "${oci_args[@]}" >"$outfile" 2>"$stderr_file"
+
+  jq -r '.data."kubernetes-version" // empty' "$outfile"
+}
+
+resolve_cluster_id_from_state() {
+  local state_json_file="$ARTIFACT_DIR/terraform-state-after-apply.json"
+  terraform -chdir="$WORK_DIR" state pull >"$state_json_file"
+  jq -r '
+    first(
+      .resources[]?
+      | select(.mode == "managed" and .type == "oci_containerengine_cluster" and .name == "oci_oke_cluster")
+      | .instances[0].attributes.id
+    ) // empty
+  ' "$state_json_file"
+}
+
 available_versions="$(
   oci ce cluster-options get --cluster-option-id all "${oci_args[@]}" |
     jq -r '.data."kubernetes-versions"[]' |
@@ -128,18 +157,38 @@ if [ "$apply_status" -ne 0 ]; then
   exit "$apply_status"
 fi
 
-cluster_id="$(
-  terraform -chdir="$WORK_DIR" show -json |
-    jq -r '.values.root_module.resources[] | select(.address=="oci_containerengine_cluster.oci_oke_cluster[0]").values.id'
-)"
+log_step "Resolving managed cluster id from Terraform state"
+cluster_id="$(resolve_cluster_id_from_state)"
 require_non_empty "$cluster_id" "Failed to resolve the managed cluster id from state."
+log_step "Resolved managed cluster id: $cluster_id"
 
+live_version_before_upgrade="$(record_live_cluster_version "$cluster_id" before-upgrade)"
+require_non_empty "$live_version_before_upgrade" "Failed to read the managed cluster Kubernetes version before the manual upgrade."
+log_step "Live cluster version before manual upgrade: $live_version_before_upgrade"
+
+log_step "Manually upgrading managed cluster from $live_version_before_upgrade to $upgrade_version"
+set +e
 oci ce cluster update \
   --cluster-id "$cluster_id" \
   --kubernetes-version "$upgrade_version" \
   --force \
-  --wait-for-state ACTIVE \
-  "${oci_args[@]}" >/dev/null
+  --wait-for-state SUCCEEDED \
+  "${oci_args[@]}" >"$ARTIFACT_DIR/oci-cluster-update.stdout" 2>"$ARTIFACT_DIR/oci-cluster-update.stderr"
+update_status=$?
+set -e
+if [ "$update_status" -ne 0 ]; then
+  if [ -s "$ARTIFACT_DIR/oci-cluster-update.stderr" ]; then
+    sed 's/^/[tests] oci update stderr: /' "$ARTIFACT_DIR/oci-cluster-update.stderr" >&2 || true
+  fi
+  exit "$update_status"
+fi
+
+live_version_after_upgrade="$(record_live_cluster_version "$cluster_id" after-upgrade)"
+require_non_empty "$live_version_after_upgrade" "Failed to read the managed cluster Kubernetes version after the manual upgrade."
+log_step "Live cluster version after manual upgrade: $live_version_after_upgrade"
+if [ "$live_version_after_upgrade" != "$upgrade_version" ]; then
+  die "Manual cluster upgrade completed, but the live cluster reports Kubernetes version $live_version_after_upgrade instead of $upgrade_version."
+fi
 
 set +e
 plan_output="$(
