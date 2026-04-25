@@ -107,7 +107,7 @@ write_summary() {
 
   if [ "${#VALIDATION_FAILURES[@]}" -gt 0 ]; then
     printf '\nFailures\n' >>"$summary_file"
-    printf '--------\n' >>"$summary_file"
+    printf '%s\n' '--------' >>"$summary_file"
     local failure
     for failure in "${VALIDATION_FAILURES[@]}"; do
       printf '%s\n' "$failure" >>"$summary_file"
@@ -154,27 +154,37 @@ prepare_kube_context() {
   local kube_dir="$ARTIFACT_DIR/kube-validation"
   mkdir -p "$kube_dir"
 
-  local fixture_outputs
-  fixture_outputs="$(load_fixture_outputs enhanced)"
-  printf '%s\n' "$fixture_outputs" >"$kube_dir/fixture-outputs.json"
-
   local cluster_id cluster_name bastion_id
-  cluster_id="$(metadata_value '.cluster.id')"
-  cluster_name="$(metadata_value '.cluster.name')"
-  bastion_id="$(printf '%s\n' "$fixture_outputs" | jq -r 'try .bastion_id.value // empty')"
+  cluster_id="$(fixture_state_output_value enhanced cluster_id 2>/dev/null || true)"
+  cluster_name="$(fixture_state_output_value enhanced cluster_name 2>/dev/null || true)"
+  bastion_id="$(fixture_state_output_value enhanced bastion_id 2>/dev/null || true)"
 
   if [ -z "$cluster_id" ]; then
-    cluster_id="$(printf '%s\n' "$fixture_outputs" | jq -r 'try .cluster_id.value // empty')"
+    cluster_id="$(metadata_value '.cluster.id')"
   fi
   if [ -z "$cluster_name" ]; then
-    cluster_name="$(printf '%s\n' "$fixture_outputs" | jq -r 'try .cluster_name.value // empty')"
+    cluster_name="$(metadata_value '.cluster.name')"
   fi
 
   if [ -z "$cluster_id" ]; then
     return 1
   fi
 
+  jq -n \
+    --arg cluster_id "$cluster_id" \
+    --arg cluster_name "$cluster_name" \
+    --arg bastion_id "$bastion_id" \
+    '
+      {
+        cluster_id: $cluster_id,
+        cluster_name: $cluster_name,
+        bastion_id: (if $bastion_id == "" then null else $bastion_id end)
+      }
+    ' >"$kube_dir/fixture-outputs.json"
+
   ensure_obc_root_dir
+
+  kubectl config get-contexts -o name >"$kube_dir/contexts-before.txt" 2>"$kube_dir/contexts-before.stderr" || true
 
   local obc_args=(
     registry oke add
@@ -186,9 +196,18 @@ prepare_kube_context() {
   fi
   obc "${obc_args[@]}" >"$kube_dir/obc-registry.stdout" 2>"$kube_dir/obc-registry.stderr"
 
-  kubectl config get-contexts -o name >"$kube_dir/contexts.txt"
+  kubectl config get-contexts -o name >"$kube_dir/contexts.txt" 2>"$kube_dir/contexts.stderr"
   local selected_context
-  selected_context="$(kube_pick_context "$kube_dir/contexts.txt" "$cluster_name")"
+  selected_context="$(
+    grep -Fvx -f "$kube_dir/contexts-before.txt" "$kube_dir/contexts.txt" 2>/dev/null | head -n 1 || true
+  )"
+  if [ -z "$selected_context" ]; then
+    if [ -n "${KUBE_CONTEXT:-}" ]; then
+      selected_context="$KUBE_CONTEXT"
+    else
+      selected_context="$(grep -i "$cluster_name" "$kube_dir/contexts.txt" 2>/dev/null | head -n 1 || true)"
+    fi
+  fi
   if [ -z "$selected_context" ]; then
     return 1
   fi
