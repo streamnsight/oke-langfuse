@@ -1,0 +1,1 @@
+var.cluster_compartment_id != var.devops_compartment_id || var.cluster_compartment_id != var.secrets_store_vault_compartment_id || (var.vcn_compartment_id != null && var.cluster_compartment_id != var.vcn_compartment_id)

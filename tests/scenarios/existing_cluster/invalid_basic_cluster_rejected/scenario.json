@@ -1,0 +1,24 @@
+{
+  "mode": "apply",
+  "expectation": "fail",
+  "infra": {
+    "profile": "basic-private",
+    "bootstrap": [
+      {
+        "target": "network",
+        "action": "up"
+      },
+      {
+        "target": "basic",
+        "action": "up"
+      }
+    ]
+  },
+  "suites": [
+    "live"
+  ],
+  "expected_error": "the target cluster must be an ENHANCED_CLUSTER",
+  "plan_targets": [
+    "data.oci_containerengine_cluster.target"
+  ]
+}

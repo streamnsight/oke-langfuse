@@ -1,0 +1,21 @@
+# Enhanced cluster fixture example values.
+# Populate this file when using the cluster fixture locally.
+
+region                 = "us-chicago-1"
+tenancy_ocid           = "ocid1.tenancy.oc1.."
+cluster_compartment_id = "ocid1.compartment.oc1.."
+
+cluster_name        = "tests-enhanced-cluster"
+kubernetes_version  = "v1.34.1"
+create_bastion      = true
+use_custom_cloud_init = true
+is_public_endpoint  = false
+node_pool_size      = 2
+node_shape          = "VM.Standard.E5.Flex"
+node_shape_ocpus    = 4
+node_shape_memory_gb = 16
+fixture_operating_system = "Oracle Linux"
+fixture_operating_system_version = "8"
+
+# Optional escape hatch for manual recovery when OCI image metadata is inconsistent.
+# fixture_node_image_id = "ocid1.image.oc1.us-chicago-1.example"

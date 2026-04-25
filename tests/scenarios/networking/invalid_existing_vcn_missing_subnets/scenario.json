@@ -1,0 +1,8 @@
+{
+  "mode": "console",
+  "expectation": "pass",
+  "suites": [
+    "fast"
+  ],
+  "expected_output": "true"
+}

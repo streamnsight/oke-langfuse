@@ -1,0 +1,31 @@
+{
+  "mode": "apply-console",
+  "expectation": "pass",
+  "infra": {
+    "profile": "enhanced-private-3-custom-init",
+    "bootstrap": [
+      {
+        "target": "network",
+        "action": "up"
+      },
+      {
+        "target": "enhanced",
+        "action": "up",
+        "size": 3,
+        "use_custom_cloud_init": true,
+        "is_public_endpoint": false
+      }
+    ]
+  },
+  "suites": [
+    "live"
+  ],
+  "expected_output": "1",
+  "plan_targets": [
+    "data.oci_containerengine_cluster.target",
+    "data.oci_containerengine_node_pools.target",
+    "data.oci_containerengine_node_pool.target",
+    "data.oci_core_subnet.existing_cluster_worker_subnet[0]",
+    "data.oci_identity_compartments.test_compartments"
+  ]
+}

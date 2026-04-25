@@ -1,0 +1,89 @@
+name: Fast Tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fast-tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast-scenarios:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    env:
+      TF_PLUGIN_CACHE_DIR: tests/.terraform.d/plugin-cache
+      TESTS_STREAM_LOGS: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Terraform
+        shell: bash
+        run: |
+          set -euo pipefail
+          TERRAFORM_VERSION=1.5.7
+          curl -fsSLo /tmp/terraform.zip "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip"
+          mkdir -p "$HOME/.local/bin"
+          unzip -o /tmp/terraform.zip -d "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Verify Terraform
+        run: terraform version
+
+      - name: Restore Terraform plugin cache
+        uses: actions/cache@v5
+        with:
+          path: tests/.terraform.d/plugin-cache
+          key: terraform-plugin-cache-${{ runner.os }}-${{ hashFiles('providers.tf', 'tests/fixtures/**/providers.tf') }}
+          restore-keys: |
+            terraform-plugin-cache-${{ runner.os }}-
+
+      - name: Prepare Terraform plugin cache directory
+        run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
+
+      - name: Run fast scenario suite
+        run: make test SUITE=fast
+
+      - name: Upload test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-test-artifacts
+          path: tests/artifacts
+          if-no-files-found: ignore
+  terraform-fmt:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Terraform
+        shell: bash
+        run: |
+          set -euo pipefail
+          TERRAFORM_VERSION=1.5.7
+          curl -fsSLo /tmp/terraform.zip "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip"
+          mkdir -p "$HOME/.local/bin"
+          unzip -o /tmp/terraform.zip -d "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Run terraform fmt check
+        id: terraform_fmt
+        continue-on-error: true
+        run: terraform fmt -check -diff -recursive
+
+      - name: Report formatting drift
+        if: steps.terraform_fmt.outcome == 'failure'
+        run: |
+          echo "::warning::terraform fmt -check -recursive reported formatting drift."
+          echo "Formatting drift is informational for now and does not fail the test suite."

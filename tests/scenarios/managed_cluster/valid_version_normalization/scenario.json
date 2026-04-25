@@ -1,0 +1,7 @@
+{
+  "mode": "console",
+  "suites": [
+    "fast"
+  ],
+  "expected_output": "true"
+}

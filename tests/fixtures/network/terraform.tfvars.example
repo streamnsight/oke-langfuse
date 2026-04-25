@@ -1,0 +1,14 @@
+# Shared network fixture example values.
+# Populate this file when implementing the network fixture Terraform config.
+
+region       = "us-chicago-1"
+tenancy_ocid = "ocid1.tenancy.oc1.."
+oci_profile  = "DEFAULT"
+
+compartment_id = "ocid1.compartment.oc1.."
+vcn_cidr       = "10.90.0.0/16"
+
+# Example tags for test-owned resources
+# defined_tags = {
+#   "Operations.CostCenter" = "tests"
+# }

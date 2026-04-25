@@ -4,7 +4,7 @@
 module "test1" {
   source             = "../../recommended-compute-image"
   image_id           = "ocid1.image.oc1.us-sanjose-1.aaaaaaaahjftpvjnl3cawwwz34de5zqbbi3iz5cugbl2f5neehimxtzbjhrq"
-  kubernetes_version = "v1.26.7"
+  kubernetes_version = "v1.34.1"
 }
 
 output "result" {

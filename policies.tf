@@ -70,13 +70,13 @@ module "policies_before_node_pool" {
 }
 
 module "policies_after_node_pool" {
-  count          = local.cluster_autoscaler_enabled ? 1 : 0
-  source         = "./modules/iam/policy"
-  compartment_id = local.effective_cluster_compartment_id
-  description    = "Policies for ${local.cluster_name} add-ons"
+  count             = local.cluster_autoscaler_enabled ? 1 : 0
+  source            = "./modules/iam/policy"
+  compartment_id    = local.effective_cluster_compartment_id
+  description       = "Policies for ${local.cluster_name} add-ons"
   policy_statements = module.cluster_autoscaler_workload_identity_policy[0].policy_statements
   providers = {
     oci = oci.home_region
   }
-  depends_on = [ oci_containerengine_node_pool.oci_oke_node_pool ]
+  depends_on = [oci_containerengine_node_pool.oci_oke_node_pool]
 }

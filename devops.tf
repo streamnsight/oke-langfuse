@@ -15,6 +15,21 @@ locals {
   use_addon_manager = var.use_existing_cluster ? true : var.is_enhanced_cluster
 
   object_storage_namespace = var.object_storage_namespace == null ? data.oci_objectstorage_namespace.ns.namespace : var.object_storage_namespace
+  cluster_autoscaler_test_metadata = {
+    mode   = var.use_existing_cluster ? "unmanaged" : (local.enable_cluster_autoscaler ? "managed" : "disabled")
+    active = contains(local.existing_addons, "ClusterAutoscaler")
+    note   = var.use_existing_cluster ? "Cluster autoscaler is intentionally unmanaged when use_existing_cluster = true." : (local.enable_cluster_autoscaler ? "Cluster autoscaler is managed only for stack-managed clusters when enabled." : "Cluster autoscaler is disabled for this stack configuration.")
+  }
+  existing_cluster_addon_reused_names = sort(compact([
+    local.use_addon_manager && var.use_existing_cluster && local.enable_cert_manager && contains(local.existing_addons, "CertManager") ? "CertManager" : null,
+    local.use_addon_manager && var.use_existing_cluster && local.enable_metrics_server && contains(local.existing_addons, "KubernetesMetricsServer") ? "KubernetesMetricsServer" : null,
+    local.use_addon_manager && var.use_existing_cluster && contains(local.existing_addons, "Istio") ? "Istio" : null
+  ]))
+  existing_cluster_addon_created_names = sort(compact([
+    local.use_addon_manager && var.use_existing_cluster && local.enable_cert_manager && !contains(local.existing_addons, "CertManager") ? "CertManager" : null,
+    local.use_addon_manager && var.use_existing_cluster && local.enable_metrics_server && !contains(local.existing_addons, "KubernetesMetricsServer") ? "KubernetesMetricsServer" : null,
+    local.use_addon_manager && var.use_existing_cluster && !contains(local.existing_addons, "Istio") ? "Istio" : null
+  ]))
 }
 
 # Setup the DevOps project when using DevOps

@@ -1,10 +1,12 @@
 .terraform
 .terraform.lock.hcl
+.terraform.tfstate.lock.info
 terraform.tfstate
 terraform.tfstate.backup
 test.tfvars
 *.zip
 terraform.tfvars
+!tests/scenarios/**/terraform.tfvars
 CaCertificate-langfuse.pub
 kubeconfig
 *.backup_
@@ -13,6 +15,7 @@ tests/artifacts/*
 !tests/artifacts/README.md
 tests/.terraform.d/
 tests/.obc/
+.tests-tmp/
 tests/.env
 tests/.env.local
 langfuse/

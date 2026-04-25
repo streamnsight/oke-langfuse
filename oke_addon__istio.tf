@@ -9,6 +9,7 @@ module "istio_deployment_using_addon_manager" {
   source      = "./modules/oke/cluster_addons/istio/deployment/enhanced_cluster_addon"
   cluster_id  = local.target_cluster_id
   nb_replicas = 1
+  enabled     = var.use_existing_cluster ? !contains(local.existing_addons, "Istio") : true
 }
 
 module "istio_gateway_crds" {

@@ -1,0 +1,16 @@
+{
+  "mode": "script",
+  "destroy_after_run": true,
+  "infra": {
+    "profile": "network-only",
+    "bootstrap": [
+      {
+        "target": "network",
+        "action": "up"
+      }
+    ]
+  },
+  "suites": [
+    "live"
+  ]
+}

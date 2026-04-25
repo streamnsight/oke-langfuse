@@ -19,9 +19,9 @@ locals {
     "allow any-user to use repos in compartment id ${var.cluster_compartment_id} where all {request.principal.type = 'devopsdeploypipeline', target.compartment.id = '${var.devops_compartment_id}'}",
     "allow any-user to manage secret-family in compartment id ${var.secrets_store_vault_compartment_id} where all {request.principal.type = 'devopsdeploypipeline', target.compartment.id = '${var.secrets_store_vault_compartment_id}'}",
     "allow any-user to read postgres-db-system in compartment id ${var.cluster_compartment_id} where all {request.principal.type = 'devopsdeploypipeline', target.compartment.id = '${var.cluster_compartment_id}'}",
-    "allow service vulnerability-scanning-service to read repos in compartment id ${var.cluster_compartment_id}", 
+    "allow service vulnerability-scanning-service to read repos in compartment id ${var.cluster_compartment_id}",
     "allow service vulnerability-scanning-service to read compartments in compartment id ${var.cluster_compartment_id}"
-]
+  ]
 }
 
 resource "oci_identity_policy" "devops-pipeline-policies" {

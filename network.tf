@@ -26,8 +26,8 @@ data "oci_core_subnets" "subnets" {
 
 locals {
   existing_subnet_cidrs_map = local.use_existing_network ? { for s in data.oci_core_subnets.subnets[0].subnets[*] : s.id => s.cidr_block } : {}
-  api_subnet_cidr           = local.use_existing_network ? local.existing_subnet_cidrs_map[var.kubernetes_endpoint_subnet] : local.created_api_subnet_cidr
-  lb_subnet_cidr            = local.use_existing_network ? local.existing_subnet_cidrs_map[var.public_lb_subnet] : local.created_lb_subnet_cidr
+  api_subnet_cidr           = local.use_existing_network && var.kubernetes_endpoint_subnet != null ? local.existing_subnet_cidrs_map[var.kubernetes_endpoint_subnet] : local.created_api_subnet_cidr
+  lb_subnet_cidr            = local.use_existing_network && var.public_lb_subnet != null ? local.existing_subnet_cidrs_map[var.public_lb_subnet] : local.created_lb_subnet_cidr
   node_pool_subnets_cidrs = local.use_existing_network ? [
     for s in [var.np1_subnet, var.np2_subnet, var.np3_subnet] :
     local.existing_subnet_cidrs_map[s]

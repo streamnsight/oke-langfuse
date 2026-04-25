@@ -1,0 +1,10 @@
+# Basic cluster fixture example values.
+# Populate this file when using the cluster fixture locally.
+
+region                 = "us-chicago-1"
+tenancy_ocid           = "ocid1.tenancy.oc1.."
+cluster_compartment_id = "ocid1.compartment.oc1.."
+
+cluster_name        = "tests-basic-cluster"
+kubernetes_version  = "v1.34.1"
+create_bastion      = true

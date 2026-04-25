@@ -8,6 +8,11 @@ variable "region" {
 
 variable "tenancy_ocid" {
   type = string
+
+  validation {
+    condition     = can(regex("^ocid1\\.[^.]+\\.[^.]+\\..+$", var.tenancy_ocid))
+    error_message = "tenancy_ocid must be a valid OCID."
+  }
 }
 
 variable "oci_profile" {
@@ -30,14 +35,33 @@ variable "cluster_ocid" {
   default = null
 
   validation {
-    condition     = var.cluster_ocid == null || var.cluster_ocid != ""
-    error_message = "cluster_ocid must be null or a non-empty OCID string."
+    condition     = var.cluster_ocid == null || (var.cluster_ocid != "" && can(regex("^ocid1\\.[^.]+\\.[^.]+\\..+$", var.cluster_ocid)))
+    error_message = "cluster_ocid must be null or a valid non-empty OCID string."
   }
 }
 
+variable "enable_existing_cluster_cloud_init_preflight" {
+  type    = bool
+  default = false
+}
+
+variable "existing_cluster_cloud_init_required_markers" {
+  type = list(string)
+  default = [
+    "/usr/local/bin/docker_login.sh",
+    "/usr/local/bin/docker-credential-helper-init.sh",
+    "*/20 * * * * /bin/bash -lc",
+  ]
+}
+
 variable "vcn_compartment_id" {
-  type = string
+  type    = string
   default = null
+
+  validation {
+    condition     = var.vcn_compartment_id == null || can(regex("^ocid1\\.[^.]+\\.[^.]+\\..+$", var.vcn_compartment_id))
+    error_message = "vcn_compartment_id must be null or a valid OCID."
+  }
 }
 
 variable "vcn_cidr" {
@@ -46,6 +70,11 @@ variable "vcn_cidr" {
 
 variable "vcn_id" {
   default = null
+
+  validation {
+    condition     = var.vcn_id == null || can(regex("^ocid1\\.[^.]+\\.[^.]+\\..+$", var.vcn_id))
+    error_message = "vcn_id must be null or a valid OCID."
+  }
 }
 
 variable "vcn_tags" {
@@ -58,11 +87,21 @@ variable "is_endpoint_public" {
 
 variable "kubernetes_endpoint_subnet" {
   default = null
+
+  validation {
+    condition     = var.kubernetes_endpoint_subnet == null || can(regex("^ocid1\\.[^.]+\\.[^.]+\\..+$", var.kubernetes_endpoint_subnet))
+    error_message = "kubernetes_endpoint_subnet must be null or a valid OCID."
+  }
 }
 
 # Cluster
 variable "cluster_compartment_id" {
   type = string
+
+  validation {
+    condition     = can(regex("^ocid1\\.[^.]+\\.[^.]+\\..+$", var.cluster_compartment_id))
+    error_message = "cluster_compartment_id must be a valid OCID."
+  }
 }
 
 variable "cluster_name" {
@@ -98,6 +137,11 @@ variable "services_cidr" {
 # Node Pools
 variable "np1_subnet" {
   default = null
+
+  validation {
+    condition     = var.np1_subnet == null || can(regex("^ocid1\\.[^.]+\\.[^.]+\\..+$", var.np1_subnet))
+    error_message = "np1_subnet must be null or a valid OCID."
+  }
 }
 
 variable "np1_ha" {
@@ -125,7 +169,7 @@ variable "np1_autoscaler_max_nodes" {
 }
 
 variable "np1_node_shape" {
-  default = "VM.Standard.E3.Flex"
+  default = "VM.Standard.E4.Flex"
 }
 
 variable "np1_ocpus" {
@@ -314,6 +358,11 @@ variable "allow_deploy_public_lb" {
 
 variable "public_lb_subnet" {
   default = null
+
+  validation {
+    condition     = var.public_lb_subnet == null || can(regex("^ocid1\\.[^.]+\\.[^.]+\\..+$", var.public_lb_subnet))
+    error_message = "public_lb_subnet must be null or a valid OCID."
+  }
 }
 
 variable "enable_secret_encryption" {
@@ -436,6 +485,11 @@ variable "defined_tags" {
 variable "devops_compartment_id" {
   type    = string
   default = null
+
+  validation {
+    condition     = var.devops_compartment_id == null || can(regex("^ocid1\\.[^.]+\\.[^.]+\\..+$", var.devops_compartment_id))
+    error_message = "devops_compartment_id must be null or a valid OCID."
+  }
 }
 
 # variable "oss_images_repo_prefix" {
@@ -458,7 +512,7 @@ variable "object_storage_namespace" {
 }
 
 variable "create_bastion" {
-  type = bool
+  type    = bool
   default = true
 }
 
@@ -548,13 +602,33 @@ variable "use_network_source" {
 ## Secret storage
 variable "secrets_store_vault_compartment_id" {
   type = string
+
+  validation {
+    condition     = can(regex("^ocid1\\.[^.]+\\.[^.]+\\..+$", var.secrets_store_vault_compartment_id))
+    error_message = "secrets_store_vault_compartment_id must be a valid OCID."
+  }
 }
 
 variable "secrets_store_vault_id" {
   type = string
+
+  validation {
+    condition     = can(regex("^ocid1\\.[^.]+\\.[^.]+\\..+$", var.secrets_store_vault_id))
+    error_message = "secrets_store_vault_id must be a valid OCID."
+  }
 }
 
 variable "secrets_store_key_id" {
   type = string
+
+  validation {
+    condition     = can(regex("^ocid1\\.[^.]+\\.[^.]+\\..+$", var.secrets_store_key_id))
+    error_message = "secrets_store_key_id must be a valid OCID."
+  }
 }
 
+variable "test_mode" {
+  type        = bool
+  default     = false
+  description = "Enable additional non-sensitive outputs for local test tooling."
+}

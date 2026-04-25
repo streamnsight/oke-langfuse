@@ -1,0 +1,9 @@
+{
+  "mode": "plan",
+  "expectation": "fail",
+  "suites": [
+    "fast"
+  ],
+  "expected_error": "vcn_compartment_id must be null or a valid OCID.",
+  "plan_targets": []
+}

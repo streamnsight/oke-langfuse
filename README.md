@@ -17,7 +17,7 @@ When using an existing cluster, this stack validates that the target cluster is 
 - Kubernetes endpoint must be private (`is_public_ip_enabled = false`)
 - at least one existing node pool must already have 3 or more nodes
 
-In existing-cluster mode, this stack does **not** create cluster/node pools and does **not** deploy cluster autoscaler. It also skips OKE managed add-ons that are already present.
+In existing-cluster mode, this stack does **not** create cluster/node pools and does **not** deploy or manage cluster autoscaler. It skips OKE managed add-ons that are already present for the existing-cluster add-ons it does manage.
 
 [![Deploy to Oracle Cloud][magic_button]][magic_oke_langfuse_stack]
 
@@ -153,6 +153,20 @@ The init script used in this stack, when deploying a new OKE cluster is in the r
 
 The stack DOES NOT attempt to modify an existing cluster cloud-init for obvious reasons, but it WILL FAIL if it does not have proper permission to pull images from OCIR.
 
+The stack already validates that an existing cluster is an `ENHANCED_CLUSTER`, uses a private endpoint, and has at least one node pool with 3 or more nodes.
+
+If you want a faster preflight before the long deployment path starts, you can also enable:
+
+```hcl
+use_existing_cluster                         = true
+cluster_ocid                                 = "ocid1.cluster..."
+enable_existing_cluster_cloud_init_preflight = true
+```
+
+When enabled, Terraform inspects every eligible existing node pool with at least three nodes, decodes `node_metadata.user_data`, and checks for OCIR bootstrap markers that distinguish this stack's custom cloud-init from the default OKE init.
+
+By default the preflight looks for the stack's docker login path, docker credential helper bootstrap path, and the recurring docker-login cron command. If your existing cluster uses a different but still valid bootstrap implementation, you can tune the check with `existing_cluster_cloud_init_required_markers`.
+
 
 ## References
 
@@ -165,7 +179,7 @@ The stack DOES NOT attempt to modify an existing cluster cloud-init for obvious 
 [X] SSL Cert: IP cert
 [ ] SSL cert: domain / DNS based certificates
 [ ] OSS native client support using workload identity (PR here [12379](https://github.com/langfuse/langfuse/pull/12379))
-[X] Vault secret update
+[X] Vault secrets
 [ ] support cross compartment deployments, policies for cross-compartment deployment (DevOps, cluster, VCN)
 [X] Support deployment on existing cluster
 [X] look up available shell stages shapes and choose from those only.
@@ -173,9 +187,9 @@ The stack DOES NOT attempt to modify an existing cluster cloud-init for obvious 
 [ ] use existing Cache cluster
 [ ] Postgres users ACLs
 [ ] validate deployment from local with profile
-[ ] container vulnerability scanning
-[ ] build worker image
+[X] container vulnerability scanning
+[X] build worker image
 [ ] auto add group and user to IDCS app
-[ ] ensure cloud-init provisions OCIR login script + cronjob
+[X] ensure cloud-init provisions OCIR login script + cronjob
 [ ] 'latest' as langfuse helm chart option (lookup and use latest)
 [ ] ClickHouse dedicated node-pool

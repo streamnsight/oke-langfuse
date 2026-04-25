@@ -7,7 +7,7 @@ locals {
     value = var.nb_replicas
   }]
 }
-resource "oci_containerengine_addon" "cert_manager_addon" {
+resource "oci_containerengine_addon" "istio_addon" {
   count = var.enabled ? 1 : 0
   #Required
   addon_name                       = "Istio"
@@ -21,6 +21,6 @@ resource "oci_containerengine_addon" "cert_manager_addon" {
       value = configurations.value.value
     }
   }
-  version = var.istio_version
+  version           = var.istio_version
   override_existing = false
 }

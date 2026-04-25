@@ -17,6 +17,7 @@ module "cert_manager_deployment_using_addon_manager" {
   cluster_id           = local.target_cluster_id
   cert_manager_version = null # for auto-update
   nb_replicas          = var.cert_manager_nb_replicas
+  enabled              = local.enable_cert_manager && (var.use_existing_cluster ? !contains(local.existing_addons, "CertManager") : true)
   depends_on = [
     data.oci_containerengine_cluster_kube_config.oke
   ]

@@ -1,0 +1,11 @@
+{
+  "mode": "plan",
+  "expectation": "fail",
+  "suites": [
+    "fast"
+  ],
+  "expected_error": "cluster_ocid must be null or a valid non-empty OCID string.",
+  "plan_targets": [
+    "data.oci_containerengine_cluster.target"
+  ]
+}

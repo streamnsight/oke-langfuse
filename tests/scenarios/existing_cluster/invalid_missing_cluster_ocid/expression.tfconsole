@@ -1,0 +1,1 @@
+var.use_existing_cluster && (var.cluster_ocid == null || var.cluster_ocid == "")

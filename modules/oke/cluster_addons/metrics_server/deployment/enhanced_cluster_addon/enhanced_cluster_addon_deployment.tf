@@ -24,6 +24,6 @@ resource "oci_containerengine_addon" "metrics_server_addon" {
       value = configurations.value.value
     }
   }
-  version = null # null == auto update
+  version           = null # null == auto update
   override_existing = false
 }

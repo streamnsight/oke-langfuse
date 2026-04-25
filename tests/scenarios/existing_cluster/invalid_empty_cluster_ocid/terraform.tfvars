@@ -1,0 +1,15 @@
+region                             = "us-chicago-1"
+tenancy_ocid                       = "ocid1.tenancy.oc1..aaaa"
+vcn_compartment_id                 = "ocid1.compartment.oc1..aaaa"
+cluster_compartment_id             = "ocid1.compartment.oc1..bbbb"
+devops_compartment_id              = "ocid1.compartment.oc1..dddd"
+use_existing_cluster               = true
+cluster_ocid                       = ""
+create_bastion                     = false
+langfuse_s3_access_key             = "fake-access"
+langfuse_s3_secret_key             = "fake-secret"
+ssh_public_key                     = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDdummykey"
+kubernetes_version                 = "v1.34.2"
+secrets_store_vault_compartment_id = "ocid1.compartment.oc1..cccc"
+secrets_store_vault_id             = "ocid1.vault.oc1..aaaa"
+secrets_store_key_id               = "ocid1.key.oc1..aaaa"
