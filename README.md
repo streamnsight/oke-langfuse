@@ -17,7 +17,7 @@ When using an existing cluster, this stack validates that the target cluster is 
 - Kubernetes endpoint must be private (`is_public_ip_enabled = false`)
 - at least one existing node pool must already have 3 or more nodes
 
-In existing-cluster mode, this stack does **not** create cluster/node pools and does **not** deploy cluster autoscaler. It also skips OKE managed add-ons that are already present.
+In existing-cluster mode, this stack does **not** create cluster/node pools and does **not** deploy or manage cluster autoscaler. It skips OKE managed add-ons that are already present for the existing-cluster add-ons it does manage.
 
 [![Deploy to Oracle Cloud][magic_button]][magic_oke_langfuse_stack]
 

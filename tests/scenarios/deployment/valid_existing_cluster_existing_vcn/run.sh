@@ -250,7 +250,7 @@ validate_existing_cluster_addon_reuse() {
     return 1
   fi
 
-  local reused created
+  local reused created autoscaler_mode autoscaler_active autoscaler_note autoscaler_state
   reused="$(jq -r '
     try .deployment.existing_cluster_addons.reused // [] |
     if length == 0 then "none" else join(", ") end
@@ -259,8 +259,21 @@ validate_existing_cluster_addon_reuse() {
     try .deployment.existing_cluster_addons.created // [] |
     if length == 0 then "none" else join(", ") end
   ' "$ARTIFACT_DIR/test-metadata.json")"
+  autoscaler_mode="$(jq -r 'try .deployment.cluster_autoscaler.mode // empty' "$ARTIFACT_DIR/test-metadata.json")"
+  autoscaler_active="$(jq -r 'try .deployment.cluster_autoscaler.active // false' "$ARTIFACT_DIR/test-metadata.json")"
+  autoscaler_note="$(jq -r 'try .deployment.cluster_autoscaler.note // empty' "$ARTIFACT_DIR/test-metadata.json")"
 
-  record_validation "existing-cluster-addon-reuse" "PASS" "Reused add-ons: $reused. Created add-ons: $created."
+  if [ "$autoscaler_mode" != "unmanaged" ]; then
+    record_validation "existing-cluster-addon-reuse" "FAIL" "Expected cluster autoscaler to remain unmanaged in existing-cluster mode, got mode=${autoscaler_mode:-missing}."
+    return 1
+  fi
+
+  autoscaler_state="not present"
+  if [ "$autoscaler_active" = "true" ]; then
+    autoscaler_state="already present"
+  fi
+
+  record_validation "existing-cluster-addon-reuse" "PASS" "Reused add-ons: $reused. Created add-ons: $created. Cluster autoscaler: unmanaged ($autoscaler_state). ${autoscaler_note}"
   return 0
 }
 

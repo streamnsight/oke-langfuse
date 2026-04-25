@@ -17,7 +17,7 @@ module "metrics_server_deployment_with_addon_manager" {
   cluster_id    = local.target_cluster_id
   nb_replicas   = 2
   addon_version = null # null sets auto-update
-  enabled       = !contains(local.existing_addons, "KubernetesMetricsServer")
+  enabled       = var.use_existing_cluster ? !contains(local.existing_addons, "KubernetesMetricsServer") : true
   depends_on = [
     module.cert_manager_deployment_using_addon_manager # metrics server depends on cert-manager
   ]

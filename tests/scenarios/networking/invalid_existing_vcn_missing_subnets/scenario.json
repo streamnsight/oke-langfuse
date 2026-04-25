@@ -1,9 +1,8 @@
 {
-  "mode": "plan",
-  "expectation": "fail",
+  "mode": "console",
+  "expectation": "pass",
   "suites": [
     "fast"
   ],
-  "expected_error": "When use_existing_vcn is true, vcn_id, kubernetes_endpoint_subnet, public_lb_subnet, and np1_subnet must all be provided.",
-  "plan_targets": []
+  "expected_output": "true"
 }

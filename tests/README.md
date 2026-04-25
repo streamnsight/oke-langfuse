@@ -97,6 +97,7 @@ Direct runner usage:
 - The managed-cluster drift scenario ignores `TF_VAR_fixture_node_image_id` intentionally so it always exercises selector-backed worker image resolution for the chosen Kubernetes version.
 - The full-stack live deployment scenario now deploys once, runs multiple post-deploy validators, destroys the stack on success, and preserves the failed stack workdir under `tests/artifacts/failed-stacks/` on failure so you can destroy it explicitly before rerunning.
 - If the full-stack live deployment scenario fails, reruns are blocked until you run `./tests/scripts/run.sh cleanup-failed-stack STACK_DIR=...` for the preserved failed stack directory printed in the scenario failure output.
+- Existing-cluster deployment validation reports which managed add-ons were reused or created and explicitly records that cluster autoscaler remains unmanaged in existing-cluster mode.
 - `tests/.env` and `tests/.env.local` are ignored by git and are the right place for real local test values.
 - The harness defaults `OBC_ROOT_DIR` to `tests/.obc` so `obc registry oke add`, `kubectl`, and later `obc kube-exec` subprocesses share the same persistent local state. Export `OBC_ROOT_DIR` yourself if you want a different location.
 - `make debug TARGET=...` resolves DevOps runtime IDs from `terraform output -json` first and only uses `PROJECT_ID`, `PIPELINE_ID`, or `DEPLOYMENT_ID` as optional manual overrides.
