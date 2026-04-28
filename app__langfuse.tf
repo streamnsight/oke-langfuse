@@ -64,10 +64,11 @@ locals {
   idcs_client_secret              = var.create_idcs_app ? module.langfuse_idcs_app[0].details.client_secret : var.idcs_client_secret
   idcs_domain_url                 = var.create_idcs_app ? module.langfuse_idcs_app[0].details.domain_url : var.idcs_domain_url
   current_user_assignment_enabled = var.create_idcs_app && var.assign_current_user_to_idcs_app && var.current_user_ocid != null && var.current_user_ocid != ""
+  current_user_assignment_count   = local.current_user_assignment_enabled ? 1 : 0
 }
 
 data "oci_identity_domains_users" "langfuse_current_user" {
-  count = local.current_user_assignment_enabled ? 1 : 0
+  count = local.current_user_assignment_count
 
   idcs_endpoint = local.idcs_domain_url
   user_count    = 1
@@ -82,7 +83,7 @@ check "langfuse_current_user_identity_domain_user" {
 }
 
 resource "oci_identity_domains_grant" "langfuse_current_user_assignment" {
-  count = local.current_user_assignment_enabled ? 1 : 0
+  count = local.current_user_assignment_count
 
   grant_mechanism = "ADMINISTRATOR_TO_USER"
   idcs_endpoint   = local.idcs_domain_url
