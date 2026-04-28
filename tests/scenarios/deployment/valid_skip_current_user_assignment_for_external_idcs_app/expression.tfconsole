@@ -1,0 +1,1 @@
+var.create_idcs_app == false && var.assign_current_user_to_idcs_app == true && var.current_user_ocid != null && !local.current_user_assignment_enabled && local.current_user_assignment_count == 0
