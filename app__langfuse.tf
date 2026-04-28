@@ -74,10 +74,6 @@ data "oci_identity_domains_users" "langfuse_current_user" {
   user_filter   = format("ocid eq \"%s\"", var.current_user_ocid)
 }
 
-output "user" {
-  value = data.oci_identity_domains_users.langfuse_current_user[0]
-}
-
 check "langfuse_current_user_identity_domain_user" {
   assert {
     condition     = !local.current_user_assignment_enabled || length(data.oci_identity_domains_users.langfuse_current_user[0].users) == 1

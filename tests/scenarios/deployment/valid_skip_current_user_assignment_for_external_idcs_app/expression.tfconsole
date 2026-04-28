@@ -1,0 +1,1 @@
+!local.current_user_assignment_enabled && length(module.langfuse_idcs_app) == 0 && length(data.oci_identity_domains_users.langfuse_current_user) == 0 && length(oci_identity_domains_grant.langfuse_current_user_assignment) == 0
