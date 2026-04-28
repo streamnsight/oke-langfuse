@@ -59,10 +59,47 @@ module "langfuse_idcs_app" {
 
 
 locals {
-  idcs_app_id        = var.create_idcs_app ? module.langfuse_idcs_app[0].details.app_id : var.idcs_app_id
-  idcs_client_id     = var.create_idcs_app ? module.langfuse_idcs_app[0].details.client_id : var.idcs_client_id
-  idcs_client_secret = var.create_idcs_app ? module.langfuse_idcs_app[0].details.client_secret : var.idcs_client_secret
-  idcs_domain_url    = var.create_idcs_app ? module.langfuse_idcs_app[0].details.domain_url : var.idcs_domain_url
+  idcs_app_id                     = var.create_idcs_app ? module.langfuse_idcs_app[0].details.app_id : var.idcs_app_id
+  idcs_client_id                  = var.create_idcs_app ? module.langfuse_idcs_app[0].details.client_id : var.idcs_client_id
+  idcs_client_secret              = var.create_idcs_app ? module.langfuse_idcs_app[0].details.client_secret : var.idcs_client_secret
+  idcs_domain_url                 = var.create_idcs_app ? module.langfuse_idcs_app[0].details.domain_url : var.idcs_domain_url
+  current_user_assignment_enabled = var.create_idcs_app && var.assign_current_user_to_idcs_app && var.current_user_ocid != null && var.current_user_ocid != ""
+}
+
+data "oci_identity_domains_users" "langfuse_current_user" {
+  count = local.current_user_assignment_enabled ? 1 : 0
+
+  idcs_endpoint = local.idcs_domain_url
+  user_count    = 1
+  user_filter   = format("ocid eq \"%s\"", var.current_user_ocid)
+}
+
+output "user" {
+  value = data.oci_identity_domains_users.langfuse_current_user[0]
+}
+
+check "langfuse_current_user_identity_domain_user" {
+  assert {
+    condition     = !local.current_user_assignment_enabled || length(data.oci_identity_domains_users.langfuse_current_user[0].users) == 1
+    error_message = "Expected exactly one identity domain user matching current_user_ocid before auto-assigning the current user to the IDCS app."
+  }
+}
+
+resource "oci_identity_domains_grant" "langfuse_current_user_assignment" {
+  count = local.current_user_assignment_enabled ? 1 : 0
+
+  grant_mechanism = "ADMINISTRATOR_TO_USER"
+  idcs_endpoint   = local.idcs_domain_url
+  schemas         = ["urn:ietf:params:scim:schemas:oracle:idcs:Grant"]
+
+  app {
+    value = local.idcs_app_id
+  }
+
+  grantee {
+    type  = "User"
+    value = data.oci_identity_domains_users.langfuse_current_user[0].users[0].id
+  }
 }
 
 # Build Langfuse patched container image

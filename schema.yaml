@@ -268,6 +268,7 @@ variableGroups:
   - title: SSO Configuration
     variables:
       - create_idcs_app
+      - assign_current_user_to_idcs_app
       - identity_domain_id
       - idcs_domain_url
       - idcs_app_id
@@ -325,6 +326,11 @@ variables:
   tenancy_ocid: 
     type: string
     title: Tenancy ID
+    visible: false
+
+  current_user_ocid:
+    type: string
+    title: Current User OCID
     visible: false
 
   # Cluster Networking
@@ -1498,6 +1504,13 @@ variables:
     title: Create Identity Domain Application for SSO
     description: An application is needed with this template. if you do have the permission, select Yes here, otherwise app_id, client_id, client_secret and domain_url are needed
     visible: true
+
+  assign_current_user_to_idcs_app:
+    type: boolean
+    default: true
+    title: Auto-assign Me as a User to the App
+    description: Automatically assigns the Resource Manager user launching the stack to the IDCS app created by this stack.
+    visible: create_idcs_app
 
   idcs_app_id:
     type: string

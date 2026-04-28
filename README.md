@@ -51,13 +51,13 @@ If you need to force a custom image OCID, set `np*_image_override = true` and th
 
 Custom images may work, but non-OKE-ready images will usually boot and scale more slowly because Kubernetes binaries are not preinstalled.
 
-⚠️ **Important:** After deployment, assign users (or groups) to the IDCS application to allow access. If you cannot create the app, ask your Identity Domain admin to do this.
+⚠️ **Important:** When the stack creates the IDCS application, it automatically assigns the launching Resource Manager user by default. Any additional users or groups must still be assigned to the application after deployment. If you cannot create the app, ask your Identity Domain admin to assign access manually.
 
 ## Setting up the IDCS application
 
 An IDCS / SSO application is required for authentication and authorization.
 
-If you are an Identity Domain admin, the app will be created and configured for you, and named Langfuse-<deploymentID>
+If you are an Identity Domain admin, the app will be created and configured for you, and named Langfuse-<deploymentID>. By default, the Resource Manager user launching the stack is also assigned to that app automatically.
 
 🚨 **Important:** The Identity Domain must have **Access signing certificate** option **enabled**. (In Identity Domain -> Settings tab -> Domain Settings -> Edit Domain Settings)
 
@@ -86,6 +86,8 @@ After the stack is deployed, go back to your Domain administrator for them to:
 - Update the Redirect URL in the OAuth Configuration to `https://<LANGFUSE_IP>/langfuse/api/auth/callback/custom`
 - Activate the application (Top right button drop down)
 - Assign users or groups to the application (Users tab)
+
+For local Terraform runs, `current_user_ocid` is not injected automatically. If you want the same auto-assignment behavior outside Resource Manager, provide `current_user_ocid` explicitly and keep `create_idcs_app = true`.
 
 ## Configuring LLM models in Langfuse
 
@@ -175,21 +177,21 @@ By default the preflight looks for the stack's docker login path, docker credent
 
 # TODO
 
-[ ] SSL cert: self-signed, 
-[X] SSL Cert: IP cert
-[ ] SSL cert: domain / DNS based certificates
-[ ] OSS native client support using workload identity (PR here [12379](https://github.com/langfuse/langfuse/pull/12379))
-[X] Vault secrets
-[ ] support cross compartment deployments, policies for cross-compartment deployment (DevOps, cluster, VCN)
-[X] Support deployment on existing cluster
-[X] look up available shell stages shapes and choose from those only.
-[ ] Cache users / ACLs to restrict cluster access
-[ ] use existing Cache cluster
-[ ] Postgres users ACLs
-[ ] validate deployment from local with profile
-[X] container vulnerability scanning
-[X] build worker image
-[ ] auto add group and user to IDCS app
-[X] ensure cloud-init provisions OCIR login script + cronjob
-[ ] 'latest' as langfuse helm chart option (lookup and use latest)
-[ ] ClickHouse dedicated node-pool
+- [X] container vulnerability scanning
+- [X] build worker image
+- [X] SSL Cert: IP cert
+- [ ] SSL cert: self-signed, 
+- [ ] SSL cert: domain / DNS based certificates
+- [ ] OSS native client support using workload identity (PR here [12379](https://github.com/langfuse/langfuse/pull/12379))
+- [X] ensure cloud-init provisions OCIR login script + cronjob
+- [X] Vault secrets
+- [ ] support cross compartment deployments, policies for cross-compartment deployment (DevOps, cluster, VCN)
+- [X] Support deployment on existing cluster
+- [X] look up available shell stages shapes and choose from those only.
+- [ ] 'latest' as langfuse helm chart option (lookup and use latest)
+- [ ] auto add group and user to IDCS app
+- [ ] Cache users / ACLs to restrict cluster access
+- [ ] use existing Cache cluster
+- [ ] Postgres users ACLs
+- [ ] validate deployment from local with profile
+- [ ] ClickHouse dedicated node-pool
