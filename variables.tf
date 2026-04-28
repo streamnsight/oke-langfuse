@@ -562,12 +562,27 @@ variable "identity_domain_id" {
   default = null
 }
 
+variable "current_user_ocid" {
+  type    = string
+  default = null
+
+  validation {
+    condition     = var.current_user_ocid == null || can(regex("^ocid1\\.[^.]+\\.[^.]+\\..+$", var.current_user_ocid))
+    error_message = "current_user_ocid must be null or a valid OCID."
+  }
+}
+
 variable "enable_oci_genai_gateway" {
   type    = bool
   default = true
 }
 
 variable "create_idcs_app" {
+  type    = bool
+  default = true
+}
+
+variable "assign_current_user_to_idcs_app" {
   type    = bool
   default = true
 }

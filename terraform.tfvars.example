@@ -127,6 +127,10 @@ redis_node_memory = "16"
 
 # if creating the IDCS app with this template
 create_idcs_app = true
+# Resource Manager injects current_user_ocid automatically.
+# For local Terraform runs, set current_user_ocid explicitly to auto-assign that user.
+# current_user_ocid = "ocid1.user.oc1..exampleuniqueID"
+# assign_current_user_to_idcs_app = true
 identity_domain_id = "ocid1.domain.oc1..."
 
 langfuse_helm_chart_version = "1.5.14"
