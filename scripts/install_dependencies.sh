@@ -40,7 +40,7 @@ ulimit -a
 # install dependencies
 ## OCI CLI
 
-sudo yum install -q -y podman git curl jq sed python3.12 python3.12-pip
+sudo yum install -q -y podman git curl jq sed python3.12 python3.12-pip libatomic
 python3.12 -m pip install -q oci-cli==3.79.0
 
 # install nvm to install node
