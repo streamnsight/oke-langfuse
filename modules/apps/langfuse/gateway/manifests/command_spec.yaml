@@ -23,7 +23,22 @@ steps:
       echo "Applying Gateway manifest..."
       echo "${CLUSTER_OCID}"
       oci ce cluster create-kubeconfig --cluster-id ${CLUSTER_OCID} --file $HOME/.kube/config --token-version 2.0.0  --kube-endpoint PRIVATE_ENDPOINT
-      kubectl apply -f ./langfuse.Gateway.yaml -n langfuse
+
+      escape_sed_replacement() {
+        printf '%s' "$1" | sed -e 's/[\/&]/\\&/g'
+      }
+
+      TLS_MODE_VALUE='${TLS_MODE}'
+      LANGFUSE_CERTIFICATE_OCID_VALUE='${LANGFUSE_CERTIFICATE_OCID}'
+      TLS_MODE_ESCAPED="$(escape_sed_replacement "${TLS_MODE_VALUE}")"
+      LANGFUSE_CERTIFICATE_OCID_ESCAPED="$(escape_sed_replacement "${LANGFUSE_CERTIFICATE_OCID_VALUE}")"
+
+      sed \
+        -e "s|__TLS_MODE__|${TLS_MODE_ESCAPED}|g" \
+        -e "s|__LANGFUSE_CERTIFICATE_OCID__|${LANGFUSE_CERTIFICATE_OCID_ESCAPED}|g" \
+        ./langfuse.Gateway.yaml > ./langfuse.Gateway.rendered.yaml
+
+      kubectl apply -f ./langfuse.Gateway.rendered.yaml -n langfuse
       until kubectl get svc langfuse-gateway-istio -n langfuse -o jsonpath='{.status.loadBalancer.ingress[0].ip}' | grep -q '[0-9]'; do
         echo "Waiting for LoadBalancer external IP..."
         sleep 5

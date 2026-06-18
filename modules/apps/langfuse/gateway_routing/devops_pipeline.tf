@@ -1,12 +1,29 @@
 ## Copyright © 2022-2026, Oracle and/or its affiliates.
 ## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
 
+locals {
+  gateway_routing_manifest_paths = {
+    ip_letsencrypt_http01 = "${path.module}/manifests/langfuse.HTTPRoute.ip-letsencrypt-http01.yaml"
+    oci_lb_certificate    = "${path.module}/manifests/langfuse.HTTPRoute.oci-lb-certificate.yaml"
+  }
+
+  gateway_routing_manifest_path = local.gateway_routing_manifest_paths[var.tls_mode]
+}
+
+resource "terraform_data" "gateway_routing_manifest_selection" {
+  input = {
+    tls_mode      = var.tls_mode
+    manifest_hash = filesha256(local.gateway_routing_manifest_path)
+    command_hash  = filesha256("${path.module}/manifests/command_spec.yaml")
+  }
+}
+
 resource "oci_generic_artifacts_content_artifact_by_path" "langfuse_gateway_routing_manifest_artifact" {
   #Required
   artifact_path = "langfuse.HTTPRoute.yaml"
   repository_id = var.artifact_repo_id
   version       = "0.1.0"
-  content       = file("${path.module}/manifests/langfuse.HTTPRoute.yaml")
+  content       = file(local.gateway_routing_manifest_path)
 
   # delete the resource from artifact repo on destroy as it blocks destroy of the artifact repo itself
   provisioner "local-exec" {
@@ -60,7 +77,17 @@ resource "oci_devops_deploy_pipeline" "langfuse_gateway_routing" {
     items {
       name          = "LANGFUSE_HOSTNAME"
       default_value = var.langfuse_hostname
-      description   = "OCID of the artifact repository"
+      description   = "Langfuse hostname"
+    }
+    items {
+      name          = "TLS_MODE"
+      default_value = var.tls_mode
+      description   = "Langfuse Gateway TLS mode"
+    }
+    items {
+      name          = "ENABLE_CERT_MANAGER_GATEWAY_API"
+      default_value = tostring(var.enable_cert_manager_gateway_api)
+      description   = "Patch cert-manager with Gateway API support before applying routing"
     }
   }
   project_id   = var.devops_project_id
@@ -117,5 +144,8 @@ resource "oci_devops_deployment" "langfuse_gateway_routing_deployment" {
     oci_devops_deploy_stage.langfuse_gateway_routing,
     oci_devops_deploy_artifact.langfuse_gateway_routing_commandspec
   ]
-  lifecycle { ignore_changes = [defined_tags] }
+  lifecycle {
+    ignore_changes       = [defined_tags]
+    replace_triggered_by = [terraform_data.gateway_routing_manifest_selection]
+  }
 }

@@ -12,7 +12,7 @@ spec:
   - name: langfuse-gateway
     sectionName: https
   hostnames:
-  - ${LANGFUSE_HOSTNAME}
+  - __LANGFUSE_HOSTNAME__
   rules:
   - matches:
     - path:
@@ -21,16 +21,3 @@ spec:
     backendRefs:
     - name: langfuse-web
       port: 3000
----
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: langfuse-web-cert
-  namespace: langfuse
-spec:
-  secretName: langfuse-web-ssl-certificate-secret
-  issuerRef:
-    name: letsencrypt-prod
-    kind: ClusterIssuer
-  ipAddresses:
-  - ${LANGFUSE_HOSTNAME}

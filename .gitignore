@@ -18,5 +18,6 @@ tests/.obc/
 .tests-tmp/
 tests/.env
 tests/.env.local
-langfuse/
+/langfuse/
+modules/apps/langfuse/helm_chart/values.yaml
 langfuse*.tgz

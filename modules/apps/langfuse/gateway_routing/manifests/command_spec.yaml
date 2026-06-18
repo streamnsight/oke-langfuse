@@ -23,13 +23,31 @@ steps:
       echo "Applying HTTPRoute manifest..."
       echo "${CLUSTER_OCID}"
       oci ce cluster create-kubeconfig --cluster-id ${CLUSTER_OCID} --file $HOME/.kube/config --token-version 2.0.0  --kube-endpoint PRIVATE_ENDPOINT
-      template=$(< ./langfuse.HTTPRoute.yaml)
-      # patch cert-manager to enable gateway-api
-      kubectl wait --for=condition=available -n cert-manager --timeout=60s deployment/cert-manager
-      kubectl patch deployment cert-manager -n cert-manager --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--enable-gateway-api"}]'
-      kubectl wait --for=condition=available -n cert-manager --timeout=120s deployment/cert-manager
+      ENABLE_CERT_MANAGER_GATEWAY_API_VALUE='${ENABLE_CERT_MANAGER_GATEWAY_API}'
 
-      kubectl describe deployment cert-manager -n cert-manager | grep -e "--enable-gateway-api"
+      if [ "${ENABLE_CERT_MANAGER_GATEWAY_API_VALUE}" = "true" ]; then
+        # patch cert-manager to enable gateway-api
+        kubectl wait --for=condition=available -n cert-manager --timeout=60s deployment/cert-manager
+        if ! kubectl describe deployment cert-manager -n cert-manager | grep -q -e "--enable-gateway-api"; then
+          kubectl patch deployment cert-manager -n cert-manager --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--enable-gateway-api"}]'
+        fi
+        kubectl wait --for=condition=available -n cert-manager --timeout=120s deployment/cert-manager
+        kubectl describe deployment cert-manager -n cert-manager | grep -e "--enable-gateway-api"
+      fi
+
+      escape_sed_replacement() {
+        printf '%s' "$1" | sed -e 's/[\/&]/\\&/g'
+      }
+
+      TLS_MODE_VALUE='${TLS_MODE}'
+      LANGFUSE_HOSTNAME_VALUE='${LANGFUSE_HOSTNAME}'
+      TLS_MODE_ESCAPED="$(escape_sed_replacement "${TLS_MODE_VALUE}")"
+      LANGFUSE_HOSTNAME_ESCAPED="$(escape_sed_replacement "${LANGFUSE_HOSTNAME_VALUE}")"
+
+      sed \
+        -e "s|__TLS_MODE__|${TLS_MODE_ESCAPED}|g" \
+        -e "s|__LANGFUSE_HOSTNAME__|${LANGFUSE_HOSTNAME_ESCAPED}|g" \
+        ./langfuse.HTTPRoute.yaml > ./langfuse.HTTPRoute.rendered.yaml
 
       # deploy HTTPRoute and Cert request
-      eval "echo \"${template}\"" | kubectl apply -f - -n langfuse
+      kubectl apply -f ./langfuse.HTTPRoute.rendered.yaml -n langfuse

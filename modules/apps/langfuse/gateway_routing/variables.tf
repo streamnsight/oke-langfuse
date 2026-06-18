@@ -20,6 +20,21 @@ variable "cluster_id" {
   type = string
 }
 
+variable "tls_mode" {
+  type    = string
+  default = "ip_letsencrypt_http01"
+
+  validation {
+    condition     = contains(["ip_letsencrypt_http01", "oci_lb_certificate"], var.tls_mode)
+    error_message = "tls_mode must be one of: ip_letsencrypt_http01, oci_lb_certificate."
+  }
+}
+
+variable "enable_cert_manager_gateway_api" {
+  type    = bool
+  default = true
+}
+
 variable "langfuse_hostname" {
   type = string
 }

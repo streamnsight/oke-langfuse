@@ -24,7 +24,41 @@ module "langfuse_redis" {
 
 # Object storage bucket
 locals {
-  object_storage_bucket = "langfuse-${local.deploy_id}-traces"
+  object_storage_bucket                  = "langfuse-${local.deploy_id}-traces"
+  langfuse_custom_domain_fqdn_normalized = trimspace(var.langfuse_custom_domain_fqdn != null ? var.langfuse_custom_domain_fqdn : "")
+  langfuse_import_certificate            = var.langfuse_use_custom_domain && var.langfuse_certificate_source == "import_certificate_pem"
+  langfuse_tls_mode                      = var.langfuse_use_custom_domain ? "oci_lb_certificate" : "ip_letsencrypt_http01"
+}
+
+resource "terraform_data" "langfuse_custom_domain_validation" {
+  input = {
+    use_custom_domain   = var.langfuse_use_custom_domain
+    certificate_source = var.langfuse_certificate_source
+  }
+
+  lifecycle {
+    precondition {
+      condition = !var.langfuse_use_custom_domain || can(regex(
+        "^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$",
+        local.langfuse_custom_domain_fqdn_normalized
+      ))
+      error_message = "langfuse_custom_domain_fqdn must be a fully qualified domain name without a scheme or path when langfuse_use_custom_domain is true."
+    }
+
+    precondition {
+      condition     = !var.langfuse_use_custom_domain || var.langfuse_certificate_source != "existing_oci_certificate" || (var.langfuse_certificate_ocid != null && var.langfuse_certificate_ocid != "")
+      error_message = "langfuse_certificate_ocid is required when langfuse_use_custom_domain is true and langfuse_certificate_source is existing_oci_certificate."
+    }
+
+    precondition {
+      condition = !var.langfuse_use_custom_domain || var.langfuse_certificate_source != "import_certificate_pem" || (
+        var.langfuse_certificate_pem != null && var.langfuse_certificate_pem != "" &&
+        var.langfuse_private_key_pem != null && var.langfuse_private_key_pem != "" &&
+        var.langfuse_certificate_chain_pem != null && var.langfuse_certificate_chain_pem != ""
+      )
+      error_message = "langfuse_certificate_pem, langfuse_private_key_pem, and langfuse_certificate_chain_pem are required when langfuse_certificate_source is import_certificate_pem."
+    }
+  }
 }
 
 resource "oci_objectstorage_bucket" "langfuse_bucket" {
@@ -46,6 +80,33 @@ resource "oci_objectstorage_bucket" "langfuse_bucket" {
   #     time_rule_locked = var.retention_rule_time_rule_locked
   # }
   versioning = "Disabled"
+}
+
+resource "oci_certificates_management_certificate" "langfuse_custom_domain" {
+  count = local.langfuse_import_certificate ? 1 : 0
+
+  compartment_id = local.effective_cluster_compartment_id
+  name           = "langfuse-${local.deploy_id}-custom-domain"
+
+  certificate_config {
+    config_type              = "IMPORTED"
+    certificate_profile_type = "TLS_SERVER_OR_CLIENT"
+    certificate_pem          = var.langfuse_certificate_pem
+    private_key_pem          = var.langfuse_private_key_pem
+    cert_chain_pem           = var.langfuse_certificate_chain_pem
+  }
+
+  defined_tags = var.defined_tags
+
+  lifecycle {
+    ignore_changes = [defined_tags]
+  }
+}
+
+locals {
+  langfuse_effective_certificate_ocid = var.langfuse_use_custom_domain ? (
+    local.langfuse_import_certificate ? oci_certificates_management_certificate.langfuse_custom_domain[0].id : var.langfuse_certificate_ocid
+  ) : ""
 }
 
 # Create the IDCS app with the proper redirect URL
@@ -130,7 +191,11 @@ module "langfuse_gateway" {
   devops_environment_id = module.devops_target_cluster_env.environment_id
   artifact_repo_id      = oci_artifacts_repository.artifact_repository.id
   shape_name            = local.ci_shape_selected
+  tls_mode                  = local.langfuse_tls_mode
+  langfuse_certificate_ocid = local.langfuse_effective_certificate_ocid
   depends_on = [
+    terraform_data.langfuse_custom_domain_validation,
+    module.policies_before_node_pool,
     module.istio_deployment_using_addon_manager,
     module.istio_gateway_crds,
     oci_containerengine_node_pool.oci_oke_node_pool
@@ -247,13 +312,17 @@ module "langfuse_chart" {
 }
 
 locals {
-  # langfuse_url via Traefik Gateway Load Balancer
+  # langfuse_url is the hostname Langfuse uses in redirects and routes.
   langfuse_web_ip = module.langfuse_gateway.ip_address
-  langfuse_url    = local.langfuse_web_ip # "${replace(local.langfuse_web_ip, ".", "-")}.nip.io"
+  langfuse_url    = var.langfuse_use_custom_domain ? local.langfuse_custom_domain_fqdn_normalized : local.langfuse_web_ip
 }
 
 output "langfuse_url" {
   value = "https://${local.langfuse_url}/langfuse"
+}
+
+output "langfuse_load_balancer_ip" {
+  value = local.langfuse_web_ip
 }
 
 # Ingress allows automation of TLS certs creation for the LB using let's encrypt
@@ -268,10 +337,13 @@ module "langfuse_gateway_routing" {
   artifact_repo_id      = oci_artifacts_repository.artifact_repository.id
   defined_tags          = var.defined_tags
   shape_name            = local.ci_shape_selected
+  tls_mode                        = local.langfuse_tls_mode
+  enable_cert_manager_gateway_api = local.langfuse_tls_mode == "ip_letsencrypt_http01"
 
   depends_on = [
     module.cert_manager_deployment_using_addon_manager,
     module.istio_deployment_using_addon_manager,
+    module.langfuse_gateway,
     # module.langfuse_chart
   ]
 }

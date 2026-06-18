@@ -1,0 +1,24 @@
+region                             = "us-chicago-1"
+tenancy_ocid                       = "ocid1.tenancy.oc1..aaaa"
+vcn_compartment_id                 = "ocid1.compartment.oc1..aaaa"
+cluster_compartment_id             = "ocid1.compartment.oc1..aaaa"
+use_existing_vcn                   = true
+vcn_id                             = "ocid1.vcn.oc1..aaaa"
+kubernetes_endpoint_subnet         = "ocid1.subnet.oc1..aaaa"
+public_lb_subnet                   = "ocid1.subnet.oc1..bbbb"
+node_pool_count                    = 1
+np1_subnet                         = "ocid1.subnet.oc1..cccc"
+create_bastion                     = false
+langfuse_s3_access_key             = "fake-access"
+langfuse_s3_secret_key             = "fake-secret"
+ssh_public_key                     = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDdummykey"
+devops_compartment_id              = "ocid1.compartment.oc1..aaaa"
+kubernetes_version                 = "v1.34.2"
+secrets_store_vault_compartment_id = "ocid1.compartment.oc1..aaaa"
+secrets_store_vault_id             = "ocid1.vault.oc1..aaaa"
+secrets_store_key_id               = "ocid1.key.oc1..aaaa"
+
+langfuse_use_custom_domain  = true
+langfuse_custom_domain_fqdn = "https://langfuse.example.com/langfuse"
+langfuse_certificate_source = "existing_oci_certificate"
+langfuse_certificate_ocid   = "ocid1.certificate.oc1..aaaa"

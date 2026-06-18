@@ -1,0 +1,9 @@
+{
+  "mode": "plan",
+  "expectation": "fail",
+  "suites": [
+    "fast"
+  ],
+  "expected_error": "langfuse_custom_domain_fqdn must be a fully qualified domain name without a scheme or path when langfuse_use_custom_domain is true.",
+  "plan_targets": []
+}

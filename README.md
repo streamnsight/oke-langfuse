@@ -26,10 +26,11 @@ In existing-cluster mode, this stack does **not** create cluster/node pools and 
 - Cross-compartment deployments are not supported. Networking, DevOps, Vault, and the deployment must be in the same compartment.
 - If you cannot create the IDCS/IAM application due to lack of permissions, get the app information from your Domain Administrator, and have them update the redirect URL and add users after deployment (see below).
 - 🚨 The Identity Domain must have the **Access signing certificate** option **enabled**. 
-- The stack deploys a **public** load balancer. Public access is required for IDCS and Let’s Encrypt to reach the instance.
-- The load balancer uses an **IP-based** TLS certificate (domain support planned). The Gateway resource provisions the LB, then the IP is used to request a Let’s Encrypt certificate.
+- The stack deploys a **public** load balancer. Public access is required for IDCS and for the default Let’s Encrypt IP certificate flow.
+- By default, the load balancer uses an **IP-based** TLS certificate. The Gateway resource provisions the LB, then the IP is used to request a Let’s Encrypt certificate.
   - Let’s Encrypt IP certificates are **short-lived** (7 days).
   - 🚨 Blocking public access to the Langfuse UI will prevent IP certificate renewal.
+  - For production custom domains, use an OCI Certificates Service certificate OCID instead of the default IP certificate flow.
 - cert-manager is installed as an OKE add-on (OKE-managed) and its deployment is patched with `--enable-gateway-api` to support Gateway-based certificates. This is expected to become the default in a future OKE release. However, in the mean time, if the cert-manager was to update, this flag may need to be re-patched in the cert-manager deployment for the certificate to update properly. The version is fixed to v1.19.2 to avoid auto-update.
 - S3-compatible access requires a Customer Secret Key tied to a user. If that user is removed, Langfuse will lose access to the bucket.
 - IDCS is used for SSO to avoid open self-signup. Langfuse’s built-in auth allows user self-registration, which is not desirable for controlled access, and that feature is de-activated in favor of SSO.
@@ -52,6 +53,27 @@ If you need to force a custom image OCID, set `np*_image_override = true` and th
 Custom images may work, but non-OKE-ready images will usually boot and scale more slowly because Kubernetes binaries are not preinstalled.
 
 ⚠️ **Important:** When the stack creates the IDCS application, it automatically assigns the launching Resource Manager user by default. Any additional users or groups must still be assigned to the application after deployment. If you cannot create the app, ask your Identity Domain admin to assign access manually.
+
+## Custom domain and TLS certificate
+
+The stack can expose Langfuse at your own FQDN by configuring the OCI Load Balancer to use an OCI Certificates Service certificate directly.
+
+Recommended secure option:
+
+1. In the OCI Console, go to **Identity & Security** -> **Certificates**.
+2. Create or import a leaf certificate for your Langfuse FQDN, for example `langfuse.example.com`.
+3. When importing, provide the public leaf certificate, the matching private key, and the intermediate certificate chain.
+4. Wait until the certificate is **Active** and confirm it is in the same region as the Langfuse load balancer.
+5. Copy the certificate OCID.
+6. In the stack, enable `langfuse_use_custom_domain`, set `langfuse_custom_domain_fqdn`, select `existing_oci_certificate`, and paste the OCID into `langfuse_certificate_ocid`.
+
+Convenience option:
+
+- Select `import_certificate_pem` and provide `langfuse_certificate_pem`, `langfuse_private_key_pem`, and `langfuse_certificate_chain_pem`.
+- The stack imports that material into OCI Certificates Service and uses the created certificate OCID for the load balancer.
+- This is less secure than pre-importing the certificate because private key material is passed through Resource Manager/Terraform and may be retained in Terraform state or stack history.
+
+DNS is manual in this release. After deployment, use the `langfuse_load_balancer_ip` output and create or update your DNS `A` record so `langfuse_custom_domain_fqdn` points to that IP.
 
 ## Setting up the IDCS application
 

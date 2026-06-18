@@ -165,6 +165,13 @@ variableGroups:
       - private_lb_subnet
       - allow_deploy_public_lb
       - public_lb_subnet
+      - langfuse_use_custom_domain
+      - langfuse_custom_domain_fqdn
+      - langfuse_certificate_source
+      - langfuse_certificate_ocid
+      - langfuse_certificate_pem
+      - langfuse_private_key_pem
+      - langfuse_certificate_chain_pem
     visible:
       and:
         - ${use_existing_vcn}
@@ -175,12 +182,30 @@ variableGroups:
     variables:
       - allow_deploy_private_lb
       - allow_deploy_public_lb
+      - langfuse_use_custom_domain
+      - langfuse_custom_domain_fqdn
+      - langfuse_certificate_source
+      - langfuse_certificate_ocid
+      - langfuse_certificate_pem
+      - langfuse_private_key_pem
+      - langfuse_certificate_chain_pem
     visible:
       and:
         - not:
           - ${use_existing_vcn}
         - not:
           - use_existing_cluster
+
+  - title: Load Balancer
+    variables:
+      - langfuse_use_custom_domain
+      - langfuse_custom_domain_fqdn
+      - langfuse_certificate_source
+      - langfuse_certificate_ocid
+      - langfuse_certificate_pem
+      - langfuse_private_key_pem
+      - langfuse_certificate_chain_pem
+    visible: use_existing_cluster
 
   - title: "Security: Secrets Encryption"
     variables:
@@ -530,6 +555,92 @@ variables:
       and:
         - ${use_existing_vcn}
         - allow_deploy_public_lb
+
+  langfuse_use_custom_domain:
+    type: boolean
+    default: false
+    title: Use a Custom Domain for Langfuse
+    description: |
+      Use your own fully qualified domain name for the Langfuse endpoint instead of the load balancer IP address.
+      DNS record creation is manual in this release: after deployment, point this name to the Langfuse load balancer IP output.
+    required: true
+
+  langfuse_custom_domain_fqdn:
+    type: string
+    title: Langfuse Custom Domain FQDN
+    description: |
+      Fully qualified domain name for Langfuse, such as langfuse.example.com. Do not include https:// or a path.
+      The certificate you provide or import must cover this name.
+    required: true
+    visible: langfuse_use_custom_domain
+
+  langfuse_certificate_source:
+    type: enum
+    title: Langfuse Certificate Source
+    description: |
+      Select Existing OCI Certificate to provide a certificate OCID from OCI Certificates Service. This is recommended because the private key stays in OCI.
+      Select Import PEM in Stack only for convenience. That option requires passing private key material to Resource Manager/Terraform, which is not ideal because sensitive values may still be retained in Terraform state or stack history.
+    enum:
+      - existing_oci_certificate
+      - import_certificate_pem
+    default: existing_oci_certificate
+    required: true
+    visible: langfuse_use_custom_domain
+
+  langfuse_certificate_ocid:
+    type: string
+    title: OCI Certificate OCID
+    description: |
+      OCID of an active leaf certificate in OCI Certificates Service. This is the recommended option for production because the stack only receives the certificate OCID, not the private key.
+    required: true
+    visible:
+      and:
+        - langfuse_use_custom_domain
+        - eq:
+          - langfuse_certificate_source
+          - existing_oci_certificate
+
+  langfuse_certificate_pem:
+    type: string
+    title: Leaf Certificate PEM
+    description: |
+      PEM-encoded public leaf certificate for the custom domain. This is used only when the stack imports the certificate into OCI Certificates Service.
+    sensitive: true
+    required: true
+    visible:
+      and:
+        - langfuse_use_custom_domain
+        - eq:
+          - langfuse_certificate_source
+          - import_certificate_pem
+
+  langfuse_private_key_pem:
+    type: string
+    title: Private Key PEM
+    description: |
+      PEM-encoded private key matching the leaf certificate. Passing private keys through Resource Manager/Terraform is less secure than pre-importing the certificate in OCI Certificates Service because sensitive values can be retained in Terraform state or stack history.
+    sensitive: true
+    required: true
+    visible:
+      and:
+        - langfuse_use_custom_domain
+        - eq:
+          - langfuse_certificate_source
+          - import_certificate_pem
+
+  langfuse_certificate_chain_pem:
+    type: string
+    title: Certificate Chain PEM
+    description: |
+      PEM-encoded intermediate certificate chain for the leaf certificate. Include the issuing intermediate certificates; the root CA is usually not required.
+    sensitive: true
+    required: true
+    visible:
+      and:
+        - langfuse_use_custom_domain
+        - eq:
+          - langfuse_certificate_source
+          - import_certificate_pem
 
   # Node Pool 1
   np1_subnet:
@@ -1624,8 +1735,13 @@ outputGroups:
 outputs:
   langfuse_url:
     type: copyableString
-    title: Open AI Compatibility Gateway Endpoint URL
-    displayText: Use this URL with profile 'openai' to create an LLM connection to OCI models in LangFuse.
+    title: Langfuse URL
+    displayText: Open Langfuse with this URL.
+    visible: true
+  langfuse_load_balancer_ip:
+    type: copyableString
+    title: Langfuse Load Balancer IP
+    displayText: Point your custom domain DNS A record to this IP address.
     visible: true
   oci_genai_gateway_endpoint_url:
     type: copyableString
