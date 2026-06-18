@@ -438,7 +438,7 @@ variables:
     type: oci:kubernetes:versions:id
     title: "Kubernetes Version"
     required: true
-    default: "v1.35.2"
+    default: "v1.36.0"
     description: The Kubernetes version for the cluster.
     dependsOn:
       compartmentId: cluster_compartment_id
@@ -1363,7 +1363,7 @@ variables:
     type: string
     title: Cert-Manager Version
     description: Version of Cert-Manager.
-    default: "v1.19.2"
+    default: "v1.20.2+260412"
     visible: false
 
   cert_manager_nb_replicas:
@@ -1408,15 +1408,17 @@ variables:
     type: enum
     # enumerated values
     enum:
+    - "1.5.35"
     - "1.5.30"
     - "1.5.27"
     - "1.5.22"
+    - "1.5.17"
     # - "latest" # TODO support latest version and look up the chart version
     title: LangFuse Helm Chart Version
     description: | 
       Version of the LangFuse Helm chart.
       Supported versions are listed. 
-    default: "1.5.30"
+    default: "1.5.35"
 
   # Database Section
   postgresql_shape:
@@ -1494,9 +1496,11 @@ variables:
     type: boolean
     title: Deploy OpenAI Compatibility Gateway
     description: |
-      Deploy an OpenAI Comaptibility gateway to use the Langfuse LLM-as-a-Judge features.
+      Deploy an OpenAI Comaptibility gateway to use the Langfuse LLM-as-a-Judge features with any OCI model.
       See https://github.com/jin38324/OCI_GenAI_access_gateway for more details
-    default: true
+      This is no longer necessary if you use OCI API Keys and OpenAI compatible models (openai, meta, xai, gemini).
+      It is only required if you wish to use Cohere models.
+    default: false
     visible: true
 
   create_idcs_app:
