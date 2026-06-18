@@ -159,7 +159,7 @@ variableGroups:
       - np3_add_tag
       - np3_tags
 
-  - title: Services Load Balancing
+  - title: Load Balancer
     variables:
       - allow_deploy_private_lb
       - private_lb_subnet
@@ -171,7 +171,7 @@ variableGroups:
         - not:
           - use_existing_cluster
 
-  - title: Services Load Balancing
+  - title: Load Balancer
     variables:
       - allow_deploy_private_lb
       - allow_deploy_public_lb
@@ -674,7 +674,10 @@ variables:
   np1_image_override:
     type: boolean
     title: Override Image Selection
-    description: Enable to bypass automatic image selection and force a custom image OCID for this node pool.
+    description: |
+      Enable to bypass automatic image selection and force a custom image OCID for this node pool.
+      Do this at your own risk. You must ensure the cloud-init script in this repo runs properly on your custom image, 
+      so the stack can load container images from OCIR.
     default: false
 
   np1_enable_autoscaler:
@@ -901,7 +904,10 @@ variables:
   np2_image_override:
     type: boolean
     title: Override Image Selection
-    description: Enable to bypass automatic image selection and force a custom image OCID for this node pool.
+    description: |
+      Enable to bypass automatic image selection and force a custom image OCID for this node pool.
+      Do this at your own risk. You must ensure the cloud-init script in this repo runs properly on your custom image, 
+      so the stack can load container images from OCIR.
     default: false
 
   np2_enable_autoscaler:
@@ -1120,7 +1126,10 @@ variables:
   np3_image_override:
     type: boolean
     title: Override Image Selection
-    description: Enable to bypass automatic image selection and force a custom image OCID for this node pool.
+    description: |
+      Enable to bypass automatic image selection and force a custom image OCID for this node pool.
+      Do this at your own risk. You must ensure the cloud-init script in this repo runs properly on your custom image, 
+      so the stack can load container images from OCIR.
     default: false
 
   np3_enable_autoscaler:
