@@ -159,7 +159,7 @@ variableGroups:
       - np3_add_tag
       - np3_tags
 
-  - title: Services Load Balancing
+  - title: Load Balancer
     variables:
       - allow_deploy_private_lb
       - private_lb_subnet
@@ -171,7 +171,7 @@ variableGroups:
         - not:
           - use_existing_cluster
 
-  - title: Services Load Balancing
+  - title: Load Balancer
     variables:
       - allow_deploy_private_lb
       - allow_deploy_public_lb
@@ -438,7 +438,7 @@ variables:
     type: oci:kubernetes:versions:id
     title: "Kubernetes Version"
     required: true
-    default: "v1.35.2"
+    default: "v1.36.0"
     description: The Kubernetes version for the cluster.
     dependsOn:
       compartmentId: cluster_compartment_id
@@ -674,7 +674,10 @@ variables:
   np1_image_override:
     type: boolean
     title: Override Image Selection
-    description: Enable to bypass automatic image selection and force a custom image OCID for this node pool.
+    description: |
+      Enable to bypass automatic image selection and force a custom image OCID for this node pool.
+      Do this at your own risk. You must ensure the cloud-init script in this repo runs properly on your custom image, 
+      so the stack can load container images from OCIR.
     default: false
 
   np1_enable_autoscaler:
@@ -901,7 +904,10 @@ variables:
   np2_image_override:
     type: boolean
     title: Override Image Selection
-    description: Enable to bypass automatic image selection and force a custom image OCID for this node pool.
+    description: |
+      Enable to bypass automatic image selection and force a custom image OCID for this node pool.
+      Do this at your own risk. You must ensure the cloud-init script in this repo runs properly on your custom image, 
+      so the stack can load container images from OCIR.
     default: false
 
   np2_enable_autoscaler:
@@ -1120,7 +1126,10 @@ variables:
   np3_image_override:
     type: boolean
     title: Override Image Selection
-    description: Enable to bypass automatic image selection and force a custom image OCID for this node pool.
+    description: |
+      Enable to bypass automatic image selection and force a custom image OCID for this node pool.
+      Do this at your own risk. You must ensure the cloud-init script in this repo runs properly on your custom image, 
+      so the stack can load container images from OCIR.
     default: false
 
   np3_enable_autoscaler:
@@ -1363,7 +1372,7 @@ variables:
     type: string
     title: Cert-Manager Version
     description: Version of Cert-Manager.
-    default: "v1.19.2"
+    default: "v1.20.2+260412"
     visible: false
 
   cert_manager_nb_replicas:
@@ -1408,15 +1417,17 @@ variables:
     type: enum
     # enumerated values
     enum:
+    - "1.5.35"
     - "1.5.30"
     - "1.5.27"
     - "1.5.22"
+    - "1.5.17"
     # - "latest" # TODO support latest version and look up the chart version
     title: LangFuse Helm Chart Version
     description: | 
       Version of the LangFuse Helm chart.
       Supported versions are listed. 
-    default: "1.5.30"
+    default: "1.5.35"
 
   # Database Section
   postgresql_shape:
@@ -1494,9 +1505,11 @@ variables:
     type: boolean
     title: Deploy OpenAI Compatibility Gateway
     description: |
-      Deploy an OpenAI Comaptibility gateway to use the Langfuse LLM-as-a-Judge features.
+      Deploy an OpenAI Comaptibility gateway to use the Langfuse LLM-as-a-Judge features with any OCI model.
       See https://github.com/jin38324/OCI_GenAI_access_gateway for more details
-    default: true
+      This is no longer necessary if you use OCI API Keys and OpenAI compatible models (openai, meta, xai, gemini).
+      It is only required if you wish to use Cohere models.
+    default: false
     visible: true
 
   create_idcs_app:

@@ -87,38 +87,161 @@ pushd langfuse
 # checkout latest tag branch
 git checkout "v${LANGFUSE_VERSION}"
 
+MIN_OPENID_CLIENT_VERSION="5.6.5"
+OPENID_CLIENT_RANGE="^${MIN_OPENID_CLIENT_VERSION}"
+
+resolve_openid_client_version() {
+    { pnpm list openid-client -r --depth 10 --json 2>/dev/null || true; } \
+        | jq -r '
+            .. | objects |
+            (
+                .dependencies?."openid-client"?.version?,
+                (select(.name? == "openid-client") | .version?)
+            ) |
+            select(. != null)
+        ' \
+        | sort -V \
+        | tail -1
+}
+
+version_lt() {
+    local actual="$1"
+    local minimum="$2"
+
+    [ -n "$actual" ] || return 0
+    [ "$actual" != "$minimum" ] && [ "$(printf '%s\n%s\n' "$actual" "$minimum" | sort -V | head -1)" = "$actual" ]
+}
+
+update_pnpm_workspace_override() {
+    local package_name="$1"
+    local package_version="$2"
+    local tmp_file
+
+    tmp_file="$(mktemp)"
+    awk -v key="$package_name" -v value="$package_version" '
+        function is_root_line(line) {
+            return line !~ /^[[:space:]]/
+        }
+
+        function write_override_if_missing() {
+            if (in_overrides && !key_written) {
+                print "  " key ": " value
+                key_written = 1
+            }
+        }
+
+        BEGIN {
+            in_overrides = 0
+            overrides_found = 0
+            key_written = 0
+        }
+
+        /^overrides:[[:space:]]*$/ {
+            overrides_found = 1
+            in_overrides = 1
+            print
+            next
+        }
+
+        {
+            if (in_overrides) {
+                if (is_root_line($0) && $0 !~ /^$/ && $0 !~ /^#/) {
+                    write_override_if_missing()
+                    in_overrides = 0
+                } else if ($0 ~ "^[[:space:]]+" key ":[[:space:]]*") {
+                    print "  " key ": " value
+                    key_written = 1
+                    next
+                }
+            }
+            print
+        }
+
+        END {
+            if (in_overrides) {
+                write_override_if_missing()
+            } else if (!overrides_found) {
+                print "overrides:"
+                print "  " key ": " value
+            }
+        }
+    ' pnpm-workspace.yaml > "$tmp_file"
+    mv "$tmp_file" pnpm-workspace.yaml
+}
+
+ensure_openid_client_override() {
+    if [ -f pnpm-workspace.yaml ]; then
+        echo "Ensuring pnpm-workspace.yaml override for openid-client ${OPENID_CLIENT_RANGE}" >&2
+        update_pnpm_workspace_override "openid-client" "$OPENID_CLIENT_RANGE"
+    else
+        echo "Ensuring legacy package.json pnpm override for openid-client ${OPENID_CLIENT_RANGE}" >&2
+        jq --arg version "$OPENID_CLIENT_RANGE" \
+            '.pnpm.overrides["openid-client"] = $version' \
+            package.json > package.new.json
+        mv package.new.json package.json
+    fi
+}
+
+ensure_supported_openid_client() {
+    local openid_client_version
+
+    openid_client_version="$(resolve_openid_client_version)"
+    echo "Resolved openid-client version: ${openid_client_version:-missing}" >&2
+
+    if [ -z "$openid_client_version" ] || version_lt "$openid_client_version" "$MIN_OPENID_CLIENT_VERSION"; then
+        ensure_openid_client_override
+        pnpm install --no-frozen-lockfile --loglevel=warn
+        openid_client_version="$(resolve_openid_client_version)"
+        echo "Resolved openid-client version after override: ${openid_client_version:-missing}" >&2
+    fi
+
+    if [ -z "$openid_client_version" ] || version_lt "$openid_client_version" "$MIN_OPENID_CLIENT_VERSION"; then
+        echo "openid-client must resolve to >= ${MIN_OPENID_CLIENT_VERSION}; got '${openid_client_version:-missing}'" >&2
+        exit 1
+    fi
+
+    printf '%s\n' "$openid_client_version"
+}
+
 
 if [ "$BUILD_LANGFUSE_IMAGE" -eq 1 ]; then
     ## patch Langfuse for IDCS. That requires installing the JS dependencies, patching and updating the lock file
 
-    # add override of the openid-client package (which is a 3rd party dependency of NextJs Auth)
-    cat package.json | jq '.pnpm.overrides += {"openid-client": "5.6.5"}' > package.new.json
-    mv package.new.json package.json
     jq '.devDependencies."release-it" = "^19.0.5"' package.json > package.new.json
     mv package.new.json package.json
 
     # add follow-redirects package
-    pnpm add follow-redirects@^1.15.11 -w
+    pnpm add follow-redirects@^1.16.0 -w
 
     cat package.json
 
     # install node modules locally so we can patch openid-client and update the package json to build the container image from lock file
     pnpm install --no-frozen-lockfile --loglevel=warn
 
+    export OPENID_CLIENT_VERSION
+    OPENID_CLIENT_VERSION="$(ensure_supported_openid_client)"
+    echo "Patching openid-client version: ${OPENID_CLIENT_VERSION}"
 
-    # get the location of the temporary openid-client module
-    export TMP_FOLDER=$(pnpm patch openid-client@5.6.5 | grep "pnpm patch-commit" | awk -F" " '{print $3}' | tr -d "'")
+    # get a deterministic location for the temporary openid-client module
+    export TMP_FOLDER
+    TMP_FOLDER="$(mktemp -d)"
+    pnpm patch "openid-client@${OPENID_CLIENT_VERSION}" --edit-dir "${TMP_FOLDER}"
 
     # patch the code of the openid-client to allow for 302 redirects to work (used by IDCS)
-    sed -i '/const http = /d' ${TMP_FOLDER}/lib/helpers/request.js
-    sed -i '/const https = /d' ${TMP_FOLDER}/lib/helpers/request.js
-    sed -i "5i\const { http, https } = require('follow-redirects');" ${TMP_FOLDER}/lib/helpers/request.js
+    REQUEST_JS="${TMP_FOLDER}/lib/helpers/request.js"
+    if [ ! -f "$REQUEST_JS" ]; then
+        echo "openid-client@${OPENID_CLIENT_VERSION} does not expose lib/helpers/request.js; patch needs review" >&2
+        exit 1
+    fi
+    sed -i '/const http = /d' "$REQUEST_JS"
+    sed -i '/const https = /d' "$REQUEST_JS"
+    sed -i "5i\const { http, https } = require('follow-redirects');" "$REQUEST_JS"
 
     # commit the openid-client patch
-    pnpm patch-commit ${TMP_FOLDER}
+    pnpm patch-commit "${TMP_FOLDER}"
 
     ## update the lock file
-    pnpm update --loglevel=warn
+    pnpm install --no-frozen-lockfile --loglevel=warn
 
     # clean up the node_modules
     rm -rf node_modules

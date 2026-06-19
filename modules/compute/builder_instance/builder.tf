@@ -41,6 +41,9 @@ resource "oci_core_instance" "builder" {
     boot_volume_vpus_per_gb = 10
   }
   preserve_boot_volume = false
+  instance_options {
+    are_legacy_imds_endpoints_disabled = true
+  }
 }
 
 # Policy for this builder instance
