@@ -26,13 +26,16 @@ module "langfuse_redis" {
 locals {
   object_storage_bucket                  = "langfuse-${local.deploy_id}-traces"
   langfuse_custom_domain_fqdn_normalized = trimspace(var.langfuse_custom_domain_fqdn != null ? var.langfuse_custom_domain_fqdn : "")
-  langfuse_import_certificate            = var.langfuse_use_custom_domain && var.langfuse_certificate_source == "import_certificate_pem"
-  langfuse_tls_mode                      = var.langfuse_use_custom_domain ? "oci_lb_certificate" : "ip_letsencrypt_http01"
+  langfuse_tls_mode                      = var.langfuse_tls_mode != null ? var.langfuse_tls_mode : (var.langfuse_use_custom_domain ? var.langfuse_certificate_source : "ip_letsencrypt_http01")
+  langfuse_import_certificate            = var.langfuse_use_custom_domain && local.langfuse_tls_mode == "import_certificate_pem"
+  langfuse_uses_oci_certificate          = var.langfuse_use_custom_domain && contains(["existing_oci_certificate", "import_certificate_pem"], local.langfuse_tls_mode)
+  langfuse_uses_letsencrypt              = contains(["ip_letsencrypt_http01", "domain_letsencrypt_http01"], local.langfuse_tls_mode)
+  langfuse_protocol                      = local.langfuse_tls_mode == "none" ? "http" : "https"
 }
 
 resource "terraform_data" "langfuse_custom_domain_validation" {
   input = {
-    use_custom_domain   = var.langfuse_use_custom_domain
+    use_custom_domain  = var.langfuse_use_custom_domain
     certificate_source = var.langfuse_certificate_source
   }
 
@@ -46,17 +49,32 @@ resource "terraform_data" "langfuse_custom_domain_validation" {
     }
 
     precondition {
-      condition     = !var.langfuse_use_custom_domain || var.langfuse_certificate_source != "existing_oci_certificate" || (var.langfuse_certificate_ocid != null && var.langfuse_certificate_ocid != "")
-      error_message = "langfuse_certificate_ocid is required when langfuse_use_custom_domain is true and langfuse_certificate_source is existing_oci_certificate."
+      condition     = local.langfuse_tls_mode != "ip_letsencrypt_http01" || !var.langfuse_use_custom_domain
+      error_message = "langfuse_tls_mode ip_letsencrypt_http01 can only be used when langfuse_use_custom_domain is false."
     }
 
     precondition {
-      condition = !var.langfuse_use_custom_domain || var.langfuse_certificate_source != "import_certificate_pem" || (
+      condition     = local.langfuse_tls_mode != "domain_letsencrypt_http01" || var.langfuse_use_custom_domain
+      error_message = "langfuse_tls_mode domain_letsencrypt_http01 requires langfuse_use_custom_domain to be true."
+    }
+
+    precondition {
+      condition     = !contains(["existing_oci_certificate", "import_certificate_pem"], local.langfuse_tls_mode) || var.langfuse_use_custom_domain
+      error_message = "langfuse_tls_mode existing_oci_certificate and import_certificate_pem require langfuse_use_custom_domain to be true."
+    }
+
+    precondition {
+      condition     = local.langfuse_tls_mode != "existing_oci_certificate" || (var.langfuse_certificate_ocid != null && var.langfuse_certificate_ocid != "")
+      error_message = "langfuse_certificate_ocid is required when langfuse_tls_mode is existing_oci_certificate."
+    }
+
+    precondition {
+      condition = local.langfuse_tls_mode != "import_certificate_pem" || (
         var.langfuse_certificate_pem != null && var.langfuse_certificate_pem != "" &&
         var.langfuse_private_key_pem != null && var.langfuse_private_key_pem != "" &&
         var.langfuse_certificate_chain_pem != null && var.langfuse_certificate_chain_pem != ""
       )
-      error_message = "langfuse_certificate_pem, langfuse_private_key_pem, and langfuse_certificate_chain_pem are required when langfuse_certificate_source is import_certificate_pem."
+      error_message = "langfuse_certificate_pem, langfuse_private_key_pem, and langfuse_certificate_chain_pem are required when langfuse_tls_mode is import_certificate_pem."
     }
   }
 }
@@ -104,7 +122,7 @@ resource "oci_certificates_management_certificate" "langfuse_custom_domain" {
 }
 
 locals {
-  langfuse_effective_certificate_ocid = var.langfuse_use_custom_domain ? (
+  langfuse_effective_certificate_ocid = local.langfuse_uses_oci_certificate ? (
     local.langfuse_import_certificate ? oci_certificates_management_certificate.langfuse_custom_domain[0].id : var.langfuse_certificate_ocid
   ) : ""
 }
@@ -115,7 +133,7 @@ module "langfuse_idcs_app" {
   source             = "./modules/iam/idcs_app"
   identity_domain_id = var.identity_domain_id
   display_name       = local.cluster_name_sanitized
-  redirect_url       = "https://${local.langfuse_url}/langfuse/api/auth/callback/custom"
+  redirect_url       = "${local.langfuse_protocol}://${local.langfuse_url}/langfuse/api/auth/callback/custom"
 }
 
 
@@ -183,14 +201,14 @@ module "build_langfuse_image" {
 
 # deploy the load balancer
 module "langfuse_gateway" {
-  source                = "./modules/apps/langfuse/gateway"
-  compartment_id        = local.effective_cluster_compartment_id
-  cluster_id            = local.target_cluster_id
-  subnet_id             = local.workload_subnet_id
-  devops_project_id     = module.devops_setup.project_id
-  devops_environment_id = module.devops_target_cluster_env.environment_id
-  artifact_repo_id      = oci_artifacts_repository.artifact_repository.id
-  shape_name            = local.ci_shape_selected
+  source                    = "./modules/apps/langfuse/gateway"
+  compartment_id            = local.effective_cluster_compartment_id
+  cluster_id                = local.target_cluster_id
+  subnet_id                 = local.workload_subnet_id
+  devops_project_id         = module.devops_setup.project_id
+  devops_environment_id     = module.devops_target_cluster_env.environment_id
+  artifact_repo_id          = oci_artifacts_repository.artifact_repository.id
+  shape_name                = local.ci_shape_selected
   tls_mode                  = local.langfuse_tls_mode
   langfuse_certificate_ocid = local.langfuse_effective_certificate_ocid
   depends_on = [
@@ -291,6 +309,7 @@ module "langfuse_chart" {
   deploy_id                                = local.deploy_id
   langfuse_helm_chart_version              = var.langfuse_helm_chart_version
   langfuse_hostname                        = local.langfuse_url
+  langfuse_protocol                        = local.langfuse_protocol
   secrets_store_vault_compartment_id       = var.secrets_store_vault_compartment_id
   secrets_store_vault_id                   = var.secrets_store_vault_id
   secrets_store_key_id                     = var.secrets_store_key_id
@@ -318,7 +337,7 @@ locals {
 }
 
 output "langfuse_url" {
-  value = "https://${local.langfuse_url}/langfuse"
+  value = "${local.langfuse_protocol}://${local.langfuse_url}/langfuse"
 }
 
 output "langfuse_load_balancer_ip" {
@@ -327,18 +346,18 @@ output "langfuse_load_balancer_ip" {
 
 # Ingress allows automation of TLS certs creation for the LB using let's encrypt
 module "langfuse_gateway_routing" {
-  source                = "./modules/apps/langfuse/gateway_routing"
-  compartment_id        = local.effective_cluster_compartment_id
-  cluster_id            = local.target_cluster_id
-  subnet_id             = local.workload_subnet_id
-  devops_project_id     = module.devops_setup.project_id
-  devops_environment_id = module.devops_target_cluster_env.environment_id
-  langfuse_hostname     = local.langfuse_url
-  artifact_repo_id      = oci_artifacts_repository.artifact_repository.id
-  defined_tags          = var.defined_tags
-  shape_name            = local.ci_shape_selected
+  source                          = "./modules/apps/langfuse/gateway_routing"
+  compartment_id                  = local.effective_cluster_compartment_id
+  cluster_id                      = local.target_cluster_id
+  subnet_id                       = local.workload_subnet_id
+  devops_project_id               = module.devops_setup.project_id
+  devops_environment_id           = module.devops_target_cluster_env.environment_id
+  langfuse_hostname               = local.langfuse_url
+  artifact_repo_id                = oci_artifacts_repository.artifact_repository.id
+  defined_tags                    = var.defined_tags
+  shape_name                      = local.ci_shape_selected
   tls_mode                        = local.langfuse_tls_mode
-  enable_cert_manager_gateway_api = local.langfuse_tls_mode == "ip_letsencrypt_http01"
+  enable_cert_manager_gateway_api = local.langfuse_uses_letsencrypt
 
   depends_on = [
     module.cert_manager_deployment_using_addon_manager,

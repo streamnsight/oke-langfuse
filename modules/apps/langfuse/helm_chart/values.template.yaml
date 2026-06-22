@@ -63,7 +63,7 @@ langfuse:
         #       name: langfuse-user  # referencing an existing secret
         #       key: password
         - name: NEXTAUTH_URL
-          value: https://${LANGFUSE_HOSTNAME}/langfuse/api/auth
+          value: ${LANGFUSE_PROTOCOL}://${LANGFUSE_HOSTNAME}/langfuse/api/auth
         - name: AUTH_CUSTOM_CLIENT_ID
           valueFrom:
             secretKeyRef:
@@ -179,7 +179,7 @@ langfuse:
   #NextAuth configuration
   nextauth:
     # -- When deploying to production, set the `nextauth.url` value to the canonical URL of your site.
-    url: https://${LANGFUSE_HOSTNAME}/langfuse/api/auth
+    url: ${LANGFUSE_PROTOCOL}://${LANGFUSE_HOSTNAME}/langfuse/api/auth
     secret:
     # -- Used to encrypt the NextAuth.js JWT, and to hash email verification tokens. Can be configured by value or existing secret reference.
       secretKeyRef:

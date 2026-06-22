@@ -115,6 +115,16 @@ variable "langfuse_hostname" {
   type = string
 }
 
+variable "langfuse_protocol" {
+  type    = string
+  default = "https"
+
+  validation {
+    condition     = contains(["http", "https"], var.langfuse_protocol)
+    error_message = "langfuse_protocol must be either http or https."
+  }
+}
+
 variable "object_storage_bucket" {
   type = string
 }

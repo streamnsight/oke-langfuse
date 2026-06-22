@@ -377,6 +377,23 @@ variable "langfuse_custom_domain_fqdn" {
   description = "Custom fully qualified domain name for Langfuse. Do not include a scheme or path."
 }
 
+variable "langfuse_tls_mode" {
+  type        = string
+  default     = null
+  description = "TLS mode for the Langfuse endpoint. Null preserves legacy behavior. DNS01 is reserved for a future release and is not currently accepted."
+
+  validation {
+    condition = var.langfuse_tls_mode == null || contains([
+      "none",
+      "ip_letsencrypt_http01",
+      "domain_letsencrypt_http01",
+      "existing_oci_certificate",
+      "import_certificate_pem"
+    ], var.langfuse_tls_mode)
+    error_message = "langfuse_tls_mode must be null or one of: none, ip_letsencrypt_http01, domain_letsencrypt_http01, existing_oci_certificate, import_certificate_pem."
+  }
+}
+
 variable "langfuse_certificate_source" {
   type        = string
   default     = "existing_oci_certificate"

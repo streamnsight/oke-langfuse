@@ -165,13 +165,6 @@ variableGroups:
       - private_lb_subnet
       - allow_deploy_public_lb
       - public_lb_subnet
-      - langfuse_use_custom_domain
-      - langfuse_custom_domain_fqdn
-      - langfuse_certificate_source
-      - langfuse_certificate_ocid
-      - langfuse_certificate_pem
-      - langfuse_private_key_pem
-      - langfuse_certificate_chain_pem
     visible:
       and:
         - ${use_existing_vcn}
@@ -182,13 +175,6 @@ variableGroups:
     variables:
       - allow_deploy_private_lb
       - allow_deploy_public_lb
-      - langfuse_use_custom_domain
-      - langfuse_custom_domain_fqdn
-      - langfuse_certificate_source
-      - langfuse_certificate_ocid
-      - langfuse_certificate_pem
-      - langfuse_private_key_pem
-      - langfuse_certificate_chain_pem
     visible:
       and:
         - not:
@@ -196,16 +182,21 @@ variableGroups:
         - not:
           - use_existing_cluster
 
-  - title: Load Balancer
+  - title: Langfuse Domain
     variables:
       - langfuse_use_custom_domain
       - langfuse_custom_domain_fqdn
+    visible: true
+
+  - title: Langfuse TLS
+    variables:
+      - langfuse_tls_mode
       - langfuse_certificate_source
       - langfuse_certificate_ocid
       - langfuse_certificate_pem
       - langfuse_private_key_pem
       - langfuse_certificate_chain_pem
-    visible: use_existing_cluster
+    visible: true
 
   - title: "Security: Secrets Encryption"
     variables:
@@ -570,22 +561,36 @@ variables:
     title: Langfuse Custom Domain FQDN
     description: |
       Fully qualified domain name for Langfuse, such as langfuse.example.com. Do not include https:// or a path.
-      The certificate you provide or import must cover this name.
+      If you choose Let’s Encrypt HTTP01 for TLS, point this name to the Langfuse load balancer IP after the first deployment.
     required: true
     visible: langfuse_use_custom_domain
 
+  langfuse_tls_mode:
+    type: enum
+    title: Langfuse TLS Mode
+    description: |
+      Select how TLS is handled for Langfuse. Let’s Encrypt HTTP01 for custom domains requires DNS to point to the load balancer IP and port 80 to be reachable.
+      DNS01 automation is planned for a later release.
+    enum:
+      - none
+      - ip_letsencrypt_http01
+      - domain_letsencrypt_http01
+      - existing_oci_certificate
+      - import_certificate_pem
+    default: ip_letsencrypt_http01
+    required: false
+
   langfuse_certificate_source:
     type: enum
-    title: Langfuse Certificate Source
+    title: Legacy Langfuse Certificate Source
     description: |
-      Select Existing OCI Certificate to provide a certificate OCID from OCI Certificates Service. This is recommended because the private key stays in OCI.
-      Select Import PEM in Stack only for convenience. That option requires passing private key material to Resource Manager/Terraform, which is not ideal because sensitive values may still be retained in Terraform state or stack history.
+      Legacy compatibility input used only when langfuse_tls_mode is not set. New deployments should use Langfuse TLS Mode.
     enum:
       - existing_oci_certificate
       - import_certificate_pem
     default: existing_oci_certificate
-    required: true
-    visible: langfuse_use_custom_domain
+    required: false
+    visible: false
 
   langfuse_certificate_ocid:
     type: string
@@ -597,7 +602,7 @@ variables:
       and:
         - langfuse_use_custom_domain
         - eq:
-          - langfuse_certificate_source
+          - langfuse_tls_mode
           - existing_oci_certificate
 
   langfuse_certificate_pem:
@@ -611,7 +616,7 @@ variables:
       and:
         - langfuse_use_custom_domain
         - eq:
-          - langfuse_certificate_source
+          - langfuse_tls_mode
           - import_certificate_pem
 
   langfuse_private_key_pem:
@@ -625,7 +630,7 @@ variables:
       and:
         - langfuse_use_custom_domain
         - eq:
-          - langfuse_certificate_source
+          - langfuse_tls_mode
           - import_certificate_pem
 
   langfuse_certificate_chain_pem:
@@ -639,7 +644,7 @@ variables:
       and:
         - langfuse_use_custom_domain
         - eq:
-          - langfuse_certificate_source
+          - langfuse_tls_mode
           - import_certificate_pem
 
   # Node Pool 1

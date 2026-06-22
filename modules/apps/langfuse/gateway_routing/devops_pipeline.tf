@@ -3,8 +3,11 @@
 
 locals {
   gateway_routing_manifest_paths = {
-    ip_letsencrypt_http01 = "${path.module}/manifests/langfuse.HTTPRoute.ip-letsencrypt-http01.yaml"
-    oci_lb_certificate    = "${path.module}/manifests/langfuse.HTTPRoute.oci-lb-certificate.yaml"
+    none                      = "${path.module}/manifests/langfuse.HTTPRoute.none.yaml"
+    ip_letsencrypt_http01     = "${path.module}/manifests/langfuse.HTTPRoute.ip-letsencrypt-http01.yaml"
+    domain_letsencrypt_http01 = "${path.module}/manifests/langfuse.HTTPRoute.domain-letsencrypt-http01.yaml"
+    existing_oci_certificate  = "${path.module}/manifests/langfuse.HTTPRoute.oci-lb-certificate.yaml"
+    import_certificate_pem    = "${path.module}/manifests/langfuse.HTTPRoute.oci-lb-certificate.yaml"
   }
 
   gateway_routing_manifest_path = local.gateway_routing_manifest_paths[var.tls_mode]
