@@ -377,13 +377,36 @@ variable "langfuse_custom_domain_fqdn" {
   description = "Custom fully qualified domain name for Langfuse. Do not include a scheme or path."
 }
 
+variable "langfuse_enable_tls" {
+  type        = bool
+  default     = true
+  description = "Enable TLS for the Langfuse endpoint. When false, the endpoint uses HTTP."
+}
+
+variable "langfuse_has_provided_certificate" {
+  type        = bool
+  default     = false
+  description = "Use a provided certificate for a custom Langfuse domain instead of requesting a Let's Encrypt certificate."
+}
+
+variable "langfuse_letsencrypt_challenge_type" {
+  type        = string
+  default     = "http01"
+  description = "Let's Encrypt ACME challenge type for custom-domain certificates. DNS01 is reserved for a future release."
+
+  validation {
+    condition     = contains(["http01"], var.langfuse_letsencrypt_challenge_type)
+    error_message = "langfuse_letsencrypt_challenge_type must be http01. DNS01 is reserved for a future release."
+  }
+}
+
 variable "langfuse_tls_mode" {
   type        = string
   default     = null
   description = "TLS mode for the Langfuse endpoint. Null preserves legacy behavior. DNS01 is reserved for a future release and is not currently accepted."
 
   validation {
-    condition = var.langfuse_tls_mode == null || contains([
+    condition = var.langfuse_tls_mode == null ? true : contains([
       "none",
       "ip_letsencrypt_http01",
       "domain_letsencrypt_http01",

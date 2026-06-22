@@ -17,20 +17,25 @@ vcn_cidr         = "10.0.0.0/16"
 
 ## Langfuse custom domain (optional)
 # Recommended: pre-import the certificate in OCI Certificates Service and provide only the OCID.
-# langfuse_use_custom_domain  = true
-# langfuse_custom_domain_fqdn = "langfuse.example.com"
-# langfuse_tls_mode           = "existing_oci_certificate"
-# langfuse_certificate_ocid   = "ocid1.certificate.oc1.."
+# langfuse_use_custom_domain       = true
+# langfuse_custom_domain_fqdn      = "langfuse.example.com"
+# langfuse_enable_tls              = true
+# langfuse_has_provided_certificate = true
+# langfuse_certificate_source      = "existing_oci_certificate"
+# langfuse_certificate_ocid        = "ocid1.certificate.oc1.."
 
 # Let’s Encrypt HTTP01 option for custom domains.
 # Create or update the DNS A record after deployment so the custom domain points to langfuse_load_balancer_ip.
-# langfuse_use_custom_domain  = true
-# langfuse_custom_domain_fqdn = "langfuse.example.com"
-# langfuse_tls_mode           = "domain_letsencrypt_http01"
+# langfuse_use_custom_domain        = true
+# langfuse_custom_domain_fqdn       = "langfuse.example.com"
+# langfuse_enable_tls               = true
+# langfuse_has_provided_certificate = false
+# langfuse_letsencrypt_challenge_type = "http01"
 
 # Convenience option: let the stack import PEM material into OCI Certificates Service.
 # This passes private key material through Terraform and may retain it in state.
-# langfuse_tls_mode              = "import_certificate_pem"
+# langfuse_has_provided_certificate = true
+# langfuse_certificate_source    = "import_certificate_pem"
 # langfuse_certificate_pem       = <<EOT
 # -----BEGIN CERTIFICATE-----
 # ...

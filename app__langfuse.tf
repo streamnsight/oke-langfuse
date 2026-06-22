@@ -26,16 +26,31 @@ module "langfuse_redis" {
 locals {
   object_storage_bucket                  = "langfuse-${local.deploy_id}-traces"
   langfuse_custom_domain_fqdn_normalized = trimspace(var.langfuse_custom_domain_fqdn != null ? var.langfuse_custom_domain_fqdn : "")
-  langfuse_tls_mode                      = var.langfuse_tls_mode != null ? var.langfuse_tls_mode : (var.langfuse_use_custom_domain ? var.langfuse_certificate_source : "ip_letsencrypt_http01")
-  langfuse_import_certificate            = var.langfuse_use_custom_domain && local.langfuse_tls_mode == "import_certificate_pem"
-  langfuse_uses_oci_certificate          = var.langfuse_use_custom_domain && contains(["existing_oci_certificate", "import_certificate_pem"], local.langfuse_tls_mode)
-  langfuse_uses_letsencrypt              = contains(["ip_letsencrypt_http01", "domain_letsencrypt_http01"], local.langfuse_tls_mode)
-  langfuse_protocol                      = local.langfuse_tls_mode == "none" ? "http" : "https"
+  langfuse_legacy_certificate_provided = (
+    (var.langfuse_certificate_ocid != null && var.langfuse_certificate_ocid != "") ||
+    (nonsensitive(var.langfuse_certificate_pem) != null && nonsensitive(var.langfuse_certificate_pem) != "") ||
+    (nonsensitive(var.langfuse_private_key_pem) != null && nonsensitive(var.langfuse_private_key_pem) != "") ||
+    (nonsensitive(var.langfuse_certificate_chain_pem) != null && nonsensitive(var.langfuse_certificate_chain_pem) != "")
+  )
+  langfuse_effective_has_provided_certificate = var.langfuse_has_provided_certificate || local.langfuse_legacy_certificate_provided
+  langfuse_tls_mode = var.langfuse_tls_mode != null ? var.langfuse_tls_mode : (
+    !var.langfuse_enable_tls ? "none" : (
+      !var.langfuse_use_custom_domain ? "ip_letsencrypt_http01" : (
+        local.langfuse_effective_has_provided_certificate ? var.langfuse_certificate_source : "domain_letsencrypt_http01"
+      )
+    )
+  )
+  langfuse_import_certificate   = var.langfuse_use_custom_domain && local.langfuse_tls_mode == "import_certificate_pem"
+  langfuse_uses_oci_certificate = var.langfuse_use_custom_domain && contains(["existing_oci_certificate", "import_certificate_pem"], local.langfuse_tls_mode)
+  langfuse_uses_letsencrypt     = contains(["ip_letsencrypt_http01", "domain_letsencrypt_http01"], local.langfuse_tls_mode)
+  langfuse_protocol             = local.langfuse_tls_mode == "none" ? "http" : "https"
 }
 
 resource "terraform_data" "langfuse_custom_domain_validation" {
   input = {
     use_custom_domain  = var.langfuse_use_custom_domain
+    enable_tls         = var.langfuse_enable_tls
+    provided_cert      = var.langfuse_has_provided_certificate
     certificate_source = var.langfuse_certificate_source
   }
 
@@ -56,6 +71,11 @@ resource "terraform_data" "langfuse_custom_domain_validation" {
     precondition {
       condition     = local.langfuse_tls_mode != "domain_letsencrypt_http01" || var.langfuse_use_custom_domain
       error_message = "langfuse_tls_mode domain_letsencrypt_http01 requires langfuse_use_custom_domain to be true."
+    }
+
+    precondition {
+      condition     = local.langfuse_tls_mode != "domain_letsencrypt_http01" || var.langfuse_letsencrypt_challenge_type == "http01"
+      error_message = "Only the http01 Let's Encrypt challenge type is currently supported for custom-domain certificates."
     }
 
     precondition {

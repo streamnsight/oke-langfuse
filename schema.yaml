@@ -190,7 +190,9 @@ variableGroups:
 
   - title: Langfuse TLS
     variables:
-      - langfuse_tls_mode
+      - langfuse_enable_tls
+      - langfuse_has_provided_certificate
+      - langfuse_letsencrypt_challenge_type
       - langfuse_certificate_source
       - langfuse_certificate_ocid
       - langfuse_certificate_pem
@@ -565,32 +567,72 @@ variables:
     required: true
     visible: langfuse_use_custom_domain
 
+  langfuse_enable_tls:
+    type: boolean
+    default: true
+    title: Enable TLS for Langfuse
+    description: |
+      Enable HTTPS for Langfuse. Without a custom domain, the stack requests a Let's Encrypt IP certificate. With a custom domain and no provided certificate, the stack requests a Let's Encrypt HTTP01 certificate.
+    required: true
+
+  langfuse_has_provided_certificate:
+    type: boolean
+    default: false
+    title: I Have a Certificate for This Domain
+    description: |
+      Select this if you already have a certificate in OCI Certificates Service, or if you want this stack to import PEM certificate material into OCI Certificates Service.
+      Leave it unselected to request a Let's Encrypt certificate for the custom domain using HTTP01.
+    required: true
+    visible:
+      and:
+        - langfuse_use_custom_domain
+        - langfuse_enable_tls
+
+  langfuse_letsencrypt_challenge_type:
+    type: enum
+    title: Let's Encrypt Challenge Type
+    description: |
+      HTTP01 requires the custom domain to point to the Langfuse load balancer IP and port 80 to be publicly reachable. DNS01 automation is planned for a later release.
+    enum:
+      - http01
+    default: http01
+    required: true
+    visible:
+      and:
+        - langfuse_use_custom_domain
+        - langfuse_enable_tls
+        - not:
+          - langfuse_has_provided_certificate
+
   langfuse_tls_mode:
     type: enum
-    title: Langfuse TLS Mode
+    title: Advanced Langfuse TLS Mode
     description: |
-      Select how TLS is handled for Langfuse. Let’s Encrypt HTTP01 for custom domains requires DNS to point to the load balancer IP and port 80 to be reachable.
-      DNS01 automation is planned for a later release.
+      Advanced compatibility override. Leave unset in Resource Manager and use the guided TLS questions instead.
     enum:
       - none
       - ip_letsencrypt_http01
       - domain_letsencrypt_http01
       - existing_oci_certificate
       - import_certificate_pem
-    default: ip_letsencrypt_http01
     required: false
+    visible: false
 
   langfuse_certificate_source:
     type: enum
-    title: Legacy Langfuse Certificate Source
+    title: Certificate Source
     description: |
-      Legacy compatibility input used only when langfuse_tls_mode is not set. New deployments should use Langfuse TLS Mode.
+      Select Existing OCI Certificate to provide a certificate OCID from OCI Certificates Service. Select Import PEM in Stack only for convenience; private key material may be retained in Terraform state or stack history.
     enum:
       - existing_oci_certificate
       - import_certificate_pem
     default: existing_oci_certificate
-    required: false
-    visible: false
+    required: true
+    visible:
+      and:
+        - langfuse_use_custom_domain
+        - langfuse_enable_tls
+        - langfuse_has_provided_certificate
 
   langfuse_certificate_ocid:
     type: string
@@ -601,8 +643,10 @@ variables:
     visible:
       and:
         - langfuse_use_custom_domain
+        - langfuse_enable_tls
+        - langfuse_has_provided_certificate
         - eq:
-          - langfuse_tls_mode
+          - langfuse_certificate_source
           - existing_oci_certificate
 
   langfuse_certificate_pem:
@@ -615,8 +659,10 @@ variables:
     visible:
       and:
         - langfuse_use_custom_domain
+        - langfuse_enable_tls
+        - langfuse_has_provided_certificate
         - eq:
-          - langfuse_tls_mode
+          - langfuse_certificate_source
           - import_certificate_pem
 
   langfuse_private_key_pem:
@@ -629,8 +675,10 @@ variables:
     visible:
       and:
         - langfuse_use_custom_domain
+        - langfuse_enable_tls
+        - langfuse_has_provided_certificate
         - eq:
-          - langfuse_tls_mode
+          - langfuse_certificate_source
           - import_certificate_pem
 
   langfuse_certificate_chain_pem:
@@ -643,8 +691,10 @@ variables:
     visible:
       and:
         - langfuse_use_custom_domain
+        - langfuse_enable_tls
+        - langfuse_has_provided_certificate
         - eq:
-          - langfuse_tls_mode
+          - langfuse_certificate_source
           - import_certificate_pem
 
   # Node Pool 1

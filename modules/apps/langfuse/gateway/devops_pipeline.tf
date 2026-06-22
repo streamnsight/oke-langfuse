@@ -11,6 +11,33 @@ locals {
   }
 
   gateway_manifest_path = local.gateway_manifest_paths[var.tls_mode]
+  gateway_deploy_pipeline_parameters = [
+    {
+      name          = "CLUSTER_OCID"
+      default_value = var.cluster_id
+      description   = "The cluster OCID"
+    },
+    {
+      name          = "ARTIFACT_OCID"
+      default_value = oci_generic_artifacts_content_artifact_by_path.langfuse_gateway_manifest_artifact.id
+      description   = "OCID of the artifact"
+    },
+    {
+      name          = "REGISTRY_OCID"
+      default_value = var.artifact_repo_id
+      description   = "OCID of the artifact repository"
+    },
+    {
+      name          = "TLS_MODE"
+      default_value = var.tls_mode
+      description   = "Langfuse Gateway TLS mode"
+    },
+    {
+      name          = "LANGFUSE_CERTIFICATE_OCID"
+      default_value = var.langfuse_certificate_ocid
+      description   = "OCI Certificates Service certificate OCID for custom domain mode"
+    }
+  ]
 }
 
 resource "terraform_data" "gateway_manifest_selection" {
@@ -57,30 +84,13 @@ resource "oci_devops_deploy_artifact" "langfuse_gateway_commandspec" {
 
 resource "oci_devops_deploy_pipeline" "langfuse_gateway" {
   deploy_pipeline_parameters {
-    items {
-      name          = "CLUSTER_OCID"
-      default_value = var.cluster_id
-      description   = "The cluster OCID"
-    }
-    items {
-      name          = "ARTIFACT_OCID"
-      default_value = oci_generic_artifacts_content_artifact_by_path.langfuse_gateway_manifest_artifact.id
-      description   = "OCID of the artifact"
-    }
-    items {
-      name          = "REGISTRY_OCID"
-      default_value = var.artifact_repo_id
-      description   = "OCID of the artifact repository"
-    }
-    items {
-      name          = "TLS_MODE"
-      default_value = var.tls_mode
-      description   = "Langfuse Gateway TLS mode"
-    }
-    items {
-      name          = "LANGFUSE_CERTIFICATE_OCID"
-      default_value = var.langfuse_certificate_ocid
-      description   = "OCI Certificates Service certificate OCID for custom domain mode"
+    dynamic "items" {
+      for_each = local.gateway_deploy_pipeline_parameters
+      content {
+        name          = items.value.name
+        default_value = items.value.default_value
+        description   = items.value.description
+      }
     }
   }
   description  = "Langfuse Gateway"
@@ -131,10 +141,19 @@ resource "oci_devops_deploy_stage" "langfuse_gateway" {
 }
 
 resource "oci_devops_deployment" "langfuse_gateway_deployment" {
-  deploy_pipeline_id            = oci_devops_deploy_pipeline.langfuse_gateway.id
-  deployment_type               = "PIPELINE_DEPLOYMENT"
-  display_name                  = "langfuse-gateway"
-  defined_tags                  = var.defined_tags
+  deploy_pipeline_id = oci_devops_deploy_pipeline.langfuse_gateway.id
+  deployment_type    = "PIPELINE_DEPLOYMENT"
+  display_name       = "langfuse-gateway"
+  defined_tags       = var.defined_tags
+  deployment_arguments {
+    dynamic "items" {
+      for_each = local.gateway_deploy_pipeline_parameters
+      content {
+        name  = items.value.name
+        value = items.value.default_value
+      }
+    }
+  }
   trigger_new_devops_deployment = "false"
   depends_on = [
     oci_devops_deploy_stage.langfuse_gateway,
