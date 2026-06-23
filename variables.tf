@@ -420,7 +420,7 @@ variable "langfuse_tls_mode" {
 variable "langfuse_certificate_source" {
   type        = string
   default     = "existing_oci_certificate"
-  description = "Source for the custom-domain TLS certificate. Use existing_oci_certificate to provide an OCI certificate OCID, or import_certificate_pem to let the stack import PEM material into OCI Certificates Service."
+  description = "Source for the custom-domain TLS certificate. Use existing_oci_certificate to provide an OCI certificate OCID, or import_certificate_pem to let Terraform import PEM material into OCI Certificates Service."
 
   validation {
     condition     = contains(["existing_oci_certificate", "import_certificate_pem"], var.langfuse_certificate_source)

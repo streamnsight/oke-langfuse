@@ -4,6 +4,6 @@
   "suites": [
     "fast"
   ],
-  "expected_error": "langfuse_certificate_pem, langfuse_private_key_pem, and langfuse_certificate_chain_pem are required when langfuse_certificate_source is import_certificate_pem.",
+  "expected_error": "langfuse_certificate_pem, langfuse_private_key_pem, and langfuse_certificate_chain_pem are required when langfuse_tls_mode is import_certificate_pem.",
   "plan_targets": []
 }

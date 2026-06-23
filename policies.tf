@@ -20,13 +20,13 @@ module "network_source_group" {
 }
 
 locals {
-  cluster_nodes = "ALL { request.principal.type = 'instance' , request.principal.compartment.id = '${local.effective_cluster_compartment_id}' }"
-  cluster_principal = "ALL { request.principal.type = 'cluster', request.principal.cluster_id = '${local.target_cluster_id}' }"
+  cluster_nodes     = "ALL { request.principal.type = 'instance' , request.principal.compartment.id = '${local.effective_cluster_compartment_id}' }"
+  cluster_principal = local.target_cluster_id != null ? "ALL { request.principal.type = 'cluster', request.principal.cluster_id = '${local.target_cluster_id}' }" : ""
   worker_nodes_policy_statements = var.use_network_source ? [] : compact([
     "allow any-user to read repos in compartment id ${var.devops_compartment_id} where ${local.cluster_nodes}",
     "allow any-user to manage generative-ai-family in compartment id ${local.effective_cluster_compartment_id} where ${local.cluster_nodes}",
   ])
-  langfuse_certificate_policy_statements = var.langfuse_use_custom_domain ? [
+  langfuse_certificate_policy_statements = var.langfuse_use_custom_domain && local.target_cluster_id != null ? [
     "allow any-user to read leaf-certificate-family in compartment id ${local.effective_cluster_compartment_id} where ${local.cluster_principal}"
   ] : []
 }

@@ -40,8 +40,8 @@ locals {
       )
     )
   )
-  langfuse_import_certificate   = var.langfuse_use_custom_domain && local.langfuse_tls_mode == "import_certificate_pem"
   langfuse_uses_oci_certificate = var.langfuse_use_custom_domain && contains(["existing_oci_certificate", "import_certificate_pem"], local.langfuse_tls_mode)
+  langfuse_import_certificate   = var.langfuse_use_custom_domain && local.langfuse_tls_mode == "import_certificate_pem"
   langfuse_uses_letsencrypt     = contains(["ip_letsencrypt_http01", "domain_letsencrypt_http01"], local.langfuse_tls_mode)
   langfuse_protocol             = local.langfuse_tls_mode == "none" ? "http" : "https"
 }

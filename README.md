@@ -73,16 +73,16 @@ Recommended secure option for production:
 5. Copy the certificate OCID.
 6. In the stack, enable `langfuse_use_custom_domain`, set `langfuse_custom_domain_fqdn`, set `langfuse_has_provided_certificate = true`, select `existing_oci_certificate`, and paste the OCID into `langfuse_certificate_ocid`.
 
-Convenience option:
-
-- Set `langfuse_has_provided_certificate = true`, select `import_certificate_pem`, and provide `langfuse_certificate_pem`, `langfuse_private_key_pem`, and `langfuse_certificate_chain_pem`.
-- The stack imports that material into OCI Certificates Service and uses the created certificate OCID for the load balancer.
-- This is less secure than pre-importing the certificate because private key material is passed through Resource Manager/Terraform and may be retained in Terraform state or stack history.
-
 Let’s Encrypt HTTP01 option:
 
 - Leave `langfuse_has_provided_certificate = false` for a custom-domain Let’s Encrypt certificate without DNS01 automation. The only supported challenge type today is `http01`; DNS01 will be added later.
 - After the load balancer is created, point your domain DNS `A` record at `langfuse_load_balancer_ip`. cert-manager should continue the HTTP01 flow once DNS resolves to the load balancer.
+
+Convenience PEM import option:
+
+- Set `langfuse_has_provided_certificate = true`, select `import_certificate_pem`, and provide `langfuse_certificate_pem`, `langfuse_private_key_pem`, and `langfuse_certificate_chain_pem`.
+- Terraform imports that material into OCI Certificates Service and uses the resulting certificate OCID for the load balancer.
+- This is less secure than pre-importing the certificate because private key material passes through Terraform and may be retained in state or stack history.
 
 DNS is manual in this release. After deployment, use the `langfuse_load_balancer_ip` output and create or update your DNS `A` record so `langfuse_custom_domain_fqdn` points to that IP.
 

@@ -20,4 +20,5 @@ secrets_store_key_id               = "ocid1.key.oc1..aaaa"
 
 langfuse_use_custom_domain  = true
 langfuse_custom_domain_fqdn = "langfuse.example.com"
+langfuse_has_provided_certificate = true
 langfuse_certificate_source = "import_certificate_pem"

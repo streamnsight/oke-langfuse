@@ -33,7 +33,7 @@ vcn_cidr         = "10.0.0.0/16"
 # langfuse_letsencrypt_challenge_type = "http01"
 
 # Convenience option: let the stack import PEM material into OCI Certificates Service.
-# This passes private key material through Terraform and may retain it in state.
+# This passes private key material through Terraform and may retain it in state or stack history.
 # langfuse_has_provided_certificate = true
 # langfuse_certificate_source    = "import_certificate_pem"
 # langfuse_certificate_pem       = <<EOT

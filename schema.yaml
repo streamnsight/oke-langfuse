@@ -624,7 +624,7 @@ variables:
     type: enum
     title: Certificate Source
     description: |
-      Select Existing OCI Certificate to provide a certificate OCID from OCI Certificates Service. Select Import PEM in Stack only for convenience; private key material may be retained in Terraform state or stack history.
+      Select Existing OCI Certificate to provide a certificate OCID from OCI Certificates Service. Select Import PEM in Stack if you want Terraform to create the certificate in OCI Certificates Service from pasted PEM material.
     enum:
       - existing_oci_certificate
       - import_certificate_pem
