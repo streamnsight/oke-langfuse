@@ -1,12 +1,64 @@
 ## Copyright © 2022-2026, Oracle and/or its affiliates.
 ## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
 
+locals {
+  gateway_routing_manifest_paths = {
+    none                      = "${path.module}/manifests/langfuse.HTTPRoute.none.yaml"
+    ip_letsencrypt_http01     = "${path.module}/manifests/langfuse.HTTPRoute.ip-letsencrypt-http01.yaml"
+    domain_letsencrypt_http01 = "${path.module}/manifests/langfuse.HTTPRoute.domain-letsencrypt-http01.yaml"
+    existing_oci_certificate  = "${path.module}/manifests/langfuse.HTTPRoute.oci-lb-certificate.yaml"
+    import_certificate_pem    = "${path.module}/manifests/langfuse.HTTPRoute.oci-lb-certificate.yaml"
+  }
+
+  gateway_routing_manifest_path = local.gateway_routing_manifest_paths[var.tls_mode]
+  gateway_routing_deploy_pipeline_parameters = [
+    {
+      name          = "CLUSTER_OCID"
+      default_value = var.cluster_id
+      description   = "The cluster OCID"
+    },
+    {
+      name          = "ARTIFACT_OCID"
+      default_value = oci_generic_artifacts_content_artifact_by_path.langfuse_gateway_routing_manifest_artifact.id
+      description   = "OCID of the artifact"
+    },
+    {
+      name          = "REGISTRY_OCID"
+      default_value = var.artifact_repo_id
+      description   = "OCID of the artifact repository"
+    },
+    {
+      name          = "LANGFUSE_HOSTNAME"
+      default_value = var.langfuse_hostname
+      description   = "Langfuse hostname"
+    },
+    {
+      name          = "TLS_MODE"
+      default_value = var.tls_mode
+      description   = "Langfuse Gateway TLS mode"
+    },
+    {
+      name          = "ENABLE_CERT_MANAGER_GATEWAY_API"
+      default_value = tostring(var.enable_cert_manager_gateway_api)
+      description   = "Patch cert-manager with Gateway API support before applying routing"
+    }
+  ]
+}
+
+resource "terraform_data" "gateway_routing_manifest_selection" {
+  input = {
+    tls_mode      = var.tls_mode
+    manifest_hash = filesha256(local.gateway_routing_manifest_path)
+    command_hash  = filesha256("${path.module}/manifests/command_spec.yaml")
+  }
+}
+
 resource "oci_generic_artifacts_content_artifact_by_path" "langfuse_gateway_routing_manifest_artifact" {
   #Required
   artifact_path = "langfuse.HTTPRoute.yaml"
   repository_id = var.artifact_repo_id
   version       = "0.1.0"
-  content       = file("${path.module}/manifests/langfuse.HTTPRoute.yaml")
+  content       = file(local.gateway_routing_manifest_path)
 
   # delete the resource from artifact repo on destroy as it blocks destroy of the artifact repo itself
   provisioner "local-exec" {
@@ -42,25 +94,13 @@ resource "oci_devops_deploy_pipeline" "langfuse_gateway_routing" {
   description  = "Langfuse Gateway Routing"
   display_name = "langfuse-gateway-routing"
   deploy_pipeline_parameters {
-    items {
-      name          = "CLUSTER_OCID"
-      default_value = var.cluster_id
-      description   = "The cluster OCID"
-    }
-    items {
-      name          = "ARTIFACT_OCID"
-      default_value = oci_generic_artifacts_content_artifact_by_path.langfuse_gateway_routing_manifest_artifact.id
-      description   = "OCID of the artifact"
-    }
-    items {
-      name          = "REGISTRY_OCID"
-      default_value = var.artifact_repo_id
-      description   = "OCID of the artifact repository"
-    }
-    items {
-      name          = "LANGFUSE_HOSTNAME"
-      default_value = var.langfuse_hostname
-      description   = "OCID of the artifact repository"
+    dynamic "items" {
+      for_each = local.gateway_routing_deploy_pipeline_parameters
+      content {
+        name          = items.value.name
+        default_value = items.value.default_value
+        description   = items.value.description
+      }
     }
   }
   project_id   = var.devops_project_id
@@ -108,14 +148,26 @@ resource "oci_devops_deploy_stage" "langfuse_gateway_routing" {
 }
 
 resource "oci_devops_deployment" "langfuse_gateway_routing_deployment" {
-  deploy_pipeline_id            = oci_devops_deploy_pipeline.langfuse_gateway_routing.id
-  deployment_type               = "PIPELINE_DEPLOYMENT"
-  display_name                  = "langfuse-gateway-routing"
-  defined_tags                  = var.defined_tags
+  deploy_pipeline_id = oci_devops_deploy_pipeline.langfuse_gateway_routing.id
+  deployment_type    = "PIPELINE_DEPLOYMENT"
+  display_name       = "langfuse-gateway-routing"
+  defined_tags       = var.defined_tags
+  deployment_arguments {
+    dynamic "items" {
+      for_each = local.gateway_routing_deploy_pipeline_parameters
+      content {
+        name  = items.value.name
+        value = items.value.default_value
+      }
+    }
+  }
   trigger_new_devops_deployment = "false"
   depends_on = [
     oci_devops_deploy_stage.langfuse_gateway_routing,
     oci_devops_deploy_artifact.langfuse_gateway_routing_commandspec
   ]
-  lifecycle { ignore_changes = [defined_tags] }
+  lifecycle {
+    ignore_changes       = [defined_tags]
+    replace_triggered_by = [terraform_data.gateway_routing_manifest_selection]
+  }
 }

@@ -26,10 +26,15 @@ In existing-cluster mode, this stack does **not** create cluster/node pools and 
 - Cross-compartment deployments are not supported. Networking, DevOps, Vault, and the deployment must be in the same compartment.
 - If you cannot create the IDCS/IAM application due to lack of permissions, get the app information from your Domain Administrator, and have them update the redirect URL and add users after deployment (see below).
 - 🚨 The Identity Domain must have the **Access signing certificate** option **enabled**. 
-- The stack deploys a **public** load balancer. Public access is required for IDCS and Let’s Encrypt to reach the instance.
-- The load balancer uses an **IP-based** TLS certificate (domain support planned). The Gateway resource provisions the LB, then the IP is used to request a Let’s Encrypt certificate.
+- The stack deploys a **public** load balancer. Public access is required for IDCS and for the default Let’s Encrypt IP certificate flow.
+- By default, the load balancer uses an **IP-based** TLS certificate. The Gateway resource provisions the LB, then the IP is used to request a Let’s Encrypt certificate.
   - Let’s Encrypt IP certificates are **short-lived** (7 days).
   - 🚨 Blocking public access to the Langfuse UI will prevent IP certificate renewal.
+  - For production custom domains, use a custom-domain TLS mode instead of the default IP certificate flow.
+- Custom domains and TLS are configured separately. Custom-domain TLS can use an OCI Certificates Service certificate OCID, PEM material imported into OCI Certificates Service, or Let’s Encrypt HTTP01.
+  - Let’s Encrypt HTTP01 for custom domains does not require an OCI DNS01 webhook, but the domain must resolve to the Langfuse load balancer IP and port 80 must be publicly reachable.
+  - The first deployment can create the load balancer before DNS is pointed at it. After you create the DNS A/AAAA record, cert-manager should continue the HTTP01 flow without rerunning the OCI DevOps pipeline.
+  - If an ACME order reaches a terminal failed state before DNS is fixed, delete the failed `Order`, `Challenge`, or `CertificateRequest` in the `langfuse` namespace and cert-manager will recreate it.
 - cert-manager is installed as an OKE add-on (OKE-managed) and its deployment is patched with `--enable-gateway-api` to support Gateway-based certificates. This is expected to become the default in a future OKE release. However, in the mean time, if the cert-manager was to update, this flag may need to be re-patched in the cert-manager deployment for the certificate to update properly. The version is fixed to v1.19.2 to avoid auto-update.
 - S3-compatible access requires a Customer Secret Key tied to a user. If that user is removed, Langfuse will lose access to the bucket.
 - IDCS is used for SSO to avoid open self-signup. Langfuse’s built-in auth allows user self-registration, which is not desirable for controlled access, and that feature is de-activated in favor of SSO.
@@ -52,6 +57,34 @@ If you need to force a custom image OCID, set `np*_image_override = true` and th
 Custom images may work, but non-OKE-ready images will usually boot and scale more slowly because Kubernetes binaries are not preinstalled.
 
 ⚠️ **Important:** When the stack creates the IDCS application, it automatically assigns the launching Resource Manager user by default. Any additional users or groups must still be assigned to the application after deployment. If you cannot create the app, ask your Identity Domain admin to assign access manually.
+
+## Custom domain and TLS
+
+The stack can expose Langfuse at your own FQDN. Domain selection and TLS mode are configured separately.
+
+By default, TLS is enabled. Without a custom domain, the stack requests a Let's Encrypt IP certificate.
+
+Recommended secure option for production:
+
+1. In the OCI Console, go to **Identity & Security** -> **Certificates**.
+2. Create or import a leaf certificate for your Langfuse FQDN, for example `langfuse.example.com`.
+3. When importing, provide the public leaf certificate, the matching private key, and the intermediate certificate chain.
+4. Wait until the certificate is **Active** and confirm it is in the same region as the Langfuse load balancer.
+5. Copy the certificate OCID.
+6. In the stack, enable `langfuse_use_custom_domain`, set `langfuse_custom_domain_fqdn`, set `langfuse_has_provided_certificate = true`, select `existing_oci_certificate`, and paste the OCID into `langfuse_certificate_ocid`.
+
+Let’s Encrypt HTTP01 option:
+
+- Leave `langfuse_has_provided_certificate = false` for a custom-domain Let’s Encrypt certificate without DNS01 automation. The only supported challenge type today is `http01`; DNS01 will be added later.
+- After the load balancer is created, point your domain DNS `A` record at `langfuse_load_balancer_ip`. cert-manager should continue the HTTP01 flow once DNS resolves to the load balancer.
+
+Convenience PEM import option:
+
+- Set `langfuse_has_provided_certificate = true`, select `import_certificate_pem`, and provide `langfuse_certificate_pem`, `langfuse_private_key_pem`, and `langfuse_certificate_chain_pem`.
+- Terraform imports that material into OCI Certificates Service and uses the resulting certificate OCID for the load balancer.
+- This is less secure than pre-importing the certificate because private key material passes through Terraform and may be retained in state or stack history.
+
+DNS is manual in this release. After deployment, use the `langfuse_load_balancer_ip` output and create or update your DNS `A` record so `langfuse_custom_domain_fqdn` points to that IP.
 
 ## Setting up the IDCS application
 

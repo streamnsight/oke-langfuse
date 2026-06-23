@@ -136,6 +136,11 @@ resource "oci_devops_deploy_pipeline" "langfuse" {
           default_value = var.langfuse_hostname
         },
         {
+          name          = "LANGFUSE_PROTOCOL"
+          description   = "Langfuse endpoint protocol"
+          default_value = var.langfuse_protocol
+        },
+        {
           name          = "REDIS_HOSTNAME"
           description   = "Redis hostname"
           default_value = var.redis_hostname

@@ -1,12 +1,59 @@
 ## Copyright © 2022-2026, Oracle and/or its affiliates.
 ## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
 
+locals {
+  gateway_manifest_paths = {
+    none                      = "${path.module}/manifests/langfuse.Gateway.none.yaml"
+    ip_letsencrypt_http01     = "${path.module}/manifests/langfuse.Gateway.letsencrypt-http01.yaml"
+    domain_letsencrypt_http01 = "${path.module}/manifests/langfuse.Gateway.letsencrypt-http01.yaml"
+    existing_oci_certificate  = "${path.module}/manifests/langfuse.Gateway.oci-lb-certificate.yaml"
+    import_certificate_pem    = "${path.module}/manifests/langfuse.Gateway.oci-lb-certificate.yaml"
+  }
+
+  gateway_manifest_path = local.gateway_manifest_paths[var.tls_mode]
+  gateway_deploy_pipeline_parameters = [
+    {
+      name          = "CLUSTER_OCID"
+      default_value = var.cluster_id
+      description   = "The cluster OCID"
+    },
+    {
+      name          = "ARTIFACT_OCID"
+      default_value = oci_generic_artifacts_content_artifact_by_path.langfuse_gateway_manifest_artifact.id
+      description   = "OCID of the artifact"
+    },
+    {
+      name          = "REGISTRY_OCID"
+      default_value = var.artifact_repo_id
+      description   = "OCID of the artifact repository"
+    },
+    {
+      name          = "TLS_MODE"
+      default_value = var.tls_mode
+      description   = "Langfuse Gateway TLS mode"
+    },
+    {
+      name          = "LANGFUSE_CERTIFICATE_OCID"
+      default_value = var.langfuse_certificate_ocid != null && var.langfuse_certificate_ocid != "" ? var.langfuse_certificate_ocid : "unused"
+      description   = "OCI Certificates Service certificate OCID for custom domain mode"
+    }
+  ]
+}
+
+resource "terraform_data" "gateway_manifest_selection" {
+  input = {
+    tls_mode      = var.tls_mode
+    manifest_hash = filesha256(local.gateway_manifest_path)
+    command_hash  = filesha256("${path.module}/manifests/command_spec.yaml")
+  }
+}
+
 resource "oci_generic_artifacts_content_artifact_by_path" "langfuse_gateway_manifest_artifact" {
   #Required
   artifact_path = "langfuse.Gateway.yaml"
   repository_id = var.artifact_repo_id
   version       = "0.1.0"
-  content       = file("${path.module}/manifests/langfuse.Gateway.yaml")
+  content       = file(local.gateway_manifest_path)
 
   # delete the resource from artifact repo on destroy as it blocks destroy of the artifact repo itself
   provisioner "local-exec" {
@@ -37,20 +84,13 @@ resource "oci_devops_deploy_artifact" "langfuse_gateway_commandspec" {
 
 resource "oci_devops_deploy_pipeline" "langfuse_gateway" {
   deploy_pipeline_parameters {
-    items {
-      name          = "CLUSTER_OCID"
-      default_value = var.cluster_id
-      description   = "The cluster OCID"
-    }
-    items {
-      name          = "ARTIFACT_OCID"
-      default_value = oci_generic_artifacts_content_artifact_by_path.langfuse_gateway_manifest_artifact.id
-      description   = "OCID of the artifact"
-    }
-    items {
-      name          = "REGISTRY_OCID"
-      default_value = var.artifact_repo_id
-      description   = "OCID of the artifact repository"
+    dynamic "items" {
+      for_each = local.gateway_deploy_pipeline_parameters
+      content {
+        name          = items.value.name
+        default_value = items.value.default_value
+        description   = items.value.description
+      }
     }
   }
   description  = "Langfuse Gateway"
@@ -101,15 +141,26 @@ resource "oci_devops_deploy_stage" "langfuse_gateway" {
 }
 
 resource "oci_devops_deployment" "langfuse_gateway_deployment" {
-  deploy_pipeline_id            = oci_devops_deploy_pipeline.langfuse_gateway.id
-  deployment_type               = "PIPELINE_DEPLOYMENT"
-  display_name                  = "langfuse-gateway"
-  defined_tags                  = var.defined_tags
+  deploy_pipeline_id = oci_devops_deploy_pipeline.langfuse_gateway.id
+  deployment_type    = "PIPELINE_DEPLOYMENT"
+  display_name       = "langfuse-gateway"
+  defined_tags       = var.defined_tags
+  deployment_arguments {
+    dynamic "items" {
+      for_each = local.gateway_deploy_pipeline_parameters
+      content {
+        name  = items.value.name
+        value = items.value.default_value
+      }
+    }
+  }
   trigger_new_devops_deployment = "false"
   depends_on = [
     oci_devops_deploy_stage.langfuse_gateway,
     oci_devops_deploy_artifact.langfuse_gateway_commandspec
   ]
-  lifecycle { ignore_changes = [defined_tags] }
+  lifecycle {
+    ignore_changes       = [defined_tags]
+    replace_triggered_by = [terraform_data.gateway_manifest_selection]
+  }
 }
-

@@ -182,6 +182,24 @@ variableGroups:
         - not:
           - use_existing_cluster
 
+  - title: Langfuse Domain
+    variables:
+      - langfuse_use_custom_domain
+      - langfuse_custom_domain_fqdn
+    visible: true
+
+  - title: Langfuse TLS
+    variables:
+      - langfuse_enable_tls
+      - langfuse_has_provided_certificate
+      - langfuse_letsencrypt_challenge_type
+      - langfuse_certificate_source
+      - langfuse_certificate_ocid
+      - langfuse_certificate_pem
+      - langfuse_private_key_pem
+      - langfuse_certificate_chain_pem
+    visible: true
+
   - title: "Security: Secrets Encryption"
     variables:
       - enable_secret_encryption
@@ -530,6 +548,156 @@ variables:
       and:
         - ${use_existing_vcn}
         - allow_deploy_public_lb
+
+  langfuse_use_custom_domain:
+    type: boolean
+    default: false
+    title: Use a Custom Domain for Langfuse
+    description: |
+      Use your own fully qualified domain name for the Langfuse endpoint instead of the load balancer IP address.
+      DNS record creation is manual in this release: after deployment, point this name to the Langfuse load balancer IP output.
+    required: true
+
+  langfuse_custom_domain_fqdn:
+    type: string
+    title: Langfuse Custom Domain FQDN
+    description: |
+      Fully qualified domain name for Langfuse, such as langfuse.example.com. Do not include https:// or a path.
+      If you choose Let’s Encrypt HTTP01 for TLS, point this name to the Langfuse load balancer IP after the first deployment.
+    required: true
+    visible: langfuse_use_custom_domain
+
+  langfuse_enable_tls:
+    type: boolean
+    default: true
+    title: Enable TLS for Langfuse
+    description: |
+      Enable HTTPS for Langfuse. Without a custom domain, the stack requests a Let's Encrypt IP certificate. With a custom domain and no provided certificate, the stack requests a Let's Encrypt HTTP01 certificate.
+    required: true
+
+  langfuse_has_provided_certificate:
+    type: boolean
+    default: false
+    title: I Have a Certificate for This Domain
+    description: |
+      Select this if you already have a certificate in OCI Certificates Service, or if you want this stack to import PEM certificate material into OCI Certificates Service.
+      Leave it unselected to request a Let's Encrypt certificate for the custom domain using HTTP01.
+    required: true
+    visible:
+      and:
+        - langfuse_use_custom_domain
+        - langfuse_enable_tls
+
+  langfuse_letsencrypt_challenge_type:
+    type: enum
+    title: Let's Encrypt Challenge Type
+    description: |
+      HTTP01 requires the custom domain to point to the Langfuse load balancer IP and port 80 to be publicly reachable. DNS01 automation is planned for a later release.
+      Check the IP of the load balancer in the output of the stack, or look for the Load Balancer IP in the console
+      and make sure to set this IP as an A record for the domain provided.
+    enum:
+      - http01
+    default: http01
+    required: true
+    visible:
+      and:
+        - langfuse_use_custom_domain
+        - langfuse_enable_tls
+        - not:
+          - langfuse_has_provided_certificate
+
+  langfuse_tls_mode:
+    type: enum
+    title: Advanced Langfuse TLS Mode
+    description: |
+      Advanced compatibility override. Leave unset in Resource Manager and use the guided TLS questions instead.
+    enum:
+      - none
+      - ip_letsencrypt_http01
+      - domain_letsencrypt_http01
+      - existing_oci_certificate
+      - import_certificate_pem
+    required: false
+    visible: false
+
+  langfuse_certificate_source:
+    type: enum
+    title: Certificate Source
+    description: |
+      Select Existing OCI Certificate to provide a certificate OCID from OCI Certificates Service. Select Import PEM in Stack if you want Terraform to create the certificate in OCI Certificates Service from pasted PEM material.
+    enum:
+      - existing_oci_certificate
+      - import_certificate_pem
+    default: existing_oci_certificate
+    required: true
+    visible:
+      and:
+        - langfuse_use_custom_domain
+        - langfuse_enable_tls
+        - langfuse_has_provided_certificate
+
+  langfuse_certificate_ocid:
+    type: string
+    title: OCI Certificate OCID
+    description: |
+      OCID of an active leaf certificate in OCI Certificates Service. This is the recommended option for production because the stack only receives the certificate OCID, not the private key.
+    required: true
+    visible:
+      and:
+        - langfuse_use_custom_domain
+        - langfuse_enable_tls
+        - langfuse_has_provided_certificate
+        - eq:
+          - langfuse_certificate_source
+          - existing_oci_certificate
+
+  langfuse_certificate_pem:
+    type: string
+    title: Leaf Certificate PEM
+    description: |
+      PEM-encoded public leaf certificate for the custom domain. This is used only when the stack imports the certificate into OCI Certificates Service.
+    sensitive: true
+    required: true
+    visible:
+      and:
+        - langfuse_use_custom_domain
+        - langfuse_enable_tls
+        - langfuse_has_provided_certificate
+        - eq:
+          - langfuse_certificate_source
+          - import_certificate_pem
+
+  langfuse_private_key_pem:
+    type: string
+    title: Private Key PEM
+    description: |
+      PEM-encoded private key matching the leaf certificate. Passing private keys through Resource Manager/Terraform is less secure than pre-importing the certificate in OCI Certificates Service because sensitive values can be retained in Terraform state or stack history.
+    sensitive: true
+    required: true
+    visible:
+      and:
+        - langfuse_use_custom_domain
+        - langfuse_enable_tls
+        - langfuse_has_provided_certificate
+        - eq:
+          - langfuse_certificate_source
+          - import_certificate_pem
+
+  langfuse_certificate_chain_pem:
+    type: string
+    title: Certificate Chain PEM
+    description: |
+      PEM-encoded intermediate certificate chain for the leaf certificate. Include the issuing intermediate certificates; the root CA is usually not required.
+    sensitive: true
+    required: true
+    visible:
+      and:
+        - langfuse_use_custom_domain
+        - langfuse_enable_tls
+        - langfuse_has_provided_certificate
+        - eq:
+          - langfuse_certificate_source
+          - import_certificate_pem
 
   # Node Pool 1
   np1_subnet:
@@ -1624,8 +1792,13 @@ outputGroups:
 outputs:
   langfuse_url:
     type: copyableString
-    title: Open AI Compatibility Gateway Endpoint URL
-    displayText: Use this URL with profile 'openai' to create an LLM connection to OCI models in LangFuse.
+    title: Langfuse URL
+    displayText: Open Langfuse with this URL.
+    visible: true
+  langfuse_load_balancer_ip:
+    type: copyableString
+    title: Langfuse Load Balancer IP
+    displayText: Point your custom domain DNS A record to this IP address.
     visible: true
   oci_genai_gateway_endpoint_url:
     type: copyableString

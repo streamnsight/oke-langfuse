@@ -99,7 +99,7 @@ output "test_metadata" {
     deployment = {
       deploy_id          = local.deploy_id
       namespace          = "langfuse"
-      langfuse_url       = "https://${local.langfuse_url}/langfuse"
+      langfuse_url       = "${local.langfuse_protocol}://${local.langfuse_url}/langfuse"
       cluster_autoscaler = local.cluster_autoscaler_test_metadata
       existing_cluster_addons = {
         active  = sort(tolist(local.existing_addons))

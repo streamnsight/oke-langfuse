@@ -365,6 +365,101 @@ variable "public_lb_subnet" {
   }
 }
 
+variable "langfuse_use_custom_domain" {
+  type        = bool
+  default     = false
+  description = "Use a custom FQDN for Langfuse instead of the load balancer IP address."
+}
+
+variable "langfuse_custom_domain_fqdn" {
+  type        = string
+  default     = null
+  description = "Custom fully qualified domain name for Langfuse. Do not include a scheme or path."
+}
+
+variable "langfuse_enable_tls" {
+  type        = bool
+  default     = true
+  description = "Enable TLS for the Langfuse endpoint. When false, the endpoint uses HTTP."
+}
+
+variable "langfuse_has_provided_certificate" {
+  type        = bool
+  default     = false
+  description = "Use a provided certificate for a custom Langfuse domain instead of requesting a Let's Encrypt certificate."
+}
+
+variable "langfuse_letsencrypt_challenge_type" {
+  type        = string
+  default     = "http01"
+  description = "Let's Encrypt ACME challenge type for custom-domain certificates. DNS01 is reserved for a future release."
+
+  validation {
+    condition     = contains(["http01"], var.langfuse_letsencrypt_challenge_type)
+    error_message = "langfuse_letsencrypt_challenge_type must be http01. DNS01 is reserved for a future release."
+  }
+}
+
+variable "langfuse_tls_mode" {
+  type        = string
+  default     = null
+  description = "TLS mode for the Langfuse endpoint. Null preserves legacy behavior. DNS01 is reserved for a future release and is not currently accepted."
+
+  validation {
+    condition = var.langfuse_tls_mode == null ? true : contains([
+      "none",
+      "ip_letsencrypt_http01",
+      "domain_letsencrypt_http01",
+      "existing_oci_certificate",
+      "import_certificate_pem"
+    ], var.langfuse_tls_mode)
+    error_message = "langfuse_tls_mode must be null or one of: none, ip_letsencrypt_http01, domain_letsencrypt_http01, existing_oci_certificate, import_certificate_pem."
+  }
+}
+
+variable "langfuse_certificate_source" {
+  type        = string
+  default     = "existing_oci_certificate"
+  description = "Source for the custom-domain TLS certificate. Use existing_oci_certificate to provide an OCI certificate OCID, or import_certificate_pem to let Terraform import PEM material into OCI Certificates Service."
+
+  validation {
+    condition     = contains(["existing_oci_certificate", "import_certificate_pem"], var.langfuse_certificate_source)
+    error_message = "langfuse_certificate_source must be one of: existing_oci_certificate, import_certificate_pem."
+  }
+}
+
+variable "langfuse_certificate_ocid" {
+  type        = string
+  default     = null
+  description = "OCI Certificates Service leaf certificate OCID to use for the Langfuse custom domain."
+
+  validation {
+    condition     = var.langfuse_certificate_ocid == null || can(regex("^ocid1\\.certificate\\.[^.]+\\..+$", var.langfuse_certificate_ocid))
+    error_message = "langfuse_certificate_ocid must be null or a valid OCI Certificates Service certificate OCID."
+  }
+}
+
+variable "langfuse_certificate_pem" {
+  type        = string
+  default     = null
+  sensitive   = true
+  description = "PEM-encoded leaf certificate to import into OCI Certificates Service for the Langfuse custom domain."
+}
+
+variable "langfuse_private_key_pem" {
+  type        = string
+  default     = null
+  sensitive   = true
+  description = "PEM-encoded private key matching langfuse_certificate_pem. This may be stored in Terraform state when using import_certificate_pem."
+}
+
+variable "langfuse_certificate_chain_pem" {
+  type        = string
+  default     = null
+  sensitive   = true
+  description = "PEM-encoded intermediate certificate chain for langfuse_certificate_pem."
+}
+
 variable "enable_secret_encryption" {
   default = false
 }

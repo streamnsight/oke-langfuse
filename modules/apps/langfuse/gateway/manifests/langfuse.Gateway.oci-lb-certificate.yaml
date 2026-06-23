@@ -1,0 +1,49 @@
+## Copyright © 2022-2026, Oracle and/or its affiliates.
+## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: langfuse
+  labels:
+    loadbalancer.oci.oraclecloud.com/pod-readiness-gate-inject: enabled
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: langfuse-lb-tls-mapping
+  namespace: langfuse
+data:
+  "443": '["__LANGFUSE_CERTIFICATE_OCID__"]'
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: langfuse-gateway
+  namespace: langfuse
+spec:
+  gatewayClassName: istio
+  infrastructure:
+    annotations:
+      oci.oraclecloud.com/initial-freeform-tags-override: '{"source": "istio-gateway"}'
+      oci.oraclecloud.com/load-balancer-type: "lb"
+      service.beta.kubernetes.io/oci-load-balancer-shape: "flexible"
+      service.beta.kubernetes.io/oci-load-balancer-shape-flex-min: "100"
+      service.beta.kubernetes.io/oci-load-balancer-shape-flex-max: "500"
+      service.beta.kubernetes.io/oci-load-balancer-ssl-ports: "443"
+      oci-load-balancer.oraclecloud.com/tls-certificate-map: "langfuse-lb-tls-mapping"
+  listeners:
+  - name: http
+    # hostname: "*"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: https
+    # TLS terminates at the OCI Load Balancer. The Gateway receives HTTP on port 443.
+    port: 443
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
