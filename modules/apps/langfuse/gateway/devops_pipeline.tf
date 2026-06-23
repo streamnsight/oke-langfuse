@@ -34,7 +34,7 @@ locals {
     },
     {
       name          = "LANGFUSE_CERTIFICATE_OCID"
-      default_value = var.langfuse_certificate_ocid
+      default_value = var.langfuse_certificate_ocid != null && var.langfuse_certificate_ocid != "" ? var.langfuse_certificate_ocid : "unused"
       description   = "OCI Certificates Service certificate OCID for custom domain mode"
     }
   ]

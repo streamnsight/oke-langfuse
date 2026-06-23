@@ -593,6 +593,8 @@ variables:
     title: Let's Encrypt Challenge Type
     description: |
       HTTP01 requires the custom domain to point to the Langfuse load balancer IP and port 80 to be publicly reachable. DNS01 automation is planned for a later release.
+      Check the IP of the load balancer in the output of the stack, or look for the Load Balancer IP in the console
+      and make sure to set this IP as an A record for the domain provided.
     enum:
       - http01
     default: http01

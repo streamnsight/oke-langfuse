@@ -28,8 +28,8 @@ steps:
         printf '%s' "$1" | sed -e 's/[\/&]/\\&/g'
       }
 
-      TLS_MODE_VALUE='${TLS_MODE}'
-      LANGFUSE_CERTIFICATE_OCID_VALUE='${LANGFUSE_CERTIFICATE_OCID}'
+      TLS_MODE_VALUE="${TLS_MODE}"
+      LANGFUSE_CERTIFICATE_OCID_VALUE="${LANGFUSE_CERTIFICATE_OCID}"
       TLS_MODE_ESCAPED="$(escape_sed_replacement "${TLS_MODE_VALUE}")"
       LANGFUSE_CERTIFICATE_OCID_ESCAPED="$(escape_sed_replacement "${LANGFUSE_CERTIFICATE_OCID_VALUE}")"
 
