@@ -32,5 +32,6 @@ spec:
   issuerRef:
     name: letsencrypt-prod
     kind: ClusterIssuer
+  commonName: __LANGFUSE_HOSTNAME__
   dnsNames:
   - __LANGFUSE_HOSTNAME__
