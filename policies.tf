@@ -27,7 +27,8 @@ locals {
     "allow any-user to manage generative-ai-family in compartment id ${local.effective_cluster_compartment_id} where ${local.cluster_nodes}",
   ])
   langfuse_certificate_policy_statements = var.langfuse_use_custom_domain && local.target_cluster_id != null ? [
-    "allow any-user to read leaf-certificate-family in compartment id ${local.effective_cluster_compartment_id} where ${local.cluster_principal}"
+    "allow any-user to read leaf-certificate-family in compartment id ${local.effective_cluster_compartment_id} where ${local.cluster_principal}",
+    "allow any-user to manage certificate-authority-family in compartment id ${local.effective_cluster_compartment_id} where ${local.cluster_principal}"
   ] : []
 }
 
