@@ -456,7 +456,7 @@ variables:
     type: oci:kubernetes:versions:id
     title: "Kubernetes Version"
     required: true
-    default: "v1.36.0"
+    default: "v1.37.0"
     description: The Kubernetes version for the cluster.
     dependsOn:
       compartmentId: cluster_compartment_id
@@ -1585,6 +1585,7 @@ variables:
     type: enum
     # enumerated values
     enum:
+    - "1.5.41"
     - "1.5.35"
     - "1.5.30"
     - "1.5.27"
@@ -1595,7 +1596,7 @@ variables:
     description: | 
       Version of the LangFuse Helm chart.
       Supported versions are listed. 
-    default: "1.5.35"
+    default: "1.5.41"
 
   # Database Section
   postgresql_shape:
