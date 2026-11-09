@@ -331,7 +331,7 @@ variables:
   # variabels for schema only, to show/hide sections
   autoscaler_details:
     type: boolean
-    title: Cluster Autoscaler Defaults
+    title: Use Cluster Autoscaler Advanced Settings
     visible: true
     default: false
 
