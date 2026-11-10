@@ -10,7 +10,7 @@ This plan proposes implementation work; it does not change deployed infrastructu
 
 - [x] Record the authentication dependency and redirect behavior in ASSESSMENT.md.
 - [ ] Pin a chart/application pair; initial candidate is chart 2.2.4 with its default application 4.77.0, rather than implicitly selecting latest 4.78.0.
-- [ ] Confirm the pinned application's auth dependency matches the inspected 4.78.0 behavior.
+- [x] Confirm the pinned application's auth dependency matches the inspected 4.78.0 behavior (4.77.0 also resolves openid-client 5.7.1).
 - [ ] Resolve the application tag once from the selected chart and use it consistently for builds, OCIR publication and deployment. Fail if resolution is empty or inconsistent.
 
 Verify: build and rendered web/worker image references use the exact same application version; Helm artifact uses the chart version.
@@ -49,3 +49,14 @@ Verify: ordering is explicit in the deployment graph; a missing/unready operator
 - [ ] Commit implementation and follow the repository merge workflow after end-to-end validation. Record unverified gates explicitly.
 
 Acceptance: a fresh v4 deployment preserves the existing IDCS and OCI service workflows and passes the relevant end-to-end checks. Existing v3 stack migration and stock-image adoption are not acceptance requirements for this first pass.
+
+## Active slice: select build scripts by chart major
+
+- [x] Add explicit chart-version input to the image-build module and select v3/v4 artifact content.
+- [x] Add a v4 builder with strict app-version checks and the checked OIDC redirect patch.
+- [x] Keep the DevOps artifact entry point stable and preserve the existing v3 script.
+- [x] Confirm Secret names/keys do not require a separate v4 creation script; document the shared contract.
+- [x] Test chart-major selection, v4 build/cache/error paths, and Terraform wiring.
+- [x] Commit this slice on the v4 branch. Full fresh-stack validation remains in Phase 4.
+
+Slice validation: 11 isolated tests pass; Terraform root validation and changed-file formatting checks pass; shell syntax checks pass. The v4 image build has not yet run against real upstream source on the builder, and chart-v2 deployment/end-to-end gates remain pending.
