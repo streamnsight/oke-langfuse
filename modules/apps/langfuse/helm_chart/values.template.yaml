@@ -5,6 +5,11 @@
 
 # Core Langfuse Configuration
 langfuse:
+  # Allow web and worker LLM calls to the stack's private Kubernetes gateway.
+  additionalEnv:
+    - name: LANGFUSE_LLM_CONNECTION_WHITELISTED_HOST
+      value: "oci-genai-gateway"
+
   # Feature flags
   features:
     # -- Whether or not to report basic usage statistics to a centralized server.

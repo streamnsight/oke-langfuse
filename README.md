@@ -134,7 +134,7 @@ In **Project Settings → LLM Connections**:
 - Choose **OpenAI** as the adapter
 - Name your provider (e.g., `OCI`)
 - For **API Key**:
-  - Use `DEFAULT_API_KEYS` from the Resource Manager stack outputs, **or**
+  - Use the gateway's `DEFAULT_API_KEYS` value (see below), **or**
   - Use an OCI Generative AI API Key (if supported for your model)
 - Click **Show Advanced Settings**
 - Set **API Base URL**:
@@ -143,6 +143,19 @@ In **Project Settings → LLM Connections**:
 - Uncheck **Enable default models**
 - Enter your model IDs (e.g., `xai.grok-3`, `cohere.command-a-03-2025`, `openai.gpt-oss-120b`)
 - Click **Create Connection**
+
+The chart allowlists `oci-genai-gateway` for outbound LLM connections on both
+web and worker pods so Langfuse can reach this private service. If you change
+the connection hostname, update `LANGFUSE_LLM_CONNECTION_WHITELISTED_HOST`
+accordingly and redeploy the chart.
+
+For the gateway connection, paste the raw API key without `Bearer `, quotes,
+or an added `sk-` prefix. Retrieve the configured key locally with:
+
+```sh
+kubectl -n langfuse get secret oci-genai-gateway \
+  -o jsonpath='{.data.DEFAULT_API_KEYS}' | base64 --decode
+```
 
 ## Template Features
 

@@ -105,3 +105,14 @@ This verifies recovery of the reported deployment. It does not complete the
 real IDCS/browser, trace ingestion/evaluation, reboot, or full-from-scratch
 automation tests. Publish the updated Terraform-managed command/artifact
 content through the stack update before subsequent automated deployments.
+
+## Gateway private-host access
+
+- [x] Add `LANGFUSE_LLM_CONNECTION_WHITELISTED_HOST=oci-genai-gateway` through shared chart environment settings for web and worker.
+- [x] Document the matching base URL and raw gateway API-key value.
+- [x] Verify both chart majors render exactly one matching allowlist entry on each workload.
+- [x] Commit the code change.
+- [ ] Deploy through the stack's next Helm update and verify the LLM connection.
+
+This change allowlists only the stack's gateway hostname. No broad private-IP
+range is allowed, and no API-key values are added to the values file.

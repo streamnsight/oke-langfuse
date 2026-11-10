@@ -1,4 +1,4 @@
-"""Check OKE image qualification with local chart 1.x and 2.x archives."""
+"""Check OKE images and gateway access with local chart 1.x and 2.x archives."""
 import re
 from pathlib import Path
 import subprocess
@@ -51,6 +51,15 @@ with tempfile.TemporaryDirectory() as directory:
         text = re.sub(r"\$\{([^}]+)\}", lambda match: substitutions[match[1]], VALUES.read_text())
         values = yaml.safe_load(text)
         rendered = render(chart, values, Path(directory))
+        gateway_workloads = set()
+        for doc in rendered:
+            if doc["kind"] == "Deployment" and doc["metadata"]["name"] in ("langfuse-web", "langfuse-worker"):
+                containers = doc["spec"]["template"]["spec"]["containers"]
+                entries = [env for env in containers[0].get("env", [])
+                           if env["name"] == "LANGFUSE_LLM_CONNECTION_WHITELISTED_HOST"]
+                assert entries == [{"name": "LANGFUSE_LLM_CONNECTION_WHITELISTED_HOST", "value": "oci-genai-gateway"}]
+                gateway_workloads.add(doc["metadata"]["name"])
+        assert gateway_workloads == {"langfuse-web", "langfuse-worker"}
         if major == 1:
             # These are v2-specific keys; adding them must not change v1 images.
             del values["clickhouse"]["cluster"]
@@ -66,4 +75,4 @@ with tempfile.TemporaryDirectory() as directory:
                     assert doc["spec"]["containerTemplate"]["image"]["repository"] == expected[doc["kind"]]
                     found.add(doc["kind"])
             assert found == set(expected)
-        print(f'Chart {metadata["version"]}: image qualification checks passed.')
+        print(f'Chart {metadata["version"]}: image and gateway allowlist checks passed.')
