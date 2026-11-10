@@ -1,12 +1,26 @@
-#!/bin/bash -xe
+#!/bin/bash
 ## Copyright © 2022-2026, Oracle and/or its affiliates. 
 ## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
 
-set -o pipefail
+set -e -o pipefail
 
 if ! oci -v; then
-    dnf -y install oraclelinux-developer-release-el9 || dnf -y install oraclelinux-developer-release-el8
-    dnf -y install python36-oci-cli
+    . /etc/os-release
+    case "${ID}:${VERSION_ID%%.*}" in
+        ol:8)
+            dnf -y install oraclelinux-developer-release-el8
+            dnf -y install python36-oci-cli
+            ;;
+        ol:9)
+            dnf -y install oraclelinux-developer-release-el9
+            dnf -y install python39-oci-cli
+            ;;
+        *)
+            echo "Unsupported operating system for OCI CLI installation: ${ID} ${VERSION_ID}" >&2
+            exit 1
+            ;;
+    esac
+    oci -v
 fi
 
 mkdir -p /var/lib/kubelet
