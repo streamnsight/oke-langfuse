@@ -209,6 +209,14 @@ postgresql:
 
 # ClickHouse Configuration
 clickhouse:
+  # Chart 2.x operator images must be fully qualified for OKE's container runtime.
+  cluster:
+    image:
+      repository: docker.io/clickhouse/clickhouse-server
+  keeper:
+    image:
+      repository: docker.io/clickhouse/clickhouse-keeper
+
   # Authentication configuration
   auth:
     # -- If you want to use an existing secret for the ClickHouse password, set the name of the secret here. (`clickhouse.auth.username` and `clickhouse.auth.password` will be ignored and picked up from this secret).

@@ -72,6 +72,16 @@ confirm the cause; certificate issuance and node registration succeeded.
 - [x] Publish and run it in the existing pre-Helm dependency stage, keeping Secret creation shared.
 - [x] Test v1 skip, v2 ordering, unsupported versions and failure propagation; validate Terraform wiring.
 - [ ] Run the prerequisite against the fresh test cluster and retry the Helm deployment; record any subsequent compatibility failures separately.
-- [ ] Commit the tested fix on the v4 branch.
+- [x] Commit the tested prerequisite fix on the v4 branch (`a3fca9d`).
 
 Live prerequisite verification succeeded on the fresh 3166 test cluster: cert-manager available, operator chart 0.0.8 installed, ClickHouse/Keeper CRDs established, and operator deployment available. The original Helm pipeline was retried with its original arguments; final rollout validation is pending.
+
+### Follow-up discovered during the retry: OKE image qualification
+
+- [x] Confirm the runtime rejects short ClickHouse/Keeper image names as ambiguous.
+- [x] Qualify chart-v2 server/Keeper image repositories with `docker.io` in values.
+- [x] Render pinned charts 1.5.41 and 2.2.4: v1 image references are unchanged; v2 CRs have fully qualified repositories.
+- [x] Patch the fresh test cluster's CR image repositories; correct the two never-started Keeper pods left behind by the rolling update.
+- [ ] Verify Keeper quorum, ClickHouse readiness and the application rollout.
+
+The render check is reproducible with `tests/langfuse_chart/check_values_render.py` and local chart archives; it does not mutate a cluster.

@@ -37,3 +37,14 @@ for secrets, certificates and operator initialization.
 
 Run `python3 tests/langfuse_chart/test_prerequisites.py` to test selection,
 ordering and failure propagation with mocked cluster/Helm commands.
+
+The chart values qualify ClickHouse/Keeper repositories with `docker.io` because
+OKE's container runtime can reject short names as ambiguous. Verify compatibility
+with downloaded, pinned chart archives:
+
+```sh
+python3 tests/langfuse_chart/check_values_render.py /path/to/langfuse-1.5.41.tgz /path/to/langfuse-2.2.4.tgz
+```
+
+This checks that the new values leave v1 container images unchanged and produce
+fully qualified v2 ClickHouse/Keeper references.
