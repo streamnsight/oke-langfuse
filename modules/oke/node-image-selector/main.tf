@@ -91,11 +91,6 @@ resource "terraform_data" "selector_guard" {
 
   lifecycle {
     precondition {
-      condition     = local.image_id_override_normalized != null || length(local.base_image_candidates) > 0
-      error_message = "No compatible base image was found for the requested operating system, operating system version, and shape."
-    }
-
-    precondition {
       condition     = local.image_id_override_normalized != null || length(local.oke_image_candidates) > 0
       error_message = "No OKE-ready image was found for the requested operating system, operating system version, shape, and Kubernetes version."
     }
