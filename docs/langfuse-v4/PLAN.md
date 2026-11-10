@@ -60,3 +60,18 @@ Acceptance: a fresh v4 deployment preserves the existing IDCS and OCI service wo
 - [x] Commit this slice on the v4 branch. Full fresh-stack validation remains in Phase 4.
 
 Slice validation: 11 isolated tests pass; Terraform root validation and changed-file formatting checks pass; shell syntax checks pass. The v4 image build has not yet run against real upstream source on the builder, and chart-v2 deployment/end-to-end gates remain pending.
+
+## Active slice: chart-v2 ClickHouse prerequisites
+
+Observed deployment failure: Helm chart 2.2.4 rejects installation because the
+ClickHouse operator CRDs are missing. DevOps logs and live cluster inspection
+confirm the cause; certificate issuance and node registration succeeded.
+
+- [x] Retrieve the actual Helm failure and inspect cluster prerequisites.
+- [x] Add a chart-major-aware prerequisite script: v1 skips; v2 waits for cert-manager, installs pinned operator, and waits for CRDs/operator readiness.
+- [x] Publish and run it in the existing pre-Helm dependency stage, keeping Secret creation shared.
+- [x] Test v1 skip, v2 ordering, unsupported versions and failure propagation; validate Terraform wiring.
+- [ ] Run the prerequisite against the fresh test cluster and retry the Helm deployment; record any subsequent compatibility failures separately.
+- [ ] Commit the tested fix on the v4 branch.
+
+Live prerequisite verification succeeded on the fresh 3166 test cluster: cert-manager available, operator chart 0.0.8 installed, ClickHouse/Keeper CRDs established, and operator deployment available. The original Helm pipeline was retried with its original arguments; final rollout validation is pending.
