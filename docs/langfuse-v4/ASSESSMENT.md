@@ -2,7 +2,7 @@
 
 Assessment date: 2026-11-10. Branch: `feature/langfuse-v4`.
 
-This is an assessment and proposed migration direction, not an implementation or authorization to upgrade a running stack. The branch lives in a separate worktree because the original checkout has an in-progress merge.
+This is a focused compatibility assessment and proposed implementation direction for fresh v4 deployments. Existing-data migration is a separate future phase; this work does not authorize upgrading a running stack. The branch lives in a separate worktree because the original checkout has an in-progress merge.
 
 ## Findings and recommendation
 
@@ -89,7 +89,7 @@ Preserve the three application secrets, stop or drain ingestion at the defined c
 
 Sources: [chart migration guide](https://github.com/langfuse/langfuse-k8s/blob/langfuse-2.2.4/examples/upgrade-v1-to-v2/README.md), [application v3→v4 guide](https://langfuse.com/self-hosting/upgrade/upgrade-guides/upgrade-v3-to-v4).
 
-Recommended scope: fresh v4 deployments first, then a separately rehearsed existing-data migration. Whether both belong in this milestone is pending user input. No live upgrade has been performed.
+Confirmed scope: fresh v4 deployments first. Existing-data migration is deferred to a separate phase. Research stays limited to compatibility questions needed for this implementation. No live upgrade has been performed.
 
 ## OCI GenAI gateway image candidate
 
@@ -106,7 +106,8 @@ Source: [current gateway upstream README](https://github.com/jin38324/OCI_GenAI_
 - [x] Reproduce unmodified 302 discovery rejection and patched success locally.
 - [x] Download and inspect chart 2.2.4 and render current values offline.
 - [x] Identify datastore migration and gateway-image candidates.
-- [ ] Confirm initial rollout scope and approve design direction.
+- [x] Confirm focused assessment and fresh-install scope with the user.
+- [ ] Review the proposed implementation direction in [PLAN.md](PLAN.md).
 
 ### Phase 2 — proposed implementation, after scope approval
 - [ ] Pin chart/application/image versions and separate version resolution from shell parsing fallbacks.
@@ -124,14 +125,13 @@ Source: [current gateway upstream README](https://github.com/jin38324/OCI_GenAI_
 - [ ] Service behavior: Postgres TLS/migrations, Redis TLS/queues, ClickHouse schema/jobs, Object Storage uploads/exports/deletes, telemetry/signup/password flags, ingress/TLS and HPA.
 - [ ] Application integration: create project/API keys, ingest and query representative traces/observations, run evaluation through the existing OCI gateway; compare v3/v4 client compatibility.
 - [ ] Resilience: credential refresh and reboot, worker retries, node replacement, failed deployment diagnostics and secret reuse after redeploy.
-- [ ] Existing-data migration if included: backup/restore rehearsal; pinned v3 chart move; data validation; legacy→dual→events_only cutover; documented recovery boundaries.
+- Deferred to a separate phase: existing-data backup/restore rehearsal, chart migration, legacy→dual→events_only cutover, and recovery boundaries.
 - [ ] Commit tested implementation and follow repository merge workflow only after relevant end-to-end validation.
 
 ## Open decisions
 
-1. Fresh installs first, or include existing-data migration now?
-2. Preserve `/langfuse` and custom web build (recommended), or pursue a hostname/root-path change as a separate image-simplification project?
-3. Preserve current development/debug settings exactly, or deliberately switch to production/info?
-4. Keep v1 chart support alongside v2, or treat v4 support as a separate deployment track?
+The user selected focused compatibility assessment and fresh v4 installs first. Existing-data migration is deferred.
+
+The proposed first pass preserves `/langfuse`, the custom web-image patch, existing effective auth/logging settings, and the OCI gateway build. Stock-worker adoption and other image simplifications remain optional follow-up work. The first pass does not promise ongoing dual v1/v2 chart support; any compatibility requirement for existing configuration files must be made explicit before defaults change.
 
 No production Terraform files or running services were changed by this assessment.
