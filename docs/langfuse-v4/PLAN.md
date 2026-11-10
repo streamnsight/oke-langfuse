@@ -29,8 +29,8 @@ Verify: rendered manifests match the configuration mapping in ASSESSMENT.md, wit
 
 ## Phase 3: Provision chart v2 prerequisites
 
-- [ ] Install a pinned ClickHouse operator after cert-manager is ready.
-- [ ] Wait for required CRDs and operator/webhook readiness before deploying the application chart.
+- [x] Install a pinned ClickHouse operator after cert-manager is ready.
+- [x] Wait for required CRDs and operator/webhook readiness before deploying the application chart.
 - [ ] Replace obsolete ZooKeeper/Bitnami settings with explicit ClickHouse/Keeper replica, resource, storage-class and capacity settings.
 - [ ] Choose and set a consistent fresh-install v4 write mode on web and worker; avoid implicitly reusing this policy for an existing-data upgrade.
 - [ ] Update Terraform/schema defaults and descriptions for the agreed v4 deployment track. Retain upstream safeguards against upgrading a v1 release onto empty v2 storage.
@@ -71,7 +71,7 @@ confirm the cause; certificate issuance and node registration succeeded.
 - [x] Add a chart-major-aware prerequisite script: v1 skips; v2 waits for cert-manager, installs pinned operator, and waits for CRDs/operator readiness.
 - [x] Publish and run it in the existing pre-Helm dependency stage, keeping Secret creation shared.
 - [x] Test v1 skip, v2 ordering, unsupported versions and failure propagation; validate Terraform wiring.
-- [ ] Run the prerequisite against the fresh test cluster and retry the Helm deployment; record any subsequent compatibility failures separately.
+- [x] Run the prerequisite against the fresh test cluster and retry the Helm deployment; record any subsequent compatibility failures separately.
 - [x] Commit the tested prerequisite fix on the v4 branch (`a3fca9d`).
 
 Live prerequisite verification succeeded on the fresh 3166 test cluster: cert-manager available, operator chart 0.0.8 installed, ClickHouse/Keeper CRDs established, and operator deployment available. The original Helm pipeline was retried with its original arguments; final rollout validation is pending.
@@ -82,6 +82,26 @@ Live prerequisite verification succeeded on the fresh 3166 test cluster: cert-ma
 - [x] Qualify chart-v2 server/Keeper image repositories with `docker.io` in values.
 - [x] Render pinned charts 1.5.41 and 2.2.4: v1 image references are unchanged; v2 CRs have fully qualified repositories.
 - [x] Patch the fresh test cluster's CR image repositories; correct the two never-started Keeper pods left behind by the rolling update.
-- [ ] Verify Keeper quorum, ClickHouse readiness and the application rollout.
+- [x] Verify Keeper quorum, ClickHouse readiness and the application rollout.
 
 The render check is reproducible with `tests/langfuse_chart/check_values_render.py` and local chart archives; it does not mutate a cluster.
+
+## Live deployment verification — 2026-11-10
+
+The retry of the failed Helm pipeline completed **SUCCEEDED**. The fresh test
+cluster is running Langfuse 4.77.0 with chart 2.2.4, ClickHouse 26.8.36.3,
+three Ready Keeper replicas and a Ready ClickHouse replica. Web, worker and
+OCI gateway deployments are Ready. Public HTTPS health returned
+`{"status":"OK","version":"4.77.0"}`.
+
+The short image names were corrected in the live CRs and the failed Keeper
+pods during bootstrap; Helm revision 2 was subsequently upgraded with only
+the qualified image-name overlay and the existing values retained. The
+repository values include the same correction (`8ef2eec`); operator
+prerequisite wiring is in `a3fca9d`. No Redis errors were observed in the
+last minute after startup.
+
+This verifies recovery of the reported deployment. It does not complete the
+real IDCS/browser, trace ingestion/evaluation, reboot, or full-from-scratch
+automation tests. Publish the updated Terraform-managed command/artifact
+content through the stack update before subsequent automated deployments.
