@@ -212,9 +212,11 @@ By default the preflight looks for the stack's docker login path, docker credent
 
 - [X] container vulnerability scanning
 - [X] build worker image
+- [X] auto add deploying user to IDCS app
 - [X] SSL Cert: IP cert
 - [ ] SSL cert: self-signed, 
-- [ ] SSL cert: domain / DNS based certificates
+- [X] SSL cert: domain + HTTP01 based LetsEncryopt certificates
+- [ ] SSL cert: domain + DNS01 based LetsEncryopt certificates
 - [ ] OSS native client support using workload identity (PR here [12379](https://github.com/langfuse/langfuse/pull/12379))
 - [X] ensure cloud-init provisions OCIR login script + cronjob
 - [X] Vault secrets
@@ -222,9 +224,9 @@ By default the preflight looks for the stack's docker login path, docker credent
 - [X] Support deployment on existing cluster
 - [X] look up available shell stages shapes and choose from those only.
 - [ ] 'latest' as langfuse helm chart option (lookup and use latest)
-- [ ] auto add group and user to IDCS app
 - [ ] Cache users / ACLs to restrict cluster access
 - [ ] use existing Cache cluster
 - [ ] Postgres users ACLs
-- [ ] validate deployment from local with profile
+- [X] validate deployment from local with profile
 - [ ] ClickHouse dedicated node-pool
+- [ ] ClickHouse form factor / offloading to Object Storage
