@@ -59,15 +59,6 @@ kubectl create secret generic langfuse-idcs \
     --from-literal="issuer"="$(get_secret ${DEPLOY_ID}_LANGFUSE_IDCS_ISSUER)" \
     --from-literal="name"="Oracle IDCS"
 
-# Langfuse Object Storage access keys
-kubectl get secret langfuse-s3 -n langfuse \
-&& kubectl delete secret langfuse-s3 -n langfuse
-
-kubectl create secret generic langfuse-s3 \
-    --namespace langfuse \
-    --from-literal="s3-access-key"="$(get_secret ${DEPLOY_ID}_LANGFUSE_S3_ACCESS_KEY)" \
-    --from-literal="s3-secret-key"="$(get_secret ${DEPLOY_ID}_LANGFUSE_S3_SECRET_KEY)"
-
 # langfuse Postgres cert
 kubectl get secret langfuse-postgres-cert -n langfuse \
 && kubectl delete secret langfuse-postgres-cert -n langfuse

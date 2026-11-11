@@ -274,8 +274,6 @@ module "langfuse_gateway" {
 #   psql_endpoint               = module.langfuse_postgres.details.endpoint
 #   psql_password               = module.langfuse_postgres.details.password
 #   psql_cert                   = module.langfuse_postgres.details.cert
-#   s3_client_id                = var.langfuse_s3_access_key
-#   s3_client_secret            = var.langfuse_s3_secret_key
 #   idcs_app_id                 = local.idcs_app_id
 #   idcs_client_id              = local.idcs_client_id
 #   idcs_client_secret          = local.idcs_client_secret
@@ -316,8 +314,6 @@ module "langfuse_chart" {
   psql_endpoint                            = module.langfuse_postgres.details.endpoint
   psql_password                            = module.langfuse_postgres.details.password
   psql_ocid                                = module.langfuse_postgres.details.ocid
-  s3_client_id                             = var.langfuse_s3_access_key
-  s3_client_secret                         = var.langfuse_s3_secret_key
   idcs_app_id                              = local.idcs_app_id
   idcs_client_id                           = local.idcs_client_id
   idcs_client_secret                       = local.idcs_client_secret
@@ -337,6 +333,7 @@ module "langfuse_chart" {
 
 
   depends_on = [
+    module.langfuse_object_storage_policy,
     module.langfuse_idcs_app,
     # module.nginx_ingress_controller,
     module.istio_deployment_using_addon_manager,

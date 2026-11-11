@@ -58,6 +58,23 @@ with tempfile.TemporaryDirectory() as directory:
                 entries = [env for env in containers[0].get("env", [])
                            if env["name"] == "LANGFUSE_LLM_CONNECTION_WHITELISTED_HOST"]
                 assert entries == [{"name": "LANGFUSE_LLM_CONNECTION_WHITELISTED_HOST", "value": "oci-genai-gateway"}]
+                pod = doc["spec"]["template"]["spec"]
+                assert pod["serviceAccountName"] == "langfuse"
+                assert pod["automountServiceAccountToken"] is True
+                env = containers[0]["env"]
+                for name, value in {
+                    "LANGFUSE_USE_OCI_NATIVE_OBJECT_STORAGE": "true",
+                    "LANGFUSE_OCI_AUTH_TYPE": "workload_identity",
+                }.items():
+                    assert [item for item in env if item["name"] == name] == [{"name": name, "value": value}]
+                for kind in ("EVENT_UPLOAD", "MEDIA_UPLOAD", "BATCH_EXPORT"):
+                    name = f"LANGFUSE_S3_{kind}_ENDPOINT"
+                    assert [item for item in env if item["name"] == name] == [{
+                        "name": name, "value": "https://objectstorage.us-chicago-1.oraclecloud.com"}]
+                    assert not any(item["name"] in (
+                        f"LANGFUSE_S3_{kind}_ACCESS_KEY_ID", f"LANGFUSE_S3_{kind}_SECRET_ACCESS_KEY")
+                        for item in env)
+                assert not any("langfuse-s3" in str(item) for item in env)
                 gateway_workloads.add(doc["metadata"]["name"])
         assert gateway_workloads == {"langfuse-web", "langfuse-worker"}
         if major == 1:
@@ -75,4 +92,4 @@ with tempfile.TemporaryDirectory() as directory:
                     assert doc["spec"]["containerTemplate"]["image"]["repository"] == expected[doc["kind"]]
                     found.add(doc["kind"])
             assert found == set(expected)
-        print(f'Chart {metadata["version"]}: image and gateway allowlist checks passed.')
+        print(f'Chart {metadata["version"]}: image, gateway allowlist and OCI workload identity checks passed.')

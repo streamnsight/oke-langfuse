@@ -276,8 +276,6 @@ variableGroups:
   #     - enable_monitoring_stack
   - title: LangFuse 
     variables:
-      - langfuse_s3_secret_key
-      - langfuse_s3_access_key
       - langfuse_helm_chart_version
       - postgresql_shape
       - redis_node_count
@@ -1495,20 +1493,17 @@ variables:
   #   title: Push Images to OSS
   #   description: Whether to push images to Object Storage.
 
-  # LangFuse S3 / Secrets Section
+  # Deprecated Terraform inputs are hidden; native OCI uses workload identity.
   langfuse_s3_access_key:
     type: string
-    title: Langfuse S3 Compatible Object Storage Access Key
-    description: S3 access key to use for Langfuse object storage. Fetch  one from User settings -> Tokens and keys -> Customer secret keys -> Copy the generated key
     sensitive: true
-    required: true
-
+    required: false
+    visible: false
   langfuse_s3_secret_key:
     type: string
-    title: Langfuse S3 Compatible Object Storage Secret Key
-    description: S3 secret key to use for Langfuse object storage. Generate one in User settings -> Tokens and keys -> Customer secret keys -> Copy the access key
     sensitive: true
-    required: true
+    required: false
+    visible: false
 
   # Add-Ons Section
   enable_metrics_server:

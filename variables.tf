@@ -612,13 +612,17 @@ variable "create_bastion" {
 }
 
 variable "langfuse_s3_access_key" {
-  type      = string
-  sensitive = true
+  description = "Deprecated: unused with native OCI workload identity. Remove from existing tfvars."
+  default     = null
+  type        = string
+  sensitive   = true
 }
 
 variable "langfuse_s3_secret_key" {
-  type      = string
-  sensitive = true
+  description = "Deprecated: unused with native OCI workload identity. Remove from existing tfvars."
+  default     = null
+  type        = string
+  sensitive   = true
 }
 
 

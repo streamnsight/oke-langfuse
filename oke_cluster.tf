@@ -68,6 +68,12 @@ resource "oci_containerengine_cluster" "oci_oke_cluster" {
   type         = var.is_enhanced_cluster ? "ENHANCED_CLUSTER" : "BASIC_CLUSTER"
   defined_tags = var.cluster_tags
 
+  lifecycle {
+    precondition {
+      condition     = var.is_enhanced_cluster
+      error_message = "Langfuse native OCI Object Storage requires an enhanced OKE cluster; set is_enhanced_cluster = true."
+    }
+  }
 }
 
 locals {
@@ -93,8 +99,8 @@ data "oci_containerengine_cluster" "target" {
 
   lifecycle {
     postcondition {
-      condition     = !var.use_existing_cluster || self.type == "ENHANCED_CLUSTER"
-      error_message = "When use_existing_cluster is true, the target cluster must be an ENHANCED_CLUSTER."
+      condition     = self.type == "ENHANCED_CLUSTER"
+      error_message = "Langfuse native OCI Object Storage requires an ENHANCED_CLUSTER for OKE workload identity."
     }
     postcondition {
       condition     = !var.use_existing_cluster || self.endpoint_config[0].is_public_ip_enabled == false

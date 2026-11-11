@@ -31,16 +31,6 @@ variable "psql_ocid" {
   type = string
 }
 
-variable "s3_client_id" {
-  type      = string
-  sensitive = true
-}
-
-variable "s3_client_secret" {
-  type      = string
-  sensitive = true
-}
-
 variable "idcs_app_id" {
   type = string
 }
