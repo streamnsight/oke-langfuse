@@ -131,3 +131,23 @@ python3 -m unittest discover -s tests/langfuse_chart -p 'test_*.py'
 - [OKE workload identity and enhanced-cluster requirement](https://docs.oracle.com/en-us/iaas/Content/ContEng/Tasks/contenggrantingworkloadaccesstoresources.htm)
 - [Object/PAR permissions](https://docs.oracle.com/en-us/iaas/Content/Identity/Reference/objectstoragepolicyreference.htm)
 - [PAR behavior and required permissions](https://docs.oracle.com/en-us/iaas/Content/Object/Tasks/usingpreauthenticatedrequests.htm)
+
+## Fast-suite follow-up — 2026-11-12
+
+The missing-cluster-ID console scenario exposed unconditional interpolation of
+`local.target_cluster_id` in the new IAM principal. A null ID raised a template
+error before the intended cluster-ID validation could be evaluated.
+
+- [x] Reproduce the failure in the full fast suite.
+- [x] Guard principal and statement construction when the cluster ID is missing;
+  retain exact cluster scoping for valid IDs and emit no statements for null IDs.
+- [x] Extend the existing console regression and rerun all nine fast scenarios
+  successfully with Terraform 1.5.7 (the CI version).
+
+The missing-ID console regression also asserts that no workload principal is
+constructed. The live basic-cluster rejection fixture now expects the updated
+workload-identity diagnostic; its live apply has not been rerun.
+
+Terraform preflight, both pinned Helm renders, all seven chart script tests,
+changed-file formatting and diff whitespace checks pass. No live infrastructure
+was changed during this follow-up.

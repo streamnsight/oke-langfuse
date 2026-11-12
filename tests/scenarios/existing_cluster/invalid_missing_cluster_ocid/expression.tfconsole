@@ -1,1 +1,1 @@
-var.use_existing_cluster && (var.cluster_ocid == null || var.cluster_ocid == "")
+var.use_existing_cluster && (var.cluster_ocid == null || var.cluster_ocid == "") && local.langfuse_storage_principal == ""
