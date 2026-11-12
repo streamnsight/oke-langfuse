@@ -82,6 +82,19 @@ resource "oci_generic_artifacts_content_artifact_by_path" "create_langfuse_secre
   }
 }
 
+resource "oci_generic_artifacts_content_artifact_by_path" "langfuse_prerequisites_script_artifact" {
+  artifact_path = "install_langfuse_prerequisites.sh"
+  repository_id = var.artifact_repo_id
+  version       = "0.1.0"
+  content       = file("${path.module}/scripts/install_langfuse_prerequisites.sh")
+
+  provisioner "local-exec" {
+    when       = destroy
+    on_failure = continue
+    command    = "oci artifacts generic artifact delete --artifact-id ${self.id} --force"
+  }
+}
+
 module "langfuse_secrets_shell_stage" {
   source                = "../../../devops/deployment_stages/shell_stage"
   compartment_id        = var.compartment_id
@@ -90,6 +103,7 @@ module "langfuse_secrets_shell_stage" {
   shape_name            = var.shape_name
   devops_project_id     = var.devops_project_id
   devops_environment_id = var.devops_environment_id
+  timeout               = startswith(var.langfuse_helm_chart_version, "2.") ? 1200 : 600
   deploy_pipeline_parameters = [
     {
       name          = "SSH_PRIVATE_KEY_SECRET_OCID"
@@ -110,6 +124,16 @@ module "langfuse_secrets_shell_stage" {
       name          = "LETSENCRYPT_CLUSTERISSUER_ARTIFACT_OCID"
       default_value = oci_generic_artifacts_content_artifact_by_path.create_cluster_issuers_artifact.id
       description   = "OCID of the artifact"
+    },
+    {
+      name          = "LANGFUSE_PREREQUISITES_ARTIFACT_OCID"
+      default_value = oci_generic_artifacts_content_artifact_by_path.langfuse_prerequisites_script_artifact.id
+      description   = "Langfuse chart prerequisites script"
+    },
+    {
+      name          = "LANGFUSE_HELM_CHART_VERSION"
+      default_value = var.langfuse_helm_chart_version
+      description   = "Select prerequisites for the Langfuse chart major"
     },
     {
       name          = "REGISTRY_OCID"

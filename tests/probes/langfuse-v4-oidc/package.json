@@ -1,0 +1,11 @@
+{
+  "name": "langfuse-v4-oidc-probe",
+  "private": true,
+  "scripts": {
+    "test": "node probe.cjs && node probe.cjs --patched"
+  },
+  "dependencies": {
+    "openid-client": "5.7.1",
+    "follow-redirects": "1.16.0"
+  }
+}

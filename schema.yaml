@@ -1585,12 +1585,9 @@ variables:
     type: enum
     # enumerated values
     enum:
+    - "2.2.4"
     - "1.5.41"
     - "1.5.35"
-    - "1.5.30"
-    - "1.5.27"
-    - "1.5.22"
-    - "1.5.17"
     # - "latest" # TODO support latest version and look up the chart version
     title: LangFuse Helm Chart Version
     description: | 

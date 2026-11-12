@@ -201,6 +201,7 @@ resource "oci_identity_domains_grant" "langfuse_current_user_assignment" {
 # Build Langfuse patched container image
 module "build_langfuse_image" {
   source                                   = "./modules/apps/langfuse/build_image"
+  langfuse_helm_chart_version              = var.langfuse_helm_chart_version
   compartment_id                           = var.devops_compartment_id
   oci_profile                              = var.oci_profile
   devops_project_id                        = module.devops_setup.project_id

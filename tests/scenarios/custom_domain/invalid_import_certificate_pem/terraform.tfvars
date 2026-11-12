@@ -18,7 +18,7 @@ secrets_store_vault_compartment_id = "ocid1.compartment.oc1..aaaa"
 secrets_store_vault_id             = "ocid1.vault.oc1..aaaa"
 secrets_store_key_id               = "ocid1.key.oc1..aaaa"
 
-langfuse_use_custom_domain  = true
-langfuse_custom_domain_fqdn = "langfuse.example.com"
+langfuse_use_custom_domain        = true
+langfuse_custom_domain_fqdn       = "langfuse.example.com"
 langfuse_has_provided_certificate = true
-langfuse_certificate_source = "import_certificate_pem"
+langfuse_certificate_source       = "import_certificate_pem"

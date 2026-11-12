@@ -21,10 +21,17 @@ inputArtifacts:
   path: create_oke_secrets.sh
   version: 0.1.0
   location: ./create_oke_secrets.sh
+- name: langfuse-prerequisites-script
+  type: GENERIC_ARTIFACT
+  artifactId: ${LANGFUSE_PREREQUISITES_ARTIFACT_OCID}
+  registryId: ${REGISTRY_OCID}
+  path: install_langfuse_prerequisites.sh
+  version: 0.1.0
+  location: ./install_langfuse_prerequisites.sh
 steps:
   - type: Command
-    name: Langfuse secrets and cert dependencies
-    timeoutInSeconds: 600
+    name: Langfuse secrets and chart dependencies
+    timeoutInSeconds: 1200
     command: |
       set -euo pipefail
       
@@ -52,3 +59,6 @@ steps:
       # Deploye Cluster Issuers
 
       kubectl apply -f ./letsencrypt.ClusterIssuer.yaml
+
+      # Chart 2.x needs the ClickHouse operator before the Helm deployment.
+      bash ./install_langfuse_prerequisites.sh "${LANGFUSE_HELM_CHART_VERSION}"
