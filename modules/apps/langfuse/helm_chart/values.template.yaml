@@ -216,9 +216,30 @@ postgresql:
 clickhouse:
   # Chart 2.x operator images must be fully qualified for OKE's container runtime.
   cluster:
+    # One shard, three copies of the data (chart 2.x).
+    enabled: true
+    replicas: 3
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          - topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchLabels:
+                app: langfuse-clickhouse
+                clickhouse.com/role: clickhouse-server
     image:
       repository: docker.io/clickhouse/clickhouse-server
   keeper:
+    enabled: true
+    replicas: 3
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          - topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchLabels:
+                app: langfuse-keeper
+                clickhouse.com/role: clickhouse-keeper
     image:
       repository: docker.io/clickhouse/clickhouse-keeper
 
