@@ -90,6 +90,15 @@ with tempfile.TemporaryDirectory() as directory:
             for doc in rendered:
                 if doc["kind"] in expected:
                     assert doc["spec"]["containerTemplate"]["image"]["repository"] == expected[doc["kind"]]
+                    assert doc["spec"]["replicas"] == 3
+                    terms = doc["spec"]["podTemplate"]["affinity"]["podAntiAffinity"]["requiredDuringSchedulingIgnoredDuringExecution"]
+                    assert terms[0]["topologyKey"] == "kubernetes.io/hostname"
+                    role = "clickhouse-server" if doc["kind"] == "ClickHouseCluster" else "clickhouse-keeper"
+                    assert terms[0]["labelSelector"]["matchLabels"] == {
+                        "app": "langfuse-clickhouse" if doc["kind"] == "ClickHouseCluster" else "langfuse-keeper",
+                        "clickhouse.com/role": role}
+                    if doc["kind"] == "ClickHouseCluster":
+                        assert doc["spec"]["shards"] == 1
                     found.add(doc["kind"])
             assert found == set(expected)
         print(f'Chart {metadata["version"]}: image, gateway allowlist and OCI workload identity checks passed.')
