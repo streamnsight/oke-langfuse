@@ -47,14 +47,6 @@ module "langfuse_vault_secrets" {
       value = var.idcs_domain_url
     },
     {
-      name  = "${var.deploy_id}_LANGFUSE_S3_ACCESS_KEY"
-      value = var.s3_client_id
-    },
-    {
-      name  = "${var.deploy_id}_LANGFUSE_S3_SECRET_KEY"
-      value = var.s3_client_secret
-    },
-    {
       name  = "${var.deploy_id}_LANGFUSE_PSQL_PASSWORD"
       value = var.psql_password
     },

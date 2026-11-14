@@ -87,3 +87,23 @@ module "policies_after_node_pool" {
   }
   depends_on = [oci_containerengine_node_pool.oci_oke_node_pool]
 }
+
+# Both Langfuse web and worker use this service account. Keep object access and
+# signed media/export URL creation scoped to this cluster and this bucket.
+locals {
+  langfuse_storage_principal = local.target_cluster_id != null ? "request.principal.type = 'workload', request.principal.namespace = 'langfuse', request.principal.service_account = 'langfuse', request.principal.cluster_id = '${local.target_cluster_id}'" : ""
+  langfuse_storage_target    = "target.bucket.name = '${oci_objectstorage_bucket.langfuse_bucket.name}'"
+}
+
+module "langfuse_object_storage_policy" {
+  source         = "./modules/iam/policy"
+  compartment_id = local.effective_cluster_compartment_id
+  description    = "Langfuse ${local.deploy_id} native Object Storage access"
+  policy_statements = local.target_cluster_id != null ? [
+    "Allow any-user to manage objects in compartment id ${local.effective_cluster_compartment_id} where all { ${local.langfuse_storage_principal}, ${local.langfuse_storage_target} }",
+    "Allow any-user to manage buckets in compartment id ${local.effective_cluster_compartment_id} where all { ${local.langfuse_storage_principal}, ${local.langfuse_storage_target}, request.permission = 'PAR_MANAGE' }"
+  ] : []
+  providers = {
+    oci = oci.home_region
+  }
+}

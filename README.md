@@ -36,16 +36,14 @@ In existing-cluster mode, this stack does **not** create cluster/node pools and 
   - The first deployment can create the load balancer before DNS is pointed at it. After you create the DNS A/AAAA record, cert-manager should continue the HTTP01 flow without rerunning the OCI DevOps pipeline.
   - If an ACME order reaches a terminal failed state before DNS is fixed, delete the failed `Order`, `Challenge`, or `CertificateRequest` in the `langfuse` namespace and cert-manager will recreate it.
 - cert-manager is installed as an OKE add-on (OKE-managed) and its deployment is patched with `--enable-gateway-api` to support Gateway-based certificates. This is expected to become the default in a future OKE release. However, in the mean time, if the cert-manager was to update, this flag may need to be re-patched in the cert-manager deployment for the certificate to update properly. The version is fixed to v1.19.2 to avoid auto-update.
-- S3-compatible access requires a Customer Secret Key tied to a user. If that user is removed, Langfuse will lose access to the bucket.
+- Langfuse uses native OCI Object Storage with OKE workload identity. Web and worker share the `langfuse` service account in the `langfuse` namespace; IAM scopes access to this cluster and its trace bucket. No Customer Secret Key is required. An enhanced OKE cluster is required. See the [native OCI storage report and validation plan](docs/langfuse-v4/OCI-OBJECT-STORAGE.md).
 - IDCS is used for SSO to avoid open self-signup. Langfuse’s built-in auth allows user self-registration, which is not desirable for controlled access, and that feature is de-activated in favor of SSO.
-- 🚨 There is some issue in Langfuse with the S3 compatible API secret and access key [https://github.com/langfuse/langfuse/issues/8449](https://github.com/langfuse/langfuse/issues/8449). When the secret has special characters, esp. the (+) sign, it will fail. WHen creating you Customer secret, if the secret contains those character, delete it and recreate a new one so it does not have tose characters.
 
 ## Getting started with Langfuse on OKE
 
 Before you start, you will need:
 
 - An SSH public key (for node access if needed)
-- A Customer Secret Key for S3-compatible access (Profile → Your User → Tokens & Keys → Customer Secret Keys)
 - A Vault and Encryption Key in the target compartment
 - The Identity Domain OCID **or** details for an existing app (Domain URL, App ID, Client ID, Client Secret)
   - If you do not control the app, an admin must update the redirect URL after deployment

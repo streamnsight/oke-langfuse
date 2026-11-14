@@ -5,8 +5,16 @@
 
 # Core Langfuse Configuration
 langfuse:
-  # Allow web and worker LLM calls to the stack's private Kubernetes gateway.
+  serviceAccount:
+    create: true
+    name: langfuse
+    automountServiceAccountToken: true
+  # Shared native OCI authentication and access to the stack's private LLM gateway.
   additionalEnv:
+    - name: LANGFUSE_USE_OCI_NATIVE_OBJECT_STORAGE
+      value: "true"
+    - name: LANGFUSE_OCI_AUTH_TYPE
+      value: "workload_identity"
     - name: LANGFUSE_LLM_CONNECTION_WHITELISTED_HOST
       value: "oci-genai-gateway"
 
@@ -274,10 +282,11 @@ redis:
     # -- Set to `true` to enable TLS/SSL encrypted connection to the Redis server
     enabled: true
 
-# S3/MinIO Configuration
+# Native OCI Object Storage (the chart reuses LANGFUSE_S3_* routing settings)
 s3:
   deploy: false
 
+  # OCI is selected through additionalEnv; this chart has no OCI provider enum.
   storageProvider: "s3"
 
 
@@ -286,18 +295,11 @@ s3:
   # -- S3 region to use for all uploads. Can be overridden per upload type.
   region: ${REGION}
   # -- S3 endpoint to use for all uploads. Can be overridden per upload type.
-  endpoint: "https://${TENANCY_NAMESPACE}.compat.objectstorage.${REGION}.oraclecloud.com"
+  endpoint: "https://objectstorage.${REGION}.oraclecloud.com"
   # -- Whether to force path style on requests. Required for MinIO. Can be overridden per upload type.
   forcePathStyle: true
-  # -- S3 accessKeyId to use for all uploads. Can be overridden per upload type.
+  # Native OCI authentication must not receive S3 credentials.
   accessKeyId:
-    # value: ""
-    secretKeyRef:
-      name: "langfuse-s3"
-      key: "s3-access-key"
-  # -- S3 secretAccessKey to use for all uploads. Can be overridden per upload type.
+    value: ""
   secretAccessKey:
-    # value: ""
-    secretKeyRef:
-      name: "langfuse-s3"
-      key: "s3-secret-key"
+    value: ""
